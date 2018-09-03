@@ -237,8 +237,8 @@ public class FoilBoard extends  Applet {
     double chord_xoffs;
     double chord_zoffs;
     // coeff for induced drag. it is 1 for elliptical wings;
-    // for rectangle form Ci_e is 0.85. 
-    double Ci_e = 0.8; 
+    // for rectangle form Ci_eff is 0.85. 
+    double Ci_eff = 0.8; 
     double xoff_tip;
     Point3D[] mesh_LE;
     Point3D[] mesh_TE;
@@ -401,10 +401,13 @@ public class FoilBoard extends  Applet {
     frame.pack();
     frame.setSize(Integer.parseInt(getProperty("WIDTH", "1000")), Integer.parseInt(getProperty("HEIGHT", "700")));
     applet.init();
+
+    // applet.out.plot.loadPlot();
+    // applet.con.recomp_all_parts();
+    // applet.vpp.steady_flight_at_given_speed(5, 0);
+
     applet.start();
     frame.setVisible(true);
-    applet.vpp.steady_flight_at_given_speed(5, 0);
-    applet.out.plot.loadPlot();
 
   }
 
@@ -740,7 +743,7 @@ public class FoilBoard extends  Applet {
     }
 
     // we now side effect into current_part, so that various drag factors are stored
-    double getCdrag (double cldin, double effaoa, double thickness, double camber) {
+    double get_Cd (double cldin, double effaoa, double thickness, double camber) {
       current_part.cd_profile = getCdragIdeal(cldin, effaoa, thickness, camber);
       // (1) Reynolds Correction, multipicative
       current_part.cd_profile = adjust_dragco(current_part.cd_profile, cldin, thickness);
@@ -774,7 +777,7 @@ public class FoilBoard extends  Applet {
         // done
         return 0;
         
-      // current_part.Ci_e is induced drag coefficient factor' for rectangle = .85, elliptic distr is 1 or so
+      // current_part.Ci_eff is induced drag coefficient factor' for rectangle = .85, elliptic distr is 1 or so
       // adjust for strut in special way...
       // this must include wave and spray but the waw we calculate induced drag likely results in higher
       // .. drag Cl... stiil proper estimate for strut is:
@@ -782,8 +785,8 @@ public class FoilBoard extends  Applet {
       // (3) wave & spray drag as
       // 0.24 * q0_SI * strut.thickness * strut.thickness. See "Full measurm... page 8"
       double k = 3.1415926 * 
-        Math.max(0.1, current_part.aspect_rat) // otherwise K shrinks causing Cd to grow too much for ultra low aspect stuff like fuse (ar = 0.025 or less):
-        * current_part.Ci_e;    // (/(* 0.1 0.1)(* 3.14 0.025 0.8)) vs  (/(* 0.1 0.1)(* 3.14 0.1 0.8)) and ar=1: (/(* 0.1 0.1)(* 3.14 0.1 0.8))
+        Math.max(0.03, current_part.aspect_rat) // otherwise K shrinks causing Cd to grow too much for ultra low aspect stuff like fuse (ar = 0.025 or less):
+        * current_part.Ci_eff;    // (/(* 0.1 0.1)(* 3.14 0.025 0.8)) vs  (/(* 0.1 0.1)(* 3.14 0.1 0.8)) and ar=1: (/(* 0.1 0.1)(* 3.14 0.1 0.8))
       
       if (current_part == strut) {
         // (1) corect the aspect_rat used above for actual mast AR, which is a portio of it submerged AR
@@ -826,6 +829,7 @@ public class FoilBoard extends  Applet {
     // fix later
     // double get_Cl (double effaoa) {
     // }
+
     @Override
     double getCdragIdeal (double cldin, double effaoa, double thickness, double camber) {
       return solver.getCdragRound(cldin, effaoa, thickness, camber);
@@ -839,7 +843,6 @@ public class FoilBoard extends  Applet {
     void adjust_foil_shape_in_tab () {
       in.toggle_cyl_tab();
     }
-
 
   } // class RoundFoil
 
@@ -859,6 +862,7 @@ public class FoilBoard extends  Applet {
 
     @Override
     double getCdragIdeal (double cldin, double effaoa, double thickness, double camber) {
+      // todo: why cache like above does not work?
       return solver.ci15_from_javafoil_data(solver.t_drag_NACA4, effaoa, thickness, camber);
     }
 
@@ -1328,7 +1332,7 @@ public class FoilBoard extends  Applet {
 
     PLOT_TYPE_GAGES = 20;
 
-  int plot_type = PLOT_TYPE_CG_VS_SPEED;
+  int plot_type = PLOT_TYPE_LIFT_DRAG_POLARS;
 
 
   // applicable to PLOT_TYPE_ANGLE, PLOT_TYPE_THICKNESS, PLOT_TYPE_CAMBER
@@ -1574,10 +1578,10 @@ public class FoilBoard extends  Applet {
       System.out.println("-- part: "+p_name+" MAC: " + MAC + " mac_xoffs: " + mac_xoffs);
       p.chord_xoffs = mac_xoffs;
 
-      // estimate Ci_e... how root chord, MAC and tip chord differ?
+      // estimate Ci_eff... how root chord, MAC and tip chord differ?
       // (- 1 (* 0.15 tip/mac))
-      p.Ci_e = 1 - 0.15 * (Math.min(1, chords[segment_count]/MAC));
-      System.out.println("-- Ci_e: " + p.Ci_e);
+      p.Ci_eff = 1 - 0.15 * (Math.min(1, chords[segment_count]/MAC));
+      System.out.println("-- Ci_eff: " + p.Ci_eff);
       // mesh. double segments for symmetric forms - wing, stab, fuse
       int mesh_count = (p == strut) ?  segment_count+1 : 2*segment_count+1;
       p.mesh_LE = new Point3D[mesh_count];
@@ -1744,15 +1748,13 @@ public class FoilBoard extends  Applet {
     //con.bt_wing_al.actionPerformed(new ActionEvent((Object)bt_wing, ActionEvent.ACTION_PERFORMED, ""));
 
     inited = true;
-
-    //con.switch_to_part(wing);
-    //con.recomp_all_parts();
-    //computeFlowAndRegenPlotAndAdjust();
-
-    // loadOutPanel();
     
-    //vpp.steady_flight_at_given_speed(5, 0);
-    //out.plot.loadPlot();
+    con.switch_to_part(wing);
+    con.recomp_all_parts();
+    computeFlowAndRegenPlotAndAdjust();
+     loadOutPanel();
+    vpp.steady_flight_at_given_speed(5, 0);
+    out.plot.loadPlot();
   }
  
   public Insets insets () {
@@ -1800,11 +1802,11 @@ public class FoilBoard extends  Applet {
     // AR correction, per javafoil user guide etc
     current_part.cm *= current_part.aspect_rat/(current_part.aspect_rat+4);
 
-    // test: is this the same value getClplot gives?
+    // test: is this the same value getCl_plot gives?
     // if (false) {
-    //   double getClplot_val = out.plot.getClplot(current_part.camber/25, current_part.thickness/25, effaoa);
-    //   if (getClplot_val != current_part.cl) {
-    //     System.out.println("-- getClplot_val: " + getClplot_val + "yet current_part.cl: " + current_part.cl);
+    //   double getCl_plot_val = out.plot.getCl_plot(current_part.camber/25, current_part.thickness/25, effaoa);
+    //   if (getCl_plot_val != current_part.cl) {
+    //     System.out.println("-- getCl_plot_val: " + getCl_plot_val + "yet current_part.cl: " + current_part.cl);
     //   }
     //   track_current_part.cl_changes();
     // }
@@ -1824,7 +1826,7 @@ public class FoilBoard extends  Applet {
     if (camd < 0.0) alfd = - alfd;
     
     // this saved current_part's cd, cd_profile and cd_aux
-    solver.getCdrag(current_part.cl, alfd, thkd, camd); 
+    solver.get_Cd(current_part.cl, alfd, thkd, camd); 
  
   }
 
@@ -2503,10 +2505,17 @@ public class FoilBoard extends  Applet {
         if (current_part != null) current_part.drag_junc = 0;
 
       if (current_part == strut) {
-        // wave and spray: 0.24 * q0_SI * strut.thickness * strut.thickness. See "Moth Full Scacle Measurm... page 8"
+        // wave and spray. See "Moth Full Scacle Measurm... page 8" where 
+        // Cdws = Rt / (0.5 * prho * v^2 * t^2) = 0.24 on average at 20fps = 6.096 m/s. 
+        // knowing that average t for struts is 0.1, we have 
+        // Rt = (* 0.24 (* 0.5 1027 6.096 6.096 0.012 0.012)) 0.6594837494169601 N
+        // note experimental data has 0.3 on avarage, so it is used below..
+        // note also that from anorher source, Cds = Cf * (7.68 - 6.4(t/c)) for vertical struts
+        // example: (* 0.02 (- 7.68 (* 6.4 (/ 0.1 0.1))b)) -> 0.025
+        // hwo to use it? ad Cd additive?
         double wave_spray = 0.3 * q0_SI * thickness_m * thickness_m;
         current_part.drag += wave_spray;
-        if (current_part != null) current_part.drag_spray = wave_spray;
+        current_part.drag_spray = wave_spray;
       }
 
     }
@@ -2681,18 +2690,18 @@ public class FoilBoard extends  Applet {
     double lyg,lrg,lthg,lxgt,lygt,lrgt,lthgt;/* MOD 20 Jul */
     double lxm,lym,lxmt,lymt,vxdir;/* MOD 20 Jul */
 
-    Solver() {}
+    Solver () {}
 
     // aoa_degr: angle of attack in degrees
     // thickness_pst: typically current_part.thickness
     // camber_pst   : typically current_part.camber/25
-    Solver(double aoa_degr, double thickness_pst, double camber_pst) { 
+    Solver (double aoa_degr, double thickness_pst, double camber_pst) { 
       this.getFreeStream(); // thsi grabs globals such as velocity, height, planet
       this.getCirculation(aoa_degr, thickness_pst, camber_pst);
       // solver.compute_foil_geometry(aoa_degr);
     }
 
-    public String toString() {
+    public String toString () {
       return "{Solver xcval: " + xcval + " ycval: " + ycval + " gamval: " + gamval + " rval: " + rval + "}";
     }
 
@@ -2755,9 +2764,10 @@ public class FoilBoard extends  Applet {
       alt_min = 0.0;    alt_max = 85;
       ang_min = -20.0; ang_max = 20.0;
       ca_min = -20.0;  ca_max = 20.0;
-      thk_min = 0.5; thk_max = 20.0;
+      thk_min = 1; // do not make it less than 1, or some Cl?Cd calcs fail, see Solver
+      thk_max = 20.0;
       chrd_min = .01;  chrd_max = 1;
-      span_min = .05;  span_max = 2.5;
+      span_min = .01;  span_max = 2.5;
       ar_min = chrd_min*span_min;  ar_max = span_max*chrd_max;
       spin_min = -1500.0;   spin_max = 1500.0;
       rad_min = .05;   rad_max = 5.0;
@@ -2767,7 +2777,7 @@ public class FoilBoard extends  Applet {
       return;
     }
 
-    void load_stall_model_cache(Foil foil) {
+    void load_stall_model_cache (Foil foil) {
       if (current_part.foil == FOIL_NACA4) {
         // these k0,k1,k2 align with the ideal aoa line at +- 5 degrees
         // see foilsim-airfoil-stall-correction.xlsx
@@ -2803,7 +2813,7 @@ public class FoilBoard extends  Applet {
 
     // free stream conditions
     // call only after planet, height or velocity changed
-    void getFreeStream() {    
+    void getFreeStream () {    
       /* MODS  19 Jan 00  whole routine*/
       double rgas = 1716.;                /* ft2/sec2 R */
       double gama = 1.4;
@@ -2909,7 +2919,7 @@ public class FoilBoard extends  Applet {
       return;
     }
 
-    void set_q0() {
+    void set_q0 () {
       q0_EN  = .5 * rho_EN * velocity * velocity / (vconv * vconv);
       q0_SI = .5 * rho_SI * velocity * velocity * 0.277778 * 0.277778; // velocity from kmh to m/s
     }
@@ -2917,7 +2927,7 @@ public class FoilBoard extends  Applet {
     // circulation from Kutta condition
     // thickness_pst: typically current_part.thickness
     // camber_pst   : typically current_part.camber/25
-    void getCirculation(double effaoa, double thickness_pst, double camber_pst) {   
+    void getCirculation (double effaoa, double thickness_pst, double camber_pst) {   
       double beta;
       double thickness = thickness_pst/100.0; 
       double camber = camber_pst/100.0; 
@@ -2948,7 +2958,7 @@ public class FoilBoard extends  Applet {
       return result;
     }
 
-    double compute_Cl_Kutta(double effaoa) {
+    double compute_Cl_Kutta (double effaoa) {
       double stfact, leg,teg,lem,tem;
 
       double result;
@@ -2988,7 +2998,7 @@ public class FoilBoard extends  Applet {
       return result;
     }
     
-    void compute_foil_geometry(double effaoa) {
+    void compute_foil_geometry (double effaoa) {
       double thet, rdm, thtm;
       // System.out.println("-- compute_foil_geometry: " + effaoa);
       int index;
@@ -3041,7 +3051,7 @@ public class FoilBoard extends  Applet {
     }
 
 
-    public void genFlow(double effaoa) {   // generate flowfield
+    public void genFlow (double effaoa) {   // generate flowfield
       double rnew,thet,psv,fxg;
       //System.out.println("------------- genFlow: ");
       int k,index;
@@ -3119,7 +3129,7 @@ public class FoilBoard extends  Applet {
 
     }
 
-    public void getPoints(double fxg, double psv) {   // flow in x-psi
+    public void getPoints (double fxg, double psv) {   // flow in x-psi
       double radm,thetm;                /* MODS  20 Jul 99  whole routine*/
       double fnew,y_new,y_old,rfac;
       double xold,xnew,thet;
@@ -3179,7 +3189,7 @@ public class FoilBoard extends  Applet {
       return;
     }
  
-    public void getVel(double rad, double theta) {  //velocity and pressure 
+    public void getVel (double rad, double theta) {  //velocity and pressure 
       double ur,uth,jake1,jake2,jakesq;
       double xloc,yloc,thrad,alfrad;
       double effaoa = effective_aoa();
@@ -3278,7 +3288,7 @@ public class FoilBoard extends  Applet {
     }
 
     // from http://paulbourke.net/miscellaneous/interpolation/ 
-    double LinearInterpolate(double y1,double y2, double mu) {
+    double LinearInterpolate (double y1,double y2, double mu) {
       double res = (y1*(1-mu)+y2*mu);
       System.out.println("-- y1: " + y1);
       System.out.println("-- y2: " + y2);
@@ -3291,7 +3301,7 @@ public class FoilBoard extends  Applet {
     // function requires 4 points in all labeled y0, y1, y2, and y3,
     // mu: 0 to 1 for 
     // interpolating between the segment y1 to y2. 
-    double CubicInterpolate(double y0,double y1,
+    double CubicInterpolate (double y0,double y1,
                             double y2,double y3,
                             double mu)
     {
@@ -3456,7 +3466,7 @@ public class FoilBoard extends  Applet {
     // and for Re=300000 and infine aspect ratio, Used for
     // interpolation instead of original FoilSim III polynomials.  The
     // reynolds correction and induced drag low aspect corrections of
-    // FoilSim woudl hen apply (see the end of getCdrag() method).
+    // FoilSim woudl hen apply (see the end of get_Cd() method).
     // Tables produced by dmitrynizh 2016.
 
     // Name = NACA 0005
@@ -4097,7 +4107,7 @@ public class FoilBoard extends  Applet {
        (fset 'conv_25_rows_to_array_initializer
        [?\C-y ?\M-^ ?\M-^ ?\M-^ ?\M-^ ?\M-^ ?\M-^ ?\M-^ ?\M-^ ?\M-^ ?\M-^ ?\M-^ ?\M-^ ?\M-^ ?\M-^ ?\M-^ ?\M-^ ?\M-^ ?\M-^ ?\M-^ ?\M-^ ?\M-^ ?\M-^ ?\M-^ ?\M-^ ?\M-^ ?\C-a ?\{ ?\C-e ?\} ?\C-  ?\C-\M-b ?\C-e ?\C-  ?\C-a ?\C-x ?n ?n ?\C-a ?\M-x ?r ?e ?p ?l ?  ?s ?t ?r ?i ?n ?g return ?  return ?, ?  return ?\C-b ?\C-b ?\C-d ?\C-d ?\C-a ?\C-x ?n ?w])
     */
-    double ci25(double[] tab, double aoa) {
+    double ci25 (double[] tab, double aoa) {
       if (tab.length != 25) 
         System.out.println(" *** WARNING  ci25 cubic interpolates arrays of 25. got tab.length: " + tab.length);
       int aoa_2 = (int)Math.floor(aoa/2);
@@ -4118,7 +4128,7 @@ public class FoilBoard extends  Applet {
 
 
 
-    double ci15_from_javafoil_data(double[][] t_thick_camb, double aoa, double thickness, double camber) {
+    double ci15_from_javafoil_data (double[][] t_thick_camb, double aoa, double thickness, double camber) {
 
       double c_Cam0Thk5, c_Cam5Thk5, c_Cam10Thk5, c_Cam15Thk5, c_Cam20Thk5;
       double c_Cam0Thk10, c_Cam5Thk10, c_Cam10Thk10, c_Cam15Thk10, c_Cam20Thk10;
@@ -4127,6 +4137,22 @@ public class FoilBoard extends  Applet {
       double c_Thk5, c_Thk10, c_Thk15, c_Thk20;
 
       double c = 1;
+
+      // warning: the following impies ranges. 
+      if (thickness < 1) {
+        System.out.println("-- warning: thickness=" + thickness + "% is less than required by  ci15_from_javafoil_data, assuming it is 1%" );
+        thickness = 1;
+      } else if (thickness > 20) {
+        System.out.println("-- warning: thickness=" + thickness + "% is greater than required by ci15_from_javafoil_data, assuming it is 20%" );
+        thickness = 20;
+      }
+      if (camber < -20) {
+        System.out.println("-- warning: camber=" + camber + "% is less than required by ci15_from_javafoil_data, assuming it is -20%" );
+        camber = -20;
+      } else if (camber > 20) {
+        System.out.println("-- warning: camber=" + camber + "% is greater than required by ci15_from_javafoil_data, assuming it is 20%" );
+        camber = 20;
+      }
 
       // System.out.println("-- doing C__COMP_NACA4SERIES ");
       // thickness 5%
@@ -4357,7 +4383,7 @@ public class FoilBoard extends  Applet {
 
     // Compute 15-elt array of Cl values for given cl tables, thickness and camber.
     // Can be used to load cache current_part.t_Cl
-    double[] compute_t_Cl(double[][] t_lift, double thickness, double camber) {
+    double[] compute_t_Cl (double[][] t_lift, double thickness, double camber) {
       double[] result = new double[15];
       if (camber >= 0)
         for (int aoa = -28, i = 0; aoa <= 28; aoa += 4, i++) 
@@ -4840,10 +4866,10 @@ public class FoilBoard extends  Applet {
         return dragco;
     }
 
-    public double getCdrag (double cldin, double effaoa, double thickness, double camber) {
+    public double get_Cd (double cldin, double effaoa, double thickness, double camber) {
       if (stall_model_type == STALL_MODEL_IDEAL_FLOW)
         return 0;
-      return current_part.foil.getCdrag(cldin, effaoa, thickness, camber);
+      return current_part.foil.get_Cd(cldin, effaoa, thickness, camber);
     }
 
   } // end Solver
@@ -5394,7 +5420,7 @@ public class FoilBoard extends  Applet {
       // current_part.t_Cd = p.t_Cd;
       // current_part.cl = p.cl;
       //done current_part.cm = p.cm;
-      // current_part.Ci_e = p.Ci_e;
+      // current_part.Ci_eff = p.Ci_eff;
 
       solver.load_stall_model_cache(p.foil);
 
@@ -5795,12 +5821,18 @@ public class FoilBoard extends  Applet {
       addTab(flt, "Flight", "Flight Panel");
       addTab(shp, "Shape", "foil-shape-panel");
       addTab(size, "Size", "Size Panel");
-      addTab(grf, "Plot", "Select Plot Panel");
+      addTab(grf, "Choose Plot", "Select Plot Panel");
       addTab(anl, "Options", "Settings Panel");
       addTab(env, "Env", "Environment Panel");
-      addTab(cyl, "Ball", "cylinder-or-ball-shape-panel");
+      // addTab(cyl, "Ball", "cylinder-or-ball-shape-panel");
 
-      
+      // can be used to attach aux logic here..
+      this.addChangeListener(new javax.swing.event.ChangeListener() {
+                    @Override
+                    public void stateChanged(javax.swing.event.ChangeEvent e) {
+                      In pane = (In) e.getSource();
+                      //System.out.println("Selected paneNo : " + pane.getSelectedIndex());
+                    } });
     }
 
 
@@ -5844,6 +5876,8 @@ public class FoilBoard extends  Applet {
     }
 
     public void handleCho (Event evt) {
+      for (Button b : shp.old_style_buttons) b.setBackground(Color.WHITE);
+
       if (current_part.foil == FOIL_CYLINDER || current_part.foil == FOIL_BALL) {
         current_part.aoa = 0.0;
         in.toggle_cyl_tab();
@@ -7067,6 +7101,12 @@ public class FoilBoard extends  Applet {
       LeftPanel leftPanel;
       RightPanel rightPanel;
 
+      Button b_symm, b_high_cam, b_neg_cam;
+      Button inb1,inb2;
+      Button inb3,inb4;
+      Button[] old_style_buttons;
+      Scrollbar sb_ci_eff;
+
       Shape (FoilBoard target) {
 
         app = target;
@@ -7077,6 +7117,11 @@ public class FoilBoard extends  Applet {
 
         add(leftPanel);
         add(rightPanel);
+
+        old_style_buttons = new Button[] {
+          b_symm, b_high_cam, b_neg_cam,
+          inb1,inb2, inb3,inb4
+        };
       }
 
       // what needs be done in general when user altered current foil shape?
@@ -7094,20 +7139,28 @@ public class FoilBoard extends  Applet {
         rightPanel.s2.setEnabled(enable);
       }
 
+      boolean on_load;
+
       // Shape.loadPanel
       @Override
       public void loadPanel () {
+        on_load = true;
+
         current_part.foil.adjust_foil_shape_in_tab();
         
         // these trigger events, do first
         rightPanel.s3.setValue((int) (((current_part.aoa - ang_min)/(ang_max-ang_min))*1000.));
         rightPanel.s1.setValue((int) (((current_part.camber - ca_min)/(ca_max-ca_min))*1000.));
         rightPanel.s2.setValue((int) (((current_part.thickness - thk_min)/(thk_max-thk_min))*1000.));
+        sb_ci_eff.setValue((int) (((current_part.Ci_eff - 0)/(3-0))*1000.));
+
         rightPanel.shape_choice.select(current_part.foil.id);
 
         leftPanel.f_angle.setText(pprint(filter3(current_part.aoa)));
         leftPanel.f_camber.setText(pprint(filter3(current_part.camber)));
         leftPanel.f_thickness.setText(pprint(filter1(current_part.thickness)));
+
+        on_load = false;
 
       }
 
@@ -7115,27 +7168,30 @@ public class FoilBoard extends  Applet {
         FoilBoard app;
         TextField f_camber, f_thickness, f_angle;
         Label l_camber, l_thickness, l_angle;
-        Button b_symm, b_high_cam, b_flat_plate;
      
         LeftPanel (FoilBoard target) {
       
           app = target;
-          setLayout(new GridLayout(7,2,2,10));
+          setLayout(new GridLayout(8,2,2,10));
 
           Label l;
           add(l = new Label("Foil", Label.RIGHT)); l.setForeground(Color.blue);
           add(l = new Label("Shape", Label.LEFT));  l.setForeground(Color.blue);
+
           add(new Label(""));
           add(new Label(""));
 
-          add(l_angle = new Label("Angle-deg", Label.CENTER));
+          add(l_angle = new Label("Angle deg", Label.CENTER));
           add(f_angle = new TextField("5.0",5));
 
-          add(l_camber = new Label("Camber-%c", Label.CENTER));
+          add(l_camber = new Label("Camber % chord", Label.CENTER));
           add(f_camber = new TextField("0.0",5));
 
-          add(l_thickness = new Label("Thick-%crd", Label.CENTER));
+          add(l_thickness = new Label("Thickness %", Label.CENTER));
           add(f_thickness = new TextField("12.5",5));
+
+          add(new Label("Tip Perform"));
+          add(new Label("Factor"));
 
           add(l = new Label("Quick Shapes:", Label.RIGHT)); l.setForeground(color_very_dark);
 
@@ -7143,7 +7199,7 @@ public class FoilBoard extends  Applet {
           b_symm.setBackground(Color.white);
           b_symm.setForeground(Color.blue);
           add(b_high_cam = new_button("Flat Bottom"));
-          add(b_flat_plate = new_button("Neg. Camber"));
+          add(b_neg_cam = new_button("Neg. Camber"));
         }
 
         // something was done by user
@@ -7221,45 +7277,30 @@ public class FoilBoard extends  Applet {
 
           String label = (String)arg;
    
-          setFoil(FOIL_JOUKOWSKI);
+          setFoil(FOIL_NACA4);
 
           if (label.equals("Symmetric")) {
-            leftPanel.b_symm.setBackground(Color.yellow);
-            leftPanel.b_high_cam.setBackground(Color.white);
-            leftPanel.b_flat_plate.setBackground(Color.white);
-            rightPanel.rightPanel1.inb1.setBackground(Color.white);
-            rightPanel.rightPanel1.inb2.setBackground(Color.white);
-            rightPanel.rightPanel2.inb3.setBackground(Color.white);
-            rightPanel.rightPanel2.inb4.setBackground(Color.white);
-            current_part.aoa = 0.0;
+            for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
+            b_symm.setBackground(Color.yellow);
+            //current_part.aoa = 0.0;
             current_part.camber = 0.0;
-            current_part.thickness = 12.5;
+            current_part.thickness = 12;
           }
 
           if (label.equals("Flat Bottom")) {
-            leftPanel.b_symm.setBackground(Color.white);
-            leftPanel.b_high_cam.setBackground(Color.yellow);
-            leftPanel.b_flat_plate.setBackground(Color.white);
-            rightPanel.rightPanel1.inb1.setBackground(Color.white);
-            rightPanel.rightPanel1.inb2.setBackground(Color.white);
-            rightPanel.rightPanel2.inb3.setBackground(Color.white);
-            rightPanel.rightPanel2.inb4.setBackground(Color.white);
-            current_part.aoa = 7.0;
+            for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
+            b_high_cam.setBackground(Color.yellow);
+            //current_part.aoa = 7.0;
             current_part.camber = 5.0;
-            current_part.thickness = 12.5;
+            current_part.thickness = 12;
           }
 
           if (label.equals("Neg. Camber")) {
-            leftPanel.b_symm.setBackground(Color.white);
-            leftPanel.b_high_cam.setBackground(Color.white);
-            leftPanel.b_flat_plate.setBackground(Color.yellow);
-            rightPanel.rightPanel1.inb1.setBackground(Color.white);
-            rightPanel.rightPanel1.inb2.setBackground(Color.white);
-            rightPanel.rightPanel2.inb3.setBackground(Color.white);
-            rightPanel.rightPanel2.inb4.setBackground(Color.white);
-            current_part.aoa = -7.0;
+            for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
+            b_neg_cam.setBackground(Color.yellow);
+            //current_part.aoa = -7.0;
             current_part.camber = -5.0;
-            current_part.thickness = 12.5;
+            current_part.thickness = 12;
           }
 
           leftPanel.f_camber.setText(String.valueOf(current_part.camber));
@@ -7274,9 +7315,8 @@ public class FoilBoard extends  Applet {
           rightPanel.s2.setValue(i2);
           rightPanel.s3.setValue(i3);
 
-          rightPanel.shape_choice.select(FOIL_JOUKOWSKI.id);
+          rightPanel.shape_choice.select(FOIL_NACA4.id);
           // in.cyl.rightPanel.shape_choice.select(FOIL_JOUKOWSKI.id);
-
 
           recompute();
         }
@@ -7294,7 +7334,7 @@ public class FoilBoard extends  Applet {
           int i1,i2,i3;
 
           app = target;
-          setLayout(new GridLayout(7,1,2,10));
+          setLayout(new GridLayout(8,1,2,10));
 
           rightPanel1 = new RightPanel1(app);
           rightPanel2 = new RightPanel2(app);
@@ -7366,6 +7406,21 @@ public class FoilBoard extends  Applet {
           add(s3);
           add(s1);
           add(s2);
+          
+          sb_ci_eff = new Scrollbar(Scrollbar.HORIZONTAL,i1,10,0,1000);
+          sb_ci_eff.addAdjustmentListener(new AdjustmentListener() {
+            public void adjustmentValueChanged(AdjustmentEvent evt) {
+              if (on_load) return;
+
+              int i1 = evt.getValue();
+              current_part.Ci_eff = filter3(i1 * (3-0)/ 1000. + 0);
+              System.out.println("-- sb_ci_eff Ci_eff: " + current_part.Ci_eff);
+              if (current_part.Ci_eff == 0) 
+                new Exception("======== current_part.Ci_eff == 0 ==========" + current_part.name).printStackTrace(System.out);
+              con.recomp_all_parts();
+            }});
+          add(sb_ci_eff);
+
           add(rightPanel1);
           add(rightPanel2);
         }
@@ -7427,7 +7482,6 @@ public class FoilBoard extends  Applet {
 
         class RightPanel1 extends Panel {
           FoilBoard app;
-          Button inb1,inb2;
 
           RightPanel1 (FoilBoard target) {
 
@@ -7459,18 +7513,16 @@ public class FoilBoard extends  Applet {
             int i1,i2,i3;
 
             String label = (String)arg;
+
+            shape_choice.select(FOIL_NACA4.id);
+            in.cyl.rightPanel.shape_choice.select(FOIL_NACA4.id);
    
             if (label.equals("High Camber")) {
-              leftPanel.b_symm.setBackground(Color.white);
-              leftPanel.b_high_cam.setBackground(Color.white);
-              leftPanel.b_flat_plate.setBackground(Color.white);
+              for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
               inb1.setBackground(Color.yellow);
-              inb2.setBackground(Color.white);
-              rightPanel.rightPanel2.inb3.setBackground(Color.white);
-              rightPanel.rightPanel2.inb4.setBackground(Color.white);
-              current_part.aoa = 9.0;
+              // current_part.aoa = 0.0;
               current_part.camber = 15.0;
-              current_part.thickness = 12.5;
+              current_part.thickness = 12;
               if (current_part.foil.id >= FOIL_ELLIPTICAL.id) {
                 setFoil(FOIL_JOUKOWSKI);
                 shape_choice.select(FOIL_JOUKOWSKI.id);
@@ -7479,15 +7531,10 @@ public class FoilBoard extends  Applet {
             }
 
             if (label.equals("Flat Plate")) {
-              leftPanel.b_symm.setBackground(Color.white);
-              leftPanel.b_high_cam.setBackground(Color.white);
-              leftPanel.b_flat_plate.setBackground(Color.white);
-              inb1.setBackground(Color.white);
+              for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
               inb2.setBackground(Color.yellow);
-              rightPanel.rightPanel2.inb3.setBackground(Color.white);
-              rightPanel.rightPanel2.inb4.setBackground(Color.white);
               setFoil(FOIL_FLAT_PLATE);
-              current_part.aoa = 5.0;
+              //current_part.aoa = 5.0;
               current_part.camber = 0.0;
               current_part.thickness = 1.0;
               shape_choice.select(FOIL_FLAT_PLATE.id);
@@ -7512,7 +7559,6 @@ public class FoilBoard extends  Applet {
 
         class RightPanel2 extends Panel {
           FoilBoard app;
-          Button inb3,inb4;
 
           RightPanel2 (FoilBoard target) {
 
@@ -7546,37 +7592,24 @@ public class FoilBoard extends  Applet {
             String label = (String)arg;
    
             if (label.equals("Ellipse")) {
-              leftPanel.b_symm.setBackground(Color.white);
-              leftPanel.b_high_cam.setBackground(Color.white);
-              leftPanel.b_flat_plate.setBackground(Color.white);
-              rightPanel.rightPanel1.inb1.setBackground(Color.white);
-              rightPanel.rightPanel1.inb2.setBackground(Color.white);
+              for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
               inb3.setBackground(Color.yellow);
-              inb4.setBackground(Color.white);
               setFoil(FOIL_ELLIPTICAL);
-              current_part.aoa = 0.0;
+              //current_part.aoa = 0.0;
               current_part.camber = 0.0;
               current_part.thickness = 12.5;
               shape_choice.select(FOIL_ELLIPTICAL.id);
               in.cyl.rightPanel.shape_choice.select(FOIL_ELLIPTICAL.id);
-            }
-
-            if (label.equals("Curve Plate")) {
-              leftPanel.b_symm.setBackground(Color.white);
-              leftPanel.b_high_cam.setBackground(Color.white);
-              leftPanel.b_flat_plate.setBackground(Color.white);
-              rightPanel.rightPanel1.inb1.setBackground(Color.white);
-              rightPanel.rightPanel1.inb2.setBackground(Color.white);
-              inb3.setBackground(Color.white);
+            } else if (label.equals("Curve Plate")) {
+              for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
               inb4.setBackground(Color.yellow);
               setFoil(FOIL_FLAT_PLATE);
-              current_part.aoa = 5.0;
+              //current_part.aoa = 5.0;
               current_part.camber = 5.0;
               current_part.thickness = 1.0;
               shape_choice.select(FOIL_FLAT_PLATE.id);
               in.cyl.rightPanel.shape_choice.select(FOIL_FLAT_PLATE.id);
             }
-
 
             leftPanel.f_camber.setText(String.valueOf(current_part.camber));
             leftPanel.f_thickness.setText(String.valueOf(current_part.thickness));
@@ -8220,10 +8253,11 @@ public class FoilBoard extends  Applet {
     class PlotSelectorTab extends Panel {
       FoilBoard app;
 
-      Upper u;
-      Lower l;
+      // old ways...
+      //Upper u;
+      //Lower l;
+      // Button[] all;
 
-      Button[] all;
       CheckboxGroup cbg = new CheckboxGroup();
 
       Checkbox add (String caption, final int type_id) { return add(caption, type_id, 0); }
@@ -8234,6 +8268,7 @@ public class FoilBoard extends  Applet {
         cb.addItemListener(new ItemListener() { public void itemStateChanged(ItemEvent e) {             
           plot_type = type_id;
           plot_y_val = y_id;
+          out.setSelectedIndex(0);
           out.plot.loadPlot();
         }});
         return cb;
@@ -8268,247 +8303,250 @@ public class FoilBoard extends  Applet {
         // add (l);
       }
 
-      void ensure_all_array() {
-        if (all == null)
-          all = new Button[] {
-            l.f.pl3, 
-            l.f.pl4, 
-            l.f.pl5, 
-            l.f.pl6, 
-            l.f.pl7, 
-            l.f.pl8, 
-            l.f.pl9,
-            u.pl1,
-            u.pl2,
-            u.pl3,
-            u.bt_balance_pos_vs_speed,
-            u.bt_drag_elts_vs_speed
-          };
-      }
+      // old ways
+      // void ensure_all_array() {
+      //   if (all == null)
+      //     all = new Button[] {
+      //       l.f.pl3, 
+      //       l.f.pl4, 
+      //       l.f.pl5, 
+      //       l.f.pl6, 
+      //       l.f.pl7, 
+      //       l.f.pl8, 
+      //       l.f.pl9,
+      //       u.pl1,
+      //       u.pl2,
+      //       u.pl3,
+      //       u.bt_balance_pos_vs_speed,
+      //       u.bt_drag_elts_vs_speed
+      //     };
+      // }
 
       @Override
       public void loadPanel () { }
 
-      class Upper extends Panel {
-        FoilBoard app;
-        Label l1;
-        Button pl1,pl2,pl3, bt_balance_pos_vs_speed, bt_drag_elts_vs_speed;
-
-        Upper(FoilBoard target) {
-          app = target;
-          setLayout(new GridLayout(3,0,5,5));
-  
-          pl1 = new_button("Pressure");
-
-          pl2 = new_button("Velocity");
-
-          pl3 = new Button ("Drag Polar");
-          pl3.setBackground(Color.yellow);
-          pl3.setForeground(Color.blue);
-
-          bt_balance_pos_vs_speed = new_button("CG/Speed");
-          bt_drag_elts_vs_speed =   new_button("Drag/Speed");
-
-          add(new Label(" ", Label.RIGHT));
-          add(new Label("Select", Label.RIGHT));
-          add(new Label("Plot", Label.LEFT));
-          add(new Label(" ", Label.RIGHT));
- 
-          add(pl1);
-          add(pl2);
-          add(pl3);
-          add(bt_balance_pos_vs_speed);
-
-          add(bt_drag_elts_vs_speed);
-          add(new Label(" ", Label.RIGHT));
-          add(new Label(" ", Label.RIGHT));
-          add(new Label(" ", Label.RIGHT));
-
-        }
-
-        public boolean action(Event evt, Object arg) {
-          if (evt.target instanceof Button) {
-            handleBut(evt,arg);
-            return true;
-          }
-          else return false;
-        } // Handler
-
-        public void handleBut(Event evt, Object arg) {
-          String label = (String)arg;
-          out.setSelectedIndex(0);
-
-          ensure_all_array();
-
-          for (Button b : all) { 
-            b.setBackground(Color.white);
-            // b.setForeground(Color.blue);
-          }
-
-          if (label.equals("Pressure")) {
-            plot_type = PLOT_TYPE_PRESSURE;
-            pl1.setBackground(Color.yellow);
-            pl3.setBackground(Color.white);
-          } else if (label.equals("Velocity")) {
-            plot_type = PLOT_TYPE_VELOCITY;
-            pl2.setBackground(Color.yellow);
-          } else if (label.equals("Drag Polar")) {
-            plot_type = PLOT_TYPE_LIFT_DRAG_POLARS;
-            pl3.setBackground(Color.yellow);
-          } else if (label.equals("CG/Speed")) {
-            plot_type = PLOT_TYPE_CG_VS_SPEED;
-            bt_balance_pos_vs_speed.setBackground(Color.yellow);
-          } else if (label.equals("Drag/Speed")) {
-            plot_type = PLOT_TYPE_DRAG_TOTALS_VS_SPEED;
-            bt_drag_elts_vs_speed.setBackground(Color.yellow);
-          } 
-
-          out.plot.loadPlot();
-
-        } // end handlebut
-      } // Upper
-
-      class Lower extends Panel {
-        FoilBoard app;
-        FoilCtrls f;
-        BallCtrls c;
-
-        Lower(FoilBoard target) {
-          app = target;
-          layplt = new CardLayout();
-          setLayout(layplt);
-
-          f = new FoilCtrls(app);
-          c = new BallCtrls(app);
-
-          add ("first", f);
-          add ("second", c);
-        }
-
-        class FoilCtrls extends Panel {
-          FoilBoard app;
-          Label l2;
-          Button pl3,pl4,pl5,pl6,pl7,pl8,pl9;
-          Choice plout,ploutb;
-    
-          FoilCtrls(FoilBoard target) {
-            app = target;
-            setLayout(new GridLayout(3,4,5,5));
-
-            ploutb = new Choice();
-            ploutb.addItem("Lift vs.");
-            ploutb.addItem("Drag vs.");
-            ploutb.setBackground(Color.white);
-            ploutb.setForeground(Color.red);
-            ploutb.select(0);
-
-            plout = new Choice();
-            plout.addItem("Lift vs.");
-            plout.addItem("Cl vs.");
-            plout.addItem("Drag vs.");
-            plout.addItem("Cd vs.");
-            plout.setBackground(Color.white);
-            plout.setForeground(Color.red);
-            plout.select(0);
-     
-            pl3 = new_button("Angle");
-            pl4 = new_button("Thickness");
-            pl5 = new_button("Camber");
-            pl6 = new_button("Speed");
-            pl7 = new_button("Altitude");
-            pl8 = new_button("Wing Area");
-            pl9 = new_button("Density");
-
-            add(plout);
-            add(pl3);
-            add(pl5);
-            add(pl4);
-   
-            add(ploutb);
-            add(pl6);
-            add(pl7);
-            add(new Label(" ", Label.RIGHT));
-   
-            add(new Label(" ", Label.RIGHT));
-            add(pl8);
-            add(pl9);
-            add(new Label(" ", Label.RIGHT));
-          }
-
-          public boolean action(Event evt, Object arg) {
-            if (evt.target instanceof Button) {
-              handleBut(evt,arg);
-              return true;
-            }
-            if (evt.target instanceof Choice) {
-              String label = (String)arg;
-              plot_y_val = plout.getSelectedIndex();
-              plot_y_val_2 = ploutb.getSelectedIndex();
-                    
-              out.plot.loadPlot();
-
-              return true;
-            }
-            else return false;
-          } // Handler
-
-          public void handleBut(Event evt, Object arg) {
-            String label = (String)arg;
-            out.setSelectedIndex(0);
-
-            ensure_all_array();
-            for (Button b : all) { 
-              b.setBackground(Color.white);
-            }
-            if (label.equals("Angle")) {
-              plot_type = PLOT_TYPE_ANGLE;
-              pl3.setBackground(Color.yellow);
-            }
-            if (label.equals("Thickness")) {
-              plot_type = PLOT_TYPE_THICKNESS;
-              pl4.setBackground(Color.yellow);
-            }
-            if (label.equals("Camber")) {
-              plot_type = PLOT_TYPE_CAMBER;
-              pl5.setBackground(Color.yellow);
-            }
-            if (label.equals("Speed")) {
-              plot_type = PLOT_TYPE_CURR_PART_VS_SPEED;
-              pl6.setBackground(Color.yellow);
-            }
-            if (label.equals("Altitude")) {
-              plot_type = PLOT_TYPE_ALTITUDE;
-              pl7.setBackground(Color.yellow);
-            }
-            if (label.equals("Wing Area")) {
-              plot_type = PLOT_TYPE_WING_AREA;
-              pl8.setBackground(Color.yellow);
-            }
-            if (label.equals("Density")) {
-              plot_type = PLOT_TYPE_DENSITY;
-              pl9.setBackground(Color.yellow);
-            }
-    
-            out.plot.loadPlot();
-
-          }
-
-        }  // FoilCtrls
-
-        class BallCtrls extends Panel {
-          FoilBoard app;
-          Label l2;
-   
-          BallCtrls(FoilBoard target) {
-            app = target;
-            setLayout(new GridLayout(1,1,5,5));
-
-            l2 = new Label(" ", Label.RIGHT);
-
-            add(l2);
-          }
-        }  // BallCtrls
-      } // Lower
+      // old stuff
+      //
+      // class Upper extends Panel {
+      //   FoilBoard app;
+      //   Label l1;
+      //   Button pl1,pl2,pl3, bt_balance_pos_vs_speed, bt_drag_elts_vs_speed;
+      // 
+      //   Upper(FoilBoard target) {
+      //     app = target;
+      //     setLayout(new GridLayout(3,0,5,5));
+      // 
+      //     pl1 = new_button("Pressure");
+      // 
+      //     pl2 = new_button("Velocity");
+      // 
+      //     pl3 = new Button ("Drag Polar");
+      //     pl3.setBackground(Color.yellow);
+      //     pl3.setForeground(Color.blue);
+      // 
+      //     bt_balance_pos_vs_speed = new_button("CG/Speed");
+      //     bt_drag_elts_vs_speed =   new_button("Drag/Speed");
+      // 
+      //     add(new Label(" ", Label.RIGHT));
+      //     add(new Label("Select", Label.RIGHT));
+      //     add(new Label("Plot", Label.LEFT));
+      //     add(new Label(" ", Label.RIGHT));
+      // 
+      //     add(pl1);
+      //     add(pl2);
+      //     add(pl3);
+      //     add(bt_balance_pos_vs_speed);
+      // 
+      //     add(bt_drag_elts_vs_speed);
+      //     add(new Label(" ", Label.RIGHT));
+      //     add(new Label(" ", Label.RIGHT));
+      //     add(new Label(" ", Label.RIGHT));
+      // 
+      //   }
+      // 
+      //   public boolean action(Event evt, Object arg) {
+      //     if (evt.target instanceof Button) {
+      //       handleBut(evt,arg);
+      //       return true;
+      //     }
+      //     else return false;
+      //   } // Handler
+      // 
+      //   public void handleBut(Event evt, Object arg) {
+      //     String label = (String)arg;
+      //     out.setSelectedIndex(0);
+      // 
+      //     ensure_all_array();
+      // 
+      //     for (Button b : all) { 
+      //       b.setBackground(Color.white);
+      //       // b.setForeground(Color.blue);
+      //     }
+      // 
+      //     if (label.equals("Pressure")) {
+      //       plot_type = PLOT_TYPE_PRESSURE;
+      //       pl1.setBackground(Color.yellow);
+      //       pl3.setBackground(Color.white);
+      //     } else if (label.equals("Velocity")) {
+      //       plot_type = PLOT_TYPE_VELOCITY;
+      //       pl2.setBackground(Color.yellow);
+      //     } else if (label.equals("Drag Polar")) {
+      //       plot_type = PLOT_TYPE_LIFT_DRAG_POLARS;
+      //       pl3.setBackground(Color.yellow);
+      //     } else if (label.equals("CG/Speed")) {
+      //       plot_type = PLOT_TYPE_CG_VS_SPEED;
+      //       bt_balance_pos_vs_speed.setBackground(Color.yellow);
+      //     } else if (label.equals("Drag/Speed")) {
+      //       plot_type = PLOT_TYPE_DRAG_TOTALS_VS_SPEED;
+      //       bt_drag_elts_vs_speed.setBackground(Color.yellow);
+      //     } 
+      // 
+      //     out.plot.loadPlot();
+      // 
+      //   } // end handlebut
+      // } // Upper
+      // 
+      // class Lower extends Panel {
+      //   FoilBoard app;
+      //   FoilCtrls f;
+      //   BallCtrls c;
+      // 
+      //   Lower(FoilBoard target) {
+      //     app = target;
+      //     layplt = new CardLayout();
+      //     setLayout(layplt);
+      // 
+      //     f = new FoilCtrls(app);
+      //     c = new BallCtrls(app);
+      // 
+      //     add ("first", f);
+      //     add ("second", c);
+      //   }
+      // 
+      //   class FoilCtrls extends Panel {
+      //     FoilBoard app;
+      //     Label l2;
+      //     Button pl3,pl4,pl5,pl6,pl7,pl8,pl9;
+      //     Choice plout,ploutb;
+      // 
+      //     FoilCtrls(FoilBoard target) {
+      //       app = target;
+      //       setLayout(new GridLayout(3,4,5,5));
+      // 
+      //       ploutb = new Choice();
+      //       ploutb.addItem("Lift vs.");
+      //       ploutb.addItem("Drag vs.");
+      //       ploutb.setBackground(Color.white);
+      //       ploutb.setForeground(Color.red);
+      //       ploutb.select(0);
+      // 
+      //       plout = new Choice();
+      //       plout.addItem("Lift vs.");
+      //       plout.addItem("Cl vs.");
+      //       plout.addItem("Drag vs.");
+      //       plout.addItem("Cd vs.");
+      //       plout.setBackground(Color.white);
+      //       plout.setForeground(Color.red);
+      //       plout.select(0);
+      // 
+      //       pl3 = new_button("Angle");
+      //       pl4 = new_button("Thickness");
+      //       pl5 = new_button("Camber");
+      //       pl6 = new_button("Speed");
+      //       pl7 = new_button("Altitude");
+      //       pl8 = new_button("Wing Area");
+      //       pl9 = new_button("Density");
+      // 
+      //       add(plout);
+      //       add(pl3);
+      //       add(pl5);
+      //       add(pl4);
+      // 
+      //       add(ploutb);
+      //       add(pl6);
+      //       add(pl7);
+      //       add(new Label(" ", Label.RIGHT));
+      // 
+      //       add(new Label(" ", Label.RIGHT));
+      //       add(pl8);
+      //       add(pl9);
+      //       add(new Label(" ", Label.RIGHT));
+      //     }
+      // 
+      //     public boolean action(Event evt, Object arg) {
+      //       if (evt.target instanceof Button) {
+      //         handleBut(evt,arg);
+      //         return true;
+      //       }
+      //       if (evt.target instanceof Choice) {
+      //         String label = (String)arg;
+      //         plot_y_val = plout.getSelectedIndex();
+      //         plot_y_val_2 = ploutb.getSelectedIndex();
+      //               
+      //         out.plot.loadPlot();
+      // 
+      //         return true;
+      //       }
+      //       else return false;
+      //     } // Handler
+      // 
+      //     public void handleBut(Event evt, Object arg) {
+      //       String label = (String)arg;
+      //       out.setSelectedIndex(0);
+      // 
+      //       ensure_all_array();
+      //       for (Button b : all) { 
+      //         b.setBackground(Color.white);
+      //       }
+      //       if (label.equals("Angle")) {
+      //         plot_type = PLOT_TYPE_ANGLE;
+      //         pl3.setBackground(Color.yellow);
+      //       }
+      //       if (label.equals("Thickness")) {
+      //         plot_type = PLOT_TYPE_THICKNESS;
+      //         pl4.setBackground(Color.yellow);
+      //       }
+      //       if (label.equals("Camber")) {
+      //         plot_type = PLOT_TYPE_CAMBER;
+      //         pl5.setBackground(Color.yellow);
+      //       }
+      //       if (label.equals("Speed")) {
+      //         plot_type = PLOT_TYPE_CURR_PART_VS_SPEED;
+      //         pl6.setBackground(Color.yellow);
+      //       }
+      //       if (label.equals("Altitude")) {
+      //         plot_type = PLOT_TYPE_ALTITUDE;
+      //         pl7.setBackground(Color.yellow);
+      //       }
+      //       if (label.equals("Wing Area")) {
+      //         plot_type = PLOT_TYPE_WING_AREA;
+      //         pl8.setBackground(Color.yellow);
+      //       }
+      //       if (label.equals("Density")) {
+      //         plot_type = PLOT_TYPE_DENSITY;
+      //         pl9.setBackground(Color.yellow);
+      //       }
+      // 
+      //       out.plot.loadPlot();
+      // 
+      //     }
+      // 
+      //   }  // FoilCtrls
+      // 
+      //   class BallCtrls extends Panel {
+      //     FoilBoard app;
+      //     Label l2;
+      // 
+      //     BallCtrls(FoilBoard target) {
+      //       app = target;
+      //       setLayout(new GridLayout(1,1,5,5));
+      // 
+      //       l2 = new Label(" ", Label.RIGHT);
+      // 
+      //       add(l2);
+      //     }
+      //   }  // BallCtrls
+      // } // Lower
     }  // PlotSelectorTab
 
     class Anl extends InputPanel {
@@ -8783,6 +8821,7 @@ public class FoilBoard extends  Applet {
       perfwebsrc = new PerfWebSrc(app);
       addTab("<h1>Summary...", null, perfwebsrc, "Shape and Performance Summary,\n html codes for embedding");
 
+      setSelectedComponent(perfweb);
 
       // adding actions to tabs: following "whoa" ideas from stackoverflow work but I use
       // overloaded paint() instead, seem simple.
@@ -10335,7 +10374,7 @@ public class FoilBoard extends  Applet {
 
         Foil f = current_part.foil;
 
-        clref =  getClplot(current_part.camber/25,current_part.thickness/25,aoa_absolute);
+        clref =  getCl_plot(current_part.camber/25,current_part.thickness/25,aoa_absolute);
         if (Math.abs(clref) <= .001) clref = .001;    /* protection */
 
         lftref = clref * q0_SI * current_part.area;
@@ -10343,7 +10382,7 @@ public class FoilBoard extends  Applet {
         //   attempt to fix symmetry problem
         if (current_part.camber < 0.0) alfd = - aoa_absolute;
         //
-        cdref = solver.getCdrag(clref, alfd, current_part.thickness, current_part.camber);
+        cdref = solver.get_Cd(clref, alfd, current_part.thickness, current_part.camber);
 
         drgref = cdref * q0_SI * current_part.area;
 
@@ -10475,7 +10514,7 @@ public class FoilBoard extends  Applet {
           del = 40.0 / (npt-1);
           for (ic=1; ic <=npt; ++ic) {
             angl = -20.0 + (ic-1)*del;
-            double clpl = getClplot(current_part.camber/25,current_part.thickness/25,angl);
+            double clpl = getCl_plot(current_part.camber/25,current_part.thickness/25,angl);
             alfd = angl;
             double thkd = current_part.thickness;
             double camd = current_part.camber;
@@ -10483,7 +10522,7 @@ public class FoilBoard extends  Applet {
             //   attempt to fix symmetry problem
             if (camd < 0.0) alfd = - angl;
             //
-            double cdpl = solver.getCdrag(clpl, alfd, thkd, camd);
+            double cdpl = solver.get_Cd(clpl, alfd, thkd, camd);
 
             if ( plot_y_val == PLOT_OUT_LIFT || plot_y_val == PLOT_OUT_CL) {
               plotx[0][ic] = angl;
@@ -10542,14 +10581,14 @@ public class FoilBoard extends  Applet {
             del = 1.0 / (npt);
             for (ic=1; ic <=npt; ++ic) {
               double thkpl = .05 + (ic-1)*del;
-              double clpl = getClplot(current_part.camber/25,thkpl,aoa_absolute);
+              double clpl = getCl_plot(current_part.camber/25,thkpl,aoa_absolute);
               alfd = aoa_absolute;
               double thkd = thkpl*25.0;
               double camd = current_part.camber;
               //   attempt to fix symmetry problem
               if (camd < 0.0) alfd = - aoa_absolute;
               //
-              double cdpl = solver.getCdrag(clpl, alfd, thkd, camd);
+              double cdpl = solver.get_Cd(clpl, alfd, thkd, camd);
 
               if ( plot_y_val == PLOT_OUT_LIFT || plot_y_val == PLOT_OUT_CL) {
                 plotx[0][ic] = thkpl*25.;
@@ -10605,14 +10644,14 @@ public class FoilBoard extends  Applet {
             del = 2.0 / (npt-1);
             for (ic=1; ic <=npt; ++ic) {
               double campl = -1.0 + (ic-1)*del;
-              double clpl = getClplot(campl,current_part.thickness/25,aoa_absolute);
+              double clpl = getCl_plot(campl,current_part.thickness/25,aoa_absolute);
               alfd = aoa_absolute;
               double thkd = current_part.thickness;
               double camd = campl * 25.0;
               //   attempt to fix symmetry problem
               if (camd < 0.0) alfd = - aoa_absolute;
               //
-              double cdpl = solver.getCdrag(clpl, alfd, thkd, camd);
+              double cdpl = solver.get_Cd(clpl, alfd, thkd, camd);
 
               if ( plot_y_val == PLOT_OUT_LIFT || plot_y_val == PLOT_OUT_CL) {
                 plotx[0][ic] = campl*25.0;
@@ -10669,14 +10708,7 @@ public class FoilBoard extends  Applet {
           start_pt = 1;
           plot_trace_count = 4;
           axis_x_label_width = 5;  axis_y_label_width = 3;
-          begx= 0;
-          switch (display_units) {
-          case IMPERIAL: endx = 40; ntikx = 9; break;
-          default:
-          case METRIC  : endx = 15; ntikx = 6; break;
-          case METRIC_2: endx = 50; ntikx = 11; break;
-          case NAVAL:    endx = 30; ntikx = 7; break;
-          }
+
           labx = String.valueOf("Speed ");
           // spd = Math.min(8, velocity);
           spd = 8;
@@ -11040,7 +11072,7 @@ public class FoilBoard extends  Applet {
 
             for (ic=1; ic <=npt; ++ic) {
               angl = -20.0 + (ic-1)*del;
-              double clpl = getClplot(current_part.camber/25,current_part.thickness/25,angl);
+              double clpl = getCl_plot(current_part.camber/25,current_part.thickness/25,angl);
               boolean ar_lift_corr_saved = ar_lift_corr;
               ar_lift_corr = true;
               ar_lift_corr = ar_lift_corr_saved;
@@ -11056,15 +11088,15 @@ public class FoilBoard extends  Applet {
               //
               boolean induced_drag_on_saved = induced_drag_on;
               induced_drag_on = false;
-              double cdpl = solver.getCdrag(clpl, alfd, thkd, camd);
+              double cdpl = solver.get_Cd(clpl, alfd, thkd, camd);
               plotx[0][ic] = cdpl; // plot with no induced drag 
-              double aspect_rat_corr = 0; // still broken (clpl * clpl)/ (3.1415926 * aspect_rat * current_part.Ci_e);
+              double aspect_rat_corr = 0; // still broken (clpl * clpl)/ (3.1415926 * aspect_rat * current_part.Ci_eff);
               plotx[1][ic] = 
                 // no induced drag, apect drag added
                 cdpl + aspect_rat_corr;
               // with induced_drag
               induced_drag_on = true;
-              cdpl = solver.getCdrag(clpl, alfd, thkd, camd);
+              cdpl = solver.get_Cd(clpl, alfd, thkd, camd);
               plotx[2][ic] = cdpl + aspect_rat_corr;
               induced_drag_on = induced_drag_on_saved;
             }
@@ -11151,14 +11183,26 @@ public class FoilBoard extends  Applet {
           break;
         }
         case PLOT_TYPE_CG_VS_SPEED: {    //
+          begx= 0;
+          switch (display_units) {
+          case IMPERIAL: endx = 40; ntikx = 9; break;
+          default:
+          case METRIC  : endx = 15; ntikx = 6; break;
+          case METRIC_2: endx = 50; ntikx = 11; break;
+          case NAVAL:    endx = 30; ntikx = 7; break;
+          }
           if (should_rescale_p) { // button Rescale was just pressed...
             begy = -20;
             endy = 50;
-            for (index = 1; index <= npt; ++ index) {
-              for (int plot_idx = 0; plot_idx < plot_trace_count; plot_idx++) {
+            for (int plot_idx = 0; plot_idx < plot_trace_count; plot_idx++) {
+              for (index = 0; index <= npt; ++ index) {
+                if (index > 0 && index < start_pt) break;
                 double val = ploty[plot_idx][index];
                 if (val > endy) endy = val;
                 if (val < begy) begy = val;
+                val = plotx[plot_idx][index];
+                if (val > endx) endx = val;
+                if (val < begx) begx = val;
               }
             }
           } else {
@@ -11241,7 +11285,7 @@ public class FoilBoard extends  Applet {
 
 
       // camb_val and thic_val are in %/25, angl is in degrees
-      public double getClplot (double camb_val, double thic_val, double angl) {
+      public double getCl_plot (double camb_val, double thic_val, double angl) {
         // return new Solver(angl, thic_val*25, camb_val*25).get_Cl(angl);
         Solver s = plot_solver;
         s.getFreeStream ();
@@ -11252,7 +11296,7 @@ public class FoilBoard extends  Applet {
       }
       
       // // old. this was replica of solver.getCirculation & get_Cl
-      // public double getClplot_(double camb, double thic, double angl) {
+      // public double getCl_plot_(double camb, double thic, double angl) {
       //   double number;
       //   double yc = camb / 2.0;
       //   double rc = thic/4.0 + Math.sqrt( thic*thic/16.0 + yc*yc + 1.0);
@@ -11556,65 +11600,70 @@ public class FoilBoard extends  Applet {
               }
               break;
             } // PLOT_TYPE_CG_VS_SPEED
-            case PLOT_TYPE_DRAG_TOTALS_VS_SPEED: 
-            case PLOT_TYPE_CURR_PART_VS_SPEED: {
-              String cg_plot_label = "";
+            case PLOT_TYPE_CURR_PART_VS_SPEED: 
+              off2Gg.drawString("Drag Components for " + current_part.name,
+                                x0 +  plot_w/2 - 50,
+                                y0 -  plot_h - 4);
+              // fall down
+            case PLOT_TYPE_DRAG_TOTALS_VS_SPEED: {
+
+              String drag_plot_label = "";
               for (j=0; j< plot_trace_count; ++j) {
-                int cg_plot_label_x = x0 + 48;
-                int cg_plot_label_y = y0;
+                int drag_plot_label_x = x0 + 48;
+                int drag_plot_label_y = y0;
                 switch (j) {
                 case 0:
                   if (plot_type == PLOT_TYPE_DRAG_TOTALS_VS_SPEED) {
                       off2Gg.setColor(Color.yellow);
-                      cg_plot_label = "Drag of Wing, " + current_display_force_unit_string();
+                      drag_plot_label = "Drag of Wing";
                   } else { // PLOT_TYPE_CURR_PART_VS_SPEED
                       off2Gg.setColor(Color.red);
-                      cg_plot_label = current_part.name + ": Total Drag, " + current_display_force_unit_string();
+                      drag_plot_label = "Total Drag";
                   }
-                  cg_plot_label_x += 4;
-                  cg_plot_label_y += 32;
+                  drag_plot_label_x += 4;
+                  drag_plot_label_y += 32;
                   break;
                 case 1:
                   off2Gg.setColor(Color.magenta);
                   if (plot_type == PLOT_TYPE_DRAG_TOTALS_VS_SPEED)
-                    cg_plot_label = "Drag of Stab, " + current_display_force_unit_string();
+                    drag_plot_label = "Drag of Stab";
                   else
-                    cg_plot_label = "Profile Darg, " + current_display_force_unit_string();
-                  cg_plot_label_x += 4;
-                  cg_plot_label_y += 32+14;
+                    drag_plot_label = "Profile Darg";
+                  drag_plot_label_x += 4;
+                  drag_plot_label_y += 32+14;
                   break;
                 case 2: 
                   off2Gg.setColor(Color.green);
                   if (plot_type == PLOT_TYPE_DRAG_TOTALS_VS_SPEED)
-                    cg_plot_label = "Drag of Mast, " + current_display_force_unit_string();
+                    drag_plot_label = "Drag of Mast";
                   else
-                    cg_plot_label = "Induced Drag, " + current_display_force_unit_string();
-                  cg_plot_label_x += 4;
-                  cg_plot_label_y += 32+14+14;
+                    drag_plot_label = "Induced Drag";
+                  drag_plot_label_x += 4;
+                  drag_plot_label_y += 32+14+14;
                   break;
                 case 3: 
                   off2Gg.setColor(Color.cyan);
                   if (plot_type == PLOT_TYPE_DRAG_TOTALS_VS_SPEED)
-                    cg_plot_label = "Drag of Fuse, " + current_display_force_unit_string();
+                    drag_plot_label = "Drag of Fuse";
                   else
-                    cg_plot_label = "Junction Drag, " + current_display_force_unit_string();
-                  cg_plot_label_x += 114;
-                  cg_plot_label_y += 32;
+                    drag_plot_label = "Junction Drag";
+                  drag_plot_label_x += 114;
+                  drag_plot_label_y += 32;
                   break;
                 case 4: 
                   if (plot_type == PLOT_TYPE_DRAG_TOTALS_VS_SPEED) {
                     off2Gg.setColor(Color.red);
-                    cg_plot_label = "All Parts Junction+Spray Drag, " + current_display_force_unit_string();
+                    drag_plot_label = "All Parts Junction+Spray Drag";
                   } else {
                     off2Gg.setColor(Color.yellow);
-                    cg_plot_label = "Spray Drag, " + current_display_force_unit_string();
+                    drag_plot_label = "Spray Drag";
                   }
-                  cg_plot_label_x += 114;
-                  cg_plot_label_y += 32+14;
+                  drag_plot_label_x += 114;
+                  drag_plot_label_y += 32+14;
                   break;
                 default:
                 }
-                off2Gg.drawString(cg_plot_label, cg_plot_label_x, cg_plot_label_y);
+                off2Gg.drawString(drag_plot_label, drag_plot_label_x, drag_plot_label_y);
 
                 x[1] = (int) (+scalex*(offx+plotx[j][1])) + x0;
                 y[1] = (int) (-scaley*(offy+ploty[j][1])) + y0;
