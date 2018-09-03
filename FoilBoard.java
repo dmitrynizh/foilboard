@@ -164,7 +164,7 @@ import java.awt.event.MouseMotionListener;
 import java.awt.event.TextListener;
 import java.awt.event.TextEvent;
 
-import javax.swing.JDialog;
+// import javax.swing.JDialog;
 //import javax.swing.JButton;
 //import javax.swing.JComboBox;
 import javax.swing.JPanel;
@@ -183,6 +183,7 @@ import a2s.Scrollbar;
 import a2s.TextArea;
 import a2s.TextField;
 import a2s.Frame;
+import a2s.Dialog;
 //import a2s.Panel; // see nested Panel...
 
 
@@ -345,7 +346,7 @@ public class FoilBoard extends  Applet {
 
   boolean runAsApplication = false;
   static Properties props;
-
+  static Frame frame;
   /** 
    * to run this applet as java application. 
    * expects file name as 1st argument, either applet html file or
@@ -387,7 +388,7 @@ public class FoilBoard extends  Applet {
         catch (Exception ex) { ex.printStackTrace(); }
     }
         
-    Frame frame = new Frame();
+    frame = new Frame();
     final FoilBoard  applet = new FoilBoard();
     applet.runAsApplication = true;
     frame.getContentPane().add(applet);
@@ -432,19 +433,20 @@ public class FoilBoard extends  Applet {
   
 
   /**
-   * This class Panel is a substitute for legacy java.awt.Panel for JS conversion,
-   * implementing parts of it and its superclasse's functionality that's been
-   * deprecated since jdk1.1 and while still supported by modern java, not found
-   * in SwingJS.
+   * This class Panel is a substitute for legacy java.awt.Panel for JS
+   * conversion, implementing parts of it and its superclasses's
+   * functionality that's been deprecated since jdk1.1 and while still
+   * supported by modern java, not found in SwingJS.
    * 
-   * The main mechanism supported by this class Pain is legacy jdk 1.0 event
-   * model involving methods action and handleEvent. This class provides
-   * automatically adds listeners to children components added to it, and fires
-   * up call to methods action and handleEvent. as appropriate to approximate
-   * AWT 1.0 behavior. One could wonder why not to move this bridging
-   * functionality to jsjava/awt/Container where it logically belongs but this
-   * will enable the legacy behavior with the burden associated with it for
-   * SwingJS components - because JComponent derives from java.awt.Container -
+   * The main mechanism supported by this class Panel is legacy jdk
+   * 1.0 event model involving methods action and handleEvent. This
+   * class automatically adds listeners to children components added
+   * to it, and fires up call to methods action and handleEvent. as
+   * appropriate to approximate AWT 1.0 behavior. One could wonder why
+   * not to move this bridging functionality to jsjava/awt/Container
+   * where it logically belongs but this will enable the legacy
+   * behavior with the burden associated with it for SwingJS
+   * components - because JComponent derives from java.awt.Container -
    * probably not a good idea.
    * 
    * author: dmitrynizh
@@ -1618,22 +1620,23 @@ public class FoilBoard extends  Applet {
     return true;
   }
   
-  JDialog helpWindow;
-  JDialog aboutWindow;
+  Dialog helpWindow;
+  Dialog aboutWindow;
   
   void helpPopUp () {
     if (helpWindow == null) {
-      JDialog frame = helpWindow = new JDialog();
+      Frame frame = FoilBoard.frame != null ? FoilBoard.frame : new Frame();
       //Panel panel = new Panel();
       String helpContent = "Help Help";
       TextArea txtArea = new TextArea(helpContent);
       txtArea.setEditable(false);
-      //txtArea.setFont(new Font("monospaced", Font.PLAIN, 12));
-      //txtArea.setBackground(Color.GRAY);
-      frame.add(txtArea, BorderLayout.CENTER);
-      frame.setLocationRelativeTo(this);
-      frame.setLocation(100, 100);
-      frame.setSize(200, 200);
+      txtArea.setFont(new Font("monospaced", Font.PLAIN, 12));
+      txtArea.setBackground(Color.GRAY);
+      helpWindow = new Dialog(frame, "help", false);
+      helpWindow.add(txtArea, BorderLayout.CENTER);
+      helpWindow.setLocationRelativeTo(this);
+      helpWindow.setLocation(100, 100);
+      helpWindow.setSize(200, 200);
     }
     helpWindow.setVisible(true);
   }
