@@ -163,29 +163,27 @@ import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.awt.event.TextListener;
 import java.awt.event.TextEvent;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 
-// import javax.swing.JDialog;
-//import javax.swing.JButton;
-//import javax.swing.JComboBox;
+
+import javax.swing.JDialog;
+import javax.swing.JButton;
+import javax.swing.JRadioButton;
+import javax.swing.ButtonGroup;
+import javax.swing.JComboBox;
+import javax.swing.JCheckBox;
 import javax.swing.JPanel;
+import javax.swing.JScrollBar;
+import javax.swing.JLabel;
+import javax.swing.JTextField;
+import javax.swing.JTextArea;
+import javax.swing.JScrollPane;
+import javax.swing.JFrame;
+import javax.swing.JApplet;
 
 
-
-//import test.FoilBoardWithProblems.Part;
-import a2s.A2SEvent;
-import a2s.Applet;
-import a2s.Button;
-import a2s.Checkbox;
-import a2s.CheckboxGroup;
-import a2s.Choice;
-import a2s.Label;
-import a2s.Scrollbar;
-import a2s.TextArea;
-import a2s.TextField;
-import a2s.Frame;
-import a2s.Dialog;
-//import a2s.Panel; // see nested Panel...
-
+// import a2s.A2SEvent;
 
 import java.lang.Math;
 import java.util.Date;
@@ -212,7 +210,7 @@ class Point3D {
   }
 }
 
-public class FoilBoard extends  Applet {
+public class FoilBoard extends JApplet {
 
   class Part {
     /**/ String name; Foil foil; double xpos; double chord; double span; double thickness; double camber; double aoa;
@@ -268,45 +266,50 @@ public class FoilBoard extends  Applet {
       return this.foil.getDescr(thickness, camber);
     }
 
-    void print (String header, TextArea out) {
+    void print (String header, JTextArea out) {
       if (header != null) {
-        out.appendText("\n\n *** " + header + " ***");
+        out.append("\n\n *** " + header + " ***");
       }
+      out.append(toString());
+    }
 
-      out.appendText(foil.print_line);      
-
+    @Override
+    public String toString () {
+      StringBuffer out = new StringBuffer();
+      out.append(foil.print_line);      
       if (!foil_is_cylinder_or_ball(current_part.foil)) {
         if (lunits == IMPERIAL) {
-          out.appendText( "\n Chord = " + filter3(chord*12) + " inches.");
-          out.appendText( "\n Span = " + filter3(span*12) + " inches.");
-          out.appendText( "\n Surface Area = " + filter3(span*chord*144) + " sq inches.");
-          out.appendText( "\n Thickness = " + filter3(0.01 * thickness * chord * 12) + " inches");
-          out.appendText( " or " + filter3(thickness) + " % of chord ," );
-          out.appendText( "\n Camber = " + filter3(camber) + " % chord ," );
-          out.appendText( "\n Angle of attack = " + filter3(aoa) + " degrees ," );
-          out.appendText( "\n Position LE at " + filter3(xpos) + " inches aft fuse LE" );
+          out.append( "\n Chord = " + filter3(chord*12) + " inches.");
+          out.append( "\n Span = " + filter3(span*12) + " inches.");
+          out.append( "\n Surface Area = " + filter3(span*chord*144) + " sq inches.");
+          out.append( "\n Thickness = " + filter3(0.01 * thickness * chord * 12) + " inches");
+          out.append( " or " + filter3(thickness) + " % of chord ," );
+          out.append( "\n Camber = " + filter3(camber) + " % chord ," );
+          out.append( "\n Angle of attack = " + filter3(aoa) + " degrees ," );
+          out.append( "\n Position LE at " + filter3(xpos) + " inches aft fuse LE" );
         } else {
-          out.appendText( "\n Chord = " + filter3(chord*100) + " cm.");
-          out.appendText( "\n Span = " + filter3(span*100) + " cm.");
-          out.appendText( "\n Surface Area = " + filter3(span*chord*100*100) + " sq cm.");
-          out.appendText( "\n Thickness = " + filter3(0.01 * thickness * chord * 100) + " cm");
-          out.appendText( " or " + filter3(thickness) + " % of chord ," );
-          out.appendText( "\n Camber = " + filter3(camber) + " % chord ," );
-          out.appendText( "\n Angle of attack = " + filter3(aoa) + " degrees ," );
+          out.append( "\n Chord = " + filter3(chord*100) + " cm.");
+          out.append( "\n Span = " + filter3(span*100) + " cm.");
+          out.append( "\n Surface Area = " + filter3(span*chord*100*100) + " sq cm.");
+          out.append( "\n Thickness = " + filter3(0.01 * thickness * chord * 100) + " cm");
+          out.append( " or " + filter3(thickness) + " % of chord ," );
+          out.append( "\n Camber = " + filter3(camber) + " % chord ," );
+          out.append( "\n Angle of attack = " + filter3(aoa) + " degrees ," );
           if (this == stab && stab_aoa_correction)
-            out.appendText( "\n   Effective AoA due to Wing flow influence: " + filter3(effective_aoa()) + "," );
-          out.appendText( "\n Position LE at " + filter3(xpos*100) + " cm aft fuse LE" );
+            out.append( "\n   Effective AoA due to Wing flow influence: " + filter3(effective_aoa()) + "," );
+          out.append( "\n Position LE at " + filter3(xpos*100) + " cm aft fuse LE" );
         }
       } else { // cylinder or ball
-        // out.appendText( "\n Spin  = " + filter3(spin*60.0) );
-        // out.appendText( " rpm ," );
-        // out.appendText( " Radius = " + filter3(radius) );
-        // if (lunits == IMPERIAL) out.appendText( " ft ," );
-        // else /*METRIC*/         out.appendText( " m ," );
-        out.appendText( "\n Span = " + filter3(span) );
-        if (lunits == IMPERIAL) out.appendText( " ft." );
-        else /*METRIC*/          out.appendText( " m." );
+        // out.append( "\n Spin  = " + filter3(spin*60.0) );
+        // out.append( " rpm ," );
+        // out.append( " Radius = " + filter3(radius) );
+        // if (lunits == IMPERIAL) out.append( " ft ," );
+        // else /*METRIC*/         out.append( " m ," );
+        out.append( "\n Span = " + filter3(span) );
+        if (lunits == IMPERIAL) out.append( " ft." );
+        else /*METRIC*/          out.append( " m." );
       }
+      return out.toString();
     }
 
     // NO-OP now!!!
@@ -346,7 +349,7 @@ public class FoilBoard extends  Applet {
 
   boolean runAsApplication = false;
   static Properties props;
-  static Frame frame;
+  static JFrame frame;
   /** 
    * to run this applet as java application. 
    * expects file name as 1st argument, either applet html file or
@@ -375,6 +378,7 @@ public class FoilBoard extends  Applet {
             if (nNode.getNodeType() == org.w3c.dom.Node.ELEMENT_NODE) {
               org.w3c.dom.Element eElement = (org.w3c.dom.Element) nNode;
               String name = eElement.getAttribute("NAME");
+              System.out.println("-- parse file: name: " + name);
               String value = eElement.getAttribute("VALUE");
               props.setProperty(name, value);
             }
@@ -388,7 +392,7 @@ public class FoilBoard extends  Applet {
         catch (Exception ex) { ex.printStackTrace(); }
     }
         
-    frame = new Frame();
+    frame = new JFrame();
     final FoilBoard  applet = new FoilBoard();
     applet.runAsApplication = true;
     frame.getContentPane().add(applet);
@@ -415,15 +419,15 @@ public class FoilBoard extends  Applet {
 
   boolean on_cg_plotting = false;
   // for debugging
-  //class TextField extends a2s.TextField {
-  //  public TextField(int width) {super(width);}
-  //  public TextField() {super();}
-  //  public TextField(String text) {super(text);}
-  //  public TextField(String text, int width) {super(text, width);}
+  //class JTextField extends a2s.JTextField {
+  //  public JTextField(int width) {super(width);}
+  //  public JTextField() {super();}
+  //  public JTextField(String text) {super(text);}
+  //  public JTextField(String text, int width) {super(text, width);}
   //  // debug it
   //  public void setText(String text) {
   //    if (on_cg_plotting) {
-  //      new Exception("-- TextField setText called. can_do_gui_updates="+ can_do_gui_updates).printStackTrace(System.out);
+  //      new Exception("-- JTextField setText called. can_do_gui_updates="+ can_do_gui_updates).printStackTrace(System.out);
   //    }
   //    super.setText(text);
   //  }
@@ -449,9 +453,11 @@ public class FoilBoard extends  Applet {
    * components - because JComponent derives from java.awt.Container -
    * probably not a good idea.
    * 
-   * author: dmitrynizh
+   * Class Panel author: dmitrynizh
    * */
-  class Panel extends JPanel implements ActionListener, AdjustmentListener {
+  class Panel extends JPanel 
+              ////test implements ActionListener, AdjustmentListener 
+  {
 
     // class Scrollbar extends a2s.Scrollbar {
     //   public Scrollbar (int orientation, int value, int extent, int min, int max) {
@@ -498,28 +504,16 @@ public class FoilBoard extends  Applet {
       super.add(comp);
       return comp;
     }
-    
-    @Override
-    @SuppressWarnings("deprecation")
-    public void actionPerformed (ActionEvent e) {
-      if (!inited)
-        return;    
-      new A2SEvent(this, e).run();
-    }
-    
-    //@Override
-    @SuppressWarnings("deprecation")
-    public void actionPerformed_v3 (ActionEvent e) {
-      if (!inited)
-        return;
-      Event olde = A2SEvent.convertToOld(e);
-      deliverEvent(olde);
-    }
 
-    // to ensure Tab panes autimatically refresh when switched to
+    // LoadPanel() to ensure Tab panes autimatically refresh when switched to
     public void loadPanel () {
       System.out.println("warning: unimplemented loadPanel() in " + this);
     }
+    // prvent reentering loadPanel...
+    // two way rto do it. new way is by returning from loadPanel:
+    // if (on_loadPanel) return; on_loadPanel = true; <code>; on_loadPanel = false;
+    // old way is with checks in each adjustmentlistener
+    protected boolean on_loadPanel;
 
     // a little sty;e helper
     Button new_button (String title) {
@@ -528,36 +522,57 @@ public class FoilBoard extends  Applet {
       b.setForeground(Color.blue);
       return b;
     }
-    
-    public void adjustmentValueChanged (AdjustmentEvent e) {
-      //System.out.println("comp " + e.getSource() + " value: " + ((Scrollbar) e.getSource()).getValue());
-      new A2SEvent(this, e).run();
-    }
-    
-    public void adjustmentValueChanged_v3 (AdjustmentEvent e) {
-      //System.out.println("comp " + e.getSource() + " value: " + ((Scrollbar) e.getSource()).getValue());
-      Event olde = A2SEvent.convertToOld(e);
-      deliverEvent(olde);
-    }
 
-    @Override
-    protected void/*Component in jsjava/awt/!*/ addImpl (Component comp, Object constraints, int index) {
-      super.addImpl(comp, constraints, index);
-      // System.out.println(" -- adding comp: " + comp);
-      // this is wrong time for buttons
-      //comp.setPreferredSize(comp.getPreferredSize());
-      if (comp instanceof Button)
-        ((Button)comp).addActionListener(this);
-      else if (comp instanceof Scrollbar)
-        ((Scrollbar)comp).addAdjustmentListener(this);
-      else if (comp instanceof TextField) {
-        comp.setPreferredSize(new Dimension(120, 24));
-        ((TextField)comp).addActionListener(this);
-      } else if (comp instanceof Choice)
-        ((Choice)comp).addActionListener(this);
-      
-      //return comp;
-    }
+
+    ////test Aug 19 2018: lets see if we can drop these
+    ////test 
+    ////test @Override
+    ////test @SuppressWarnings("deprecation")
+    ////test public void actionPerformed (ActionEvent e) {
+    ////test   System.out.println("-- Panel actionPerformed e: " + e);
+    ////test   if (!inited)
+    ////test     return;    
+    ////test   new A2SEvent(this, e).run();
+    ////test }
+    ////test 
+    ////test //@Override
+    ////test @SuppressWarnings("deprecation")
+    ////test public void actionPerformed_v3 (ActionEvent e) {
+    ////test   if (!inited)
+    ////test     return;
+    ////test   Event olde = A2SEvent.convertToOld(e);
+    ////test   deliverEvent(olde);
+    ////test }
+    ////test 
+    ////test public void adjustmentValueChanged (AdjustmentEvent e) {
+    ////test   //System.out.println("comp " + e.getSource() + " value: " + ((JScrollBar) e.getSource()).getValue());
+    ////test   new A2SEvent(this, e).run();
+    ////test }
+    ////test 
+    ////test public void adjustmentValueChanged_v3 (AdjustmentEvent e) {
+    ////test   //System.out.println("comp " + e.getSource() + " value: " + ((JScrollBar) e.getSource()).getValue());
+    ////test   Event olde = A2SEvent.convertToOld(e);
+    ////test   deliverEvent(olde);
+    ////test }
+    ////test 
+    ////test @Override
+    ////test protected void/*Component in jsjava/awt/!*/ addImpl (Component comp, Object constraints, int index) {
+    ////test   super.addImpl(comp, constraints, index);
+    ////test   System.out.println(" -- addImpl  adding comp: " + comp);
+    ////test   // this is wrong time for buttons
+    ////test   //comp.setPreferredSize(comp.getPreferredSize());
+    ////test   if (comp instanceof Button)
+    ////test     ((Button)comp).addActionListener(this);
+    ////test   else if (comp instanceof JScrollBar)
+    ////test     ((JScrollBar)comp).addAdjustmentListener(this);
+    ////test   else if (comp instanceof JTextField) {
+    ////test     comp.setPreferredSize(new Dimension(120, 24));
+    ////test     ((JTextField)comp).addActionListener(this);
+    ////test   } else if (comp instanceof JComboBox)
+    ////test     ((JComboBox)comp).addActionListener(this);
+    ////test   
+    ////test   //return comp;
+    ////test }
 
     //    public Component add(Button bt) {
     //      super.add(bt);
@@ -565,25 +580,25 @@ public class FoilBoard extends  Applet {
     //      return bt;
     //    }
     //
-    //    public Component add(Scrollbar comp) {
+    //    public Component add(JScrollBar comp) {
     //      super.add(comp);
     //      comp.addAdjustmentListener(this);
     //      return comp;
     //    }
-    //    public Component add(String pos, Scrollbar comp) {
+    //    public Component add(String pos, JScrollBar comp) {
     //      super.add(pos, comp);
     //      comp.addAdjustmentListener(this);
     //      return comp;
     //    }
     //
-    //    public Component add(TextField comp) {
+    //    public Component add(JTextField comp) {
     //      super.add(comp);
     //      comp.setPreferredSize(new Dimension(400, 80));
     //      comp.addActionListener(this);
     //      return comp;
     //    }
     //
-    //    public Component add(Choice comp) {
+    //    public Component add(JComboBox comp) {
     //      super.add(comp);
     //      // return A2SEvent.addComponent((EventListener)
     //      // this.getTopLevelAncestor(), comp);
@@ -591,7 +606,7 @@ public class FoilBoard extends  Applet {
     //      return comp;
     //    }
 
-    // public boolean action(Event evt, Object arg) { }
+    // public boolean action (Event evt, Object arg) { }
 
 
     // Tease variants work but are kludgey. v1 does not deliver to enclosing panels
@@ -601,7 +616,7 @@ public class FoilBoard extends  Applet {
     //      if (!inited)
     //        return;
     //      Object src = e.getSource();
-    //      if (src instanceof TextField) {
+    //      if (src instanceof JTextField) {
     //        System.out.println("TF " + src + "this " + this.getClass());
     //        boolean ok = this.action(new Event(src, Event.ACTION_EVENT, e), src);
     //        if (!ok)
@@ -610,8 +625,8 @@ public class FoilBoard extends  Applet {
     //        System.out.println("Button: " + ((Button) src).getText() + " " + src);
     //        boolean ok = this.action(new Event(src, Event.ACTION_EVENT, e), ((Button) src).getText());
     //        // if (!ok) this.handleEvent(new Event(src, Event.ACTION_EVENT, e));
-    //      } else if (src instanceof Choice) {
-    //        System.out.println("choice " + src + " idx: " + ((Choice) src).getSelectedIndex() + " sel: " + ((Choice) src).getSelectedItem());
+    //      } else if (src instanceof JComboBox) {
+    //        System.out.println("choice " + src + " idx: " + ((JComboBox) src).getSelectedIndex() + " sel: " + ((JComboBox) src).getSelectedItem());
     //        boolean ok = this.action(new Event(src, Event.ACTION_EVENT, e), src);
     //        if (!ok)
     //          this.handleEvent(new Event(src, Event.ACTION_EVENT, e));
@@ -628,20 +643,20 @@ public class FoilBoard extends  Applet {
     //      // which may differ depending on the source.
     //      // TODO: should likely use AWTEvent.convertToOld as e.convertToOld() instead. Try it!
     //      // Note: calling deliverEvent, not handleEvent is important otherwise parents (enclosing containers) are not delivered to!
-    //      if (src instanceof TextField) {
+    //      if (src instanceof JTextField) {
     //        System.out.println("TF " + src + "this " + this.getClass());
     //        this.deliverEvent(new Event(src, Event.ACTION_EVENT, src));
     //      } else if (src instanceof Button) {
     //        System.out.println("Button: " + ((Button) src).getText() + " " + src);
     //        this.deliverEvent(new Event(src, Event.ACTION_EVENT, ((Button) src).getText()));
-    //      } else if (src instanceof Choice) {
-    //        System.out.println("choice " + src + " idx: " + ((Choice) src).getSelectedIndex() + " sel: " + ((Choice) src).getSelectedItem());
+    //      } else if (src instanceof JComboBox) {
+    //        System.out.println("choice " + src + " idx: " + ((JComboBox) src).getSelectedIndex() + " sel: " + ((JComboBox) src).getSelectedItem());
     //        this.deliverEvent(new Event(src, Event.ACTION_EVENT, src));
     //      }
     //    }
 
     //    public void adjustmentValueChanged_old_v1 (AdjustmentEvent e) {
-    //      //System.out.println("comp " + e.getSource() + " value: " + ((Scrollbar) e.getSource()).getValue());
+    //      //System.out.println("comp " + e.getSource() + " value: " + ((JScrollBar) e.getSource()).getValue());
     //      boolean ok = this.action(new Event(e.getSource(), Event.SCROLL_ABSOLUTE, e), e.getSource());
     //      if (!ok)
     //        this.handleEvent(new Event(e.getSource(), Event.SCROLL_ABSOLUTE, e));
@@ -709,13 +724,22 @@ public class FoilBoard extends  Applet {
     }
   }
 
+  class Button extends JButton {
+    public Button(String text) { 
+      super(text); 
+      this.setMargin(new Insets(0, 0, 0, 0));
+    }
+  }
+
   static int next_foil_id = 0;
   static Hashtable foils = new Hashtable();
   void setFoil (Foil foil) {
+    // if (current_part == xxxx) new Exception(("-- setFoil foil: " + foil)).printStackTrace(System.out);
     current_part.foil = foil;
   }
 
   void setFoil (String name) {
+    if (current_part == stab) new Exception(("-- setFoil stab name: " + name)).printStackTrace(System.out);
     current_part.foil = (Foil)foils.get(name);
   }
 
@@ -738,6 +762,11 @@ public class FoilBoard extends  Applet {
       this.descr = descr;
       this.print_line = print_line;
       foils.put(descr, this);
+    }
+
+    @Override 
+    public String toString () {
+      return "{Foil id: " + id + " name: " + descr + "}";
     }
 
     double get_Cl (double effaoa) {
@@ -825,7 +854,11 @@ public class FoilBoard extends  Applet {
 
   class RoundFoil extends Foil {
     RoundFoil (String descr, String print_line) {
-      super(descr, print_line);
+      //super(descr, print_line);
+      this.id = next_foil_id++;
+      this.descr = descr;
+      this.print_line = print_line;
+
     }
 
     // fix later
@@ -840,7 +873,7 @@ public class FoilBoard extends  Applet {
     @Override
     public double adjust_dragco (double dragco, double cldin, double thickness) { return dragco; }
 
-    // switch to Cyl tab
+    // switch to Cylinder's tab
     @Override
     void adjust_foil_shape_in_tab () {
       in.toggle_cyl_tab();
@@ -1286,6 +1319,12 @@ public class FoilBoard extends  Applet {
 
   static double stall_model_apos = 10, stall_model_aneg = -10;
   
+  static final boolean DEBUG_SPEED_SUPPR_ADJ = false;
+  static void debug_speed_suppr_adj (AdjustmentEvent e) {
+    System.out.println("-- AdjustmentEvent"); }
+
+  static final boolean DEBUG_SPEED_SUPPR     = true;
+  
   static final int STALL_MODEL_IDEAL_FLOW = 0,
     STALL_MODEL_DFLT = 1, // default 0.5 + 0.1A + 0.005A^2 and +-10
     STALL_MODEL_REFINED = 2; // this is per foil type.
@@ -1426,9 +1465,9 @@ public class FoilBoard extends  Applet {
     return parseParamData(p, p_name, p_data);
   }
       
-  boolean parseParamData_debug = true;
+  boolean parseParamData_debug = false;
   boolean parseParamData (Part p, String p_name, String p_data) {
-    if (parseParamData_debug) trace("parseParamData: ", p, p_name, p_data);
+    if (parseParamData_debug) trace("parseParamData, before:", p_name, p_data);
     String[] params = p_data.split("\\s+");
     int i = 0;
     
@@ -1480,6 +1519,8 @@ public class FoilBoard extends  Applet {
       }
     }
 
+    // if (p_name.equals("Stab")) System.out.println("-- stab foil: " + p.foil);
+    
     String[] chord_spec = params[i++].split("[:;]"); // possible chord value separators 
      
     p.span = Double.parseDouble(params[i++]);
@@ -1552,7 +1593,7 @@ public class FoilBoard extends  Applet {
         p.chord_zoffs+= zoffs_prev;
       }
       p.chord_zoffs /= chord_spec.length;
-      System.out.println("-- chord_zoffs: " + p.chord_zoffs);
+      if (parseParamData_debug) System.out.println("-- chord_zoffs: " + p.chord_zoffs);
       
       double xoff_tip  = xoffs_prev;
       // System.out.println("-- xoff_tip: " + xoff_tip);
@@ -1577,13 +1618,13 @@ public class FoilBoard extends  Applet {
       p.chord = MAC;
       // now we derive mac xoffset!
       double mac_xoffs = segment_moments/(MAC*segment_count);
-      System.out.println("-- part: "+p_name+" MAC: " + MAC + " mac_xoffs: " + mac_xoffs);
+      if (parseParamData_debug) System.out.println("-- part: "+p_name+" MAC: " + MAC + " mac_xoffs: " + mac_xoffs);
       p.chord_xoffs = mac_xoffs;
 
       // estimate Ci_eff... how root chord, MAC and tip chord differ?
       // (- 1 (* 0.15 tip/mac))
       p.Ci_eff = 1 - 0.15 * (Math.min(1, chords[segment_count]/MAC));
-      System.out.println("-- Ci_eff: " + p.Ci_eff);
+      if (parseParamData_debug) System.out.println("-- Ci_eff: " + p.Ci_eff);
       // mesh. double segments for symmetric forms - wing, stab, fuse
       int mesh_count = (p == strut) ?  segment_count+1 : 2*segment_count+1;
       p.mesh_LE = new Point3D[mesh_count];
@@ -1616,27 +1657,29 @@ public class FoilBoard extends  Applet {
     }
 
     p.compute_aux_params(); // area AR etc
+
+    if (parseParamData_debug) trace("parseParamData, done:", p, p.foil.id, p_name, p_data);
         
     return true;
   }
   
-  Dialog helpWindow;
-  Dialog aboutWindow;
+  JDialog helpWindow;
+  JDialog aboutWindow;
   
   void helpPopUp () {
     if (helpWindow == null) {
-      Frame frame = FoilBoard.frame != null ? FoilBoard.frame : new Frame();
+      JFrame frame = FoilBoard.frame != null ? FoilBoard.frame : new JFrame();
       //Panel panel = new Panel();
       String helpContent = "Help Help";
-      TextArea txtArea = new TextArea(helpContent);
+      JTextArea txtArea = new JTextArea(helpContent);
       txtArea.setEditable(false);
       txtArea.setFont(new Font("monospaced", Font.PLAIN, 12));
-      txtArea.setBackground(Color.GRAY);
-      helpWindow = new Dialog(frame, "help", false);
-      helpWindow.add(txtArea, BorderLayout.CENTER);
+      txtArea.setBackground(Color.decode("#F0F0F0"));
+      helpWindow = new JDialog(frame, "help", false);
+      helpWindow.add(new JScrollPane(txtArea), BorderLayout.CENTER);
       helpWindow.setLocationRelativeTo(this);
       helpWindow.setLocation(100, 100);
-      helpWindow.setSize(200, 200);
+      helpWindow.setSize(400, 700);
     }
     helpWindow.setVisible(true);
   }
@@ -1653,14 +1696,17 @@ public class FoilBoard extends  Applet {
     return val;
   }
 
+  @Override
   public void init () {
     //setPreferredSize(new Dimension(1000, 800));
     setSize(900, 600);
 
     // any inputs?
     //
-    // note: defaults are typical windfoiler's, see kitefoil.sh for typical kiter's values
-    // note 2: soem of these were originally constants hence uppercased, but then became initialized from props...
+    // note: defaults are typical windfoiler's, see kitefoil.sh for
+    // typical kiter's values note 2: some of these were originally
+    // constants hence uppercased, but then became initialized from
+    // props...
     craft_type      = getParamOrProp("TYPE","WIND").toUpperCase().startsWith("WIND") ? WINDFOIL : KITEFOIL;
     System.out.println("-- craft_type: " + craft_type);
     BOARD_THICKNESS = Double.parseDouble(getParamOrProp("BH","0.1"));
@@ -1727,11 +1773,11 @@ public class FoilBoard extends  Applet {
     
     planet = 2; // water
     solver.getFreeStream ();
-    in.env.rightPanel.plntch.select(planet);
+    // in.env.rightPanel.plntch.setSelectedIndex(planet);
 
     lunits = METRIC;
     setUnits();
-    con.untch.select(METRIC);
+    con.untch.setSelectedIndex(METRIC);
 
     velocity = 20.0; // speed is 20 km/h
     alt = 70; // depth: 30% of strut
@@ -1739,7 +1785,7 @@ public class FoilBoard extends  Applet {
     // Stab in downwash? if so, turn correction 'on' by default
     if (wing.xpos + wing.chord_xoffs < stab.xpos + stab.chord_xoffs ) {
       stab_aoa_correction = true;
-      in.anl.chb_stab_aoa_corr.setState(true);
+      in.anl.chb_stab_aoa_corr.setSelected(true);
     }
     
     computeFlowAndRegenPlotAndAdjust();
@@ -1751,13 +1797,32 @@ public class FoilBoard extends  Applet {
     //con.bt_wing_al.actionPerformed(new ActionEvent((Object)bt_wing, ActionEvent.ACTION_PERFORMED, ""));
 
     inited = true;
-    
+
+    // System.out.println("-- stab foil: " + stab.foil);
+
     con.switch_to_part(wing);
     con.recomp_all_parts();
     computeFlowAndRegenPlotAndAdjust();
      loadOutPanel();
     vpp.steady_flight_at_given_speed(5, 0);
     out.plot.loadPlot();
+
+
+    //debug System.out.println("-- FOIL_JOUKOWSKI: " + FOIL_JOUKOWSKI);
+    //debug System.out.println("-- FOIL_ELLIPTICAL: " + FOIL_ELLIPTICAL);
+    //debug System.out.println("-- FOIL_FLAT_PLATE: " + FOIL_FLAT_PLATE);
+    //debug System.out.println("-- FOIL_CYLINDER: " + FOIL_CYLINDER);
+    //debug System.out.println("-- FOIL_BALL: " + FOIL_BALL);
+    //debug System.out.println("-- FOIL_NACA4: " + FOIL_NACA4);
+
+    //debug { // profiling-aiding switches
+    //debug   plot_type = PLOT_TYPE_CG_VS_SPEED;
+    //debug   plot_y_val = 0;
+    //debug   out.setSelectedIndex(0);
+    //debug   out.plot.loadPlot();
+    //debug   in.setSelectedIndex(1);
+    //debug }
+
   }
  
   public Insets insets () {
@@ -2000,7 +2065,7 @@ public class FoilBoard extends  Applet {
     }
   }
 
-  double speed_input_in_display_units_to_kmh (TextField f, int units) {
+  double speed_input_in_display_units_to_kmh (JTextField f, int units) {
     return speed_input_in_display_units_to_kmh(Double.valueOf(f.getText()).doubleValue(), units);
   }
   double speed_input_in_display_units_to_kmh (double speed, int units) {
@@ -2023,7 +2088,7 @@ public class FoilBoard extends  Applet {
     case METRIC  : return size;
     }
   }
-  double size_input_in_display_units_to_m (TextField f, int units) {
+  double size_input_in_display_units_to_m (JTextField f, int units) {
     return size_input_in_display_units_to_m(Double.valueOf(f.getText()).doubleValue(), units);
   }
 
@@ -2037,7 +2102,7 @@ public class FoilBoard extends  Applet {
     case METRIC  : return val;
     }
   }
-  double force_input_in_display_units_to_n (TextField f, int units) {
+  double force_input_in_display_units_to_n (JTextField f, int units) {
     return force_input_in_display_units_to_n(Double.valueOf(f.getText()).doubleValue(), units);
   }
 
@@ -2246,8 +2311,8 @@ public class FoilBoard extends  Applet {
   //     in.size.leftPanel.l2.setText("Span-ft");
   //     in.size.leftPanel.l3.setText("Area-sq ft");
   //     in.flt.speed_ctrl.name.setText("Speed-mph");
-  //     in.cyl.leftPanel.l2.setText("Radius ft");
-  //     in.cyl.leftPanel.l3.setText("Span ft");
+  //     in.cylShape.leftPanel.l2.setText("Radius ft");
+  //     in.cylShape.leftPanel.l3.setText("Span ft");
   //     in.flt.alt_ctrl.name.setText("Altitude-%");
   //     in.flt.load_ctrl.name.setText("Load-lb");
   //     // in.flt.lbl_min_lift.setText("Total Lift lb >=");
@@ -2257,8 +2322,8 @@ public class FoilBoard extends  Applet {
   //     in.size.leftPanel.l2.setText("Span-m");
   //     in.size.leftPanel.l3.setText("Area-sq m");
   //     in.flt.speed_ctrl.name.setText("Speed-km/h");
-  //     in.cyl.leftPanel.l2.setText("Radius m");
-  //     in.cyl.leftPanel.l3.setText("Span m");
+  //     in.cylShape.leftPanel.l2.setText("Radius m");
+  //     in.cylShape.leftPanel.l3.setText("Span m");
   //     in.flt.alt_ctrl.name.setText("Altitude-%");
   //     in.flt.load_ctrl.name.setText("Load-N");
   //     // in.flt.lbl_min_lift.setText("Total Lift N >=");
@@ -2268,8 +2333,8 @@ public class FoilBoard extends  Applet {
   //   speed_kts_mph_kmh_ms_info = make_speed_kts_mph_kmh_ms_info(velocity);
   //   
   //   // trying NOT to set tehse here as it causes lots of panel shifts
-  //   // in.shp.rightPanel.shape_choice.select(foil.id);
-  //   // in.cyl.rightPanel.shape_choice.select(foil.id);
+  //   // in.shp.rightPanel.shape_choice.setSelectedIndex(foil.id);
+  //   // in.cylShape.rightPanel.shape_choice.setSelectedIndex(foil.id);
   // 
   //   v1 = current_part.chord;
   //   chrd_min = 0.1*lconv;   chrd_max = 20.1*lconv;
@@ -2311,8 +2376,8 @@ public class FoilBoard extends  Applet {
   //   // in.flt.o1.setText(""+Double.valueOf(in.flt.o1.getText()) /lconv);
   //   // in.flt.o3.setText(""+Double.valueOf(in.flt.o3.getText()) / lconv);
   // 
-  //   in.cyl.leftPanel.f2.setText(String.valueOf(fl6));
-  //   in.cyl.leftPanel.f3.setText(String.valueOf(fl2));
+  //   in.cylShape.leftPanel.f2.setText(String.valueOf(fl6));
+  //   in.cylShape.leftPanel.f3.setText(String.valueOf(fl2));
   //  
   //   i1 = (int) (((v1 - chrd_min)/(chrd_max-chrd_min))*1000.);
   //   i2 = (int) (((v2 - span_min)/(span_max-span_min))*1000.);
@@ -2322,17 +2387,17 @@ public class FoilBoard extends  Applet {
   //   i6 = (int) (((v6 - rad_min)/(rad_max-rad_min))*1000.);
   // 
   // 
-  //   in.size.rightPanel.sld1.s1.setValue(i1);
-  //   in.size.rightPanel.sld2.s2.setValue(i2);
-  //   in.size.rightPanel.sld3.s3.setValue(i3);
+  //   in.size.rightPanel.chord_SB.s1.setValue(i1);
+  //   in.size.rightPanel.span_SB.s2.setValue(i2);
+  //   in.size.rightPanel.area_SB.s3.setValue(i3);
   //   in.flt.s1.setValue(i4);
   //   in.flt.sAoA.setValue((int) (((craft_pitch - ang_min)/(ang_max-ang_min))*1000.));
   //   double tmp2  = in.flt.sAoA.getValue() * (ang_max - ang_min)/ 1000. + ang_min;
   //   System.out.println("-- tmp2: " + tmp2);
   // 
   //   // in.flt.s2.setValue(i5);
-  //   in.cyl.rightPanel.s2.setValue(i6);
-  //   in.cyl.rightPanel.s3.setValue(i2);
+  //   in.cylShape.rightPanel.s2.setValue(i6);
+  //   in.cylShape.rightPanel.s3.setValue(i2);
   //   //  non-dimensional
   //   v1 = current_part.camber;
   //   v2 = current_part.thickness;
@@ -2347,7 +2412,7 @@ public class FoilBoard extends  Applet {
   //   in.shp.leftPanel.f_camber.setText(String.valueOf(fl1));
   //   in.shp.leftPanel.f_thickness.setText(String.valueOf(fl2));
   //   in.shp.leftPanel.f_angle.setText(String.valueOf(fl3));
-  //   in.cyl.leftPanel.f1.setText(String.valueOf(fl4));
+  //   in.cylShape.leftPanel.f1.setText(String.valueOf(fl4));
   // 
   //   i1 = (int) (((v1 - ca_min)/(ca_max-ca_min))*1000.);
   //   i2 = (int) (((v2 - thk_min)/(thk_max-thk_min))*1000.);
@@ -2357,7 +2422,7 @@ public class FoilBoard extends  Applet {
   //   in.shp.rightPanel.s1.setValue(i1);
   //   in.shp.rightPanel.s2.setValue(i2);
   //   in.shp.rightPanel.s3.setValue(i3);
-  //   in.cyl.rightPanel.s1.setValue(i4);
+  //   in.cylShape.rightPanel.s1.setValue(i4);
   // 
   //   computeFlowAndRegenPlot();
   //   if (can_do_gui_updates)
@@ -2461,7 +2526,7 @@ public class FoilBoard extends  Applet {
 
     // 1a. cimpute lift
     if (!foil_is_cylinder_or_ball(current_part.foil)) { 
- 
+
       // Lift force
       // Legacy converion: first we produce lift in lbs, then convert to N
       // lift = current_part.cl * q0_EN * area / lconv / lconv; 
@@ -2469,11 +2534,11 @@ public class FoilBoard extends  Applet {
       // double lift_si = current_part.cl * 0.5 * 1027 * velocity * velocity * 0.277778 * 0.277778 * area;
         
       double force_k = q0_SI * eff_area_k * current_part.area;
-
       current_part.lift = current_part.cl * force_k;
       current_part.moment = current_part.cm * force_k * current_part.chord; // according to Gudmundsson, "General Aviation..", App C1
     }
     else { // cylinder and ball
+
       // note: legacy 'conv' style....
       current_part.lift = rho_EN * velocity/vconv * solver.gamval * velocity/vconv * current_part.span/lconv; // lift lbs
       if (current_part.foil == FOIL_BALL) 
@@ -2482,6 +2547,7 @@ public class FoilBoard extends  Applet {
       current_part.lift *= fconv;
       current_part.cl = (current_part.lift/fconv) / ( q0_EN *  current_part.area/lconv/lconv);
     }
+
 
     // 1b. compute drag and adjust
     {
@@ -2528,6 +2594,7 @@ public class FoilBoard extends  Applet {
 
     // part 2. update GUI
 
+
     if (can_do_gui_updates) {
       con.outlft_setText((lftout == 1)
                          ? // Cl
@@ -2544,6 +2611,11 @@ public class FoilBoard extends  Applet {
 
       con.outLD_setText(pprint(filter1(liftOverDrag)));
       con.outReynolds_setText(pprint(filter0(current_part.reynolds)));
+
+      // TODO: maybe minimize re-update more? This can be placed in
+      // spots that directly afftect the data (parts geom, VPP targets etc)
+      
+      out.perfweb.updateReport(); 
     }
 
 
@@ -4881,7 +4953,7 @@ public class FoilBoard extends  Applet {
   class VPP {     // Velocity Prediction Procedures aka VPP
     boolean trace;
     void trace (String msg) {
-      if (trace) System.out.println("--   " + msg);
+      if (trace) System.out.println("-- VPP trace: " + msg);
     }
 
     // for heading angle estimate, symmetric airfoil. That is, returns AoA of the mast the mast must 
@@ -5100,7 +5172,7 @@ public class FoilBoard extends  Applet {
       double min_drag = 10000.0;
       double step = 2;
       for (int count = 0; count < 10000; count++) {
-        System.out.println("-- velocity: " + velocity + " step: " + step);
+        trace("velocity: " + velocity + " step: " + step);
         steady_flight_at_given_speed(5, 0);
         double total_drag = total_drag();
         double total_lift = total_lift();
@@ -5129,7 +5201,7 @@ public class FoilBoard extends  Applet {
       double step = -10;
       velocity = start_speed;
       for (int count = 0; count < 10000; count++) {
-        System.out.println("-- velocity: " + velocity + " step: " + step);
+        trace("velocity: " + velocity + " step: " + step);
         steady_flight_at_given_speed(5, 0);
         double total_drag = total_drag();
         double total_lift = total_lift();
@@ -5157,7 +5229,7 @@ public class FoilBoard extends  Applet {
       double min_drag_speed = -1;
       for (double speed = start_speed; speed < v_max; speed += 0.5) {
         velocity = speed;
-        System.out.println("-- velocity: " + velocity);
+        trace("velocity: " + velocity);
         for (pitch = 0; pitch <= ang_max; pitch += 0.1) {
           craft_pitch = pitch;
           //computeFlowAndRegenPlotAndAdjust();
@@ -5378,20 +5450,20 @@ public class FoilBoard extends  Applet {
 
   class Controls extends Panel {
     FoilBoard app;
-    Label l1,l2,blank,pitchMomentLabel,liftOverDrag,reynoldsLabel,FSlabel, lbl_cg_pos;
+    JLabel l1,l2,blank,pitchMomentJLabel,liftOverDrag,reynoldsJLabel,FSlabel, lbl_cg_pos;
     double cg_pos, cg_pos_board_level;
-    Choice outch,dragOutputCh,untch;
+    JComboBox outch,dragOutputCh,untch;
 
-    TextField outlft_wing, outlft_stab, outlft_strut, outlft_fuse;
-    TextField outDrag_wing, outDrag_stab, outDrag_strut, outDrag_fuse;
-    TextField outLD_wing,outLD_stab,outLD_strut,outLD_fuse;
-    TextField outReynolds_wing, outReynolds_stab, outReynolds_strut, outReynolds_fuse;
+    JTextField outlft_wing, outlft_stab, outlft_strut, outlft_fuse;
+    JTextField outDrag_wing, outDrag_stab, outDrag_strut, outDrag_fuse;
+    JTextField outLD_wing,outLD_stab,outLD_strut,outLD_fuse;
+    JTextField outReynolds_wing, outReynolds_stab, outReynolds_strut, outReynolds_fuse;
 
-    TextField[] outlft_arr, outDrag_arr, outLD_arr, outReynolds_arr;
+    JTextField[] outlft_arr, outDrag_arr, outLD_arr, outReynolds_arr;
 
-    TextField outTotalLift, outTotalDrag, outCGPosition, outPower, outTotalLDRatio;
+    JTextField outTotalLift, outTotalDrag, outCGPosition, outPower, outTotalLDRatio;
 
-    TextField outMoment; // add mements????
+    JTextField outMoment; // add mements????
 
     Button bt3,ibt_flight,ibt_shape,ibt_size,ibt_sel_plot,ibt_analysis, ibt_env;
     Button[] all_inputs;
@@ -5459,16 +5531,16 @@ public class FoilBoard extends  Applet {
       if (can_do_gui_updates) out.plot.loadPlot();
     }
 
-    Label addLabel (String text, Color fg, Color bg, int align) {
-      Label lb = new Label(text, align);
+    JLabel addJLabel (String text, Color fg, Color bg, int align) {
+      JLabel lb = new JLabel(text, align);
       if (fg != null) lb.setForeground(fg);
       if (bg != null) lb.setBackground(bg);
       add(lb);
       return lb;
     }
 
-    TextField addOutput () {
-      TextField out = new TextField("12.5",5);
+    JTextField addOutput () {
+      JTextField out = new JTextField("12.5",5);
       out.setBackground(color_very_dark);
       out.setForeground(Color.yellow);
       out.setEditable(false);
@@ -5477,43 +5549,43 @@ public class FoilBoard extends  Applet {
     }
 
     void outlft_setText (String text) {
-      TextField tf;
+      JTextField tf;
       if (current_part == wing) tf = outlft_wing;
       else if (current_part == stab) tf = outlft_stab;
       else if (current_part == strut) tf = outlft_strut;
       else tf = outlft_fuse;
       tf.setText(text);
-      for (TextField f : outlft_arr) f.setForeground(f == tf ? Color.YELLOW : Color.WHITE);
+      for (JTextField f : outlft_arr) f.setForeground(f == tf ? Color.YELLOW : Color.WHITE);
     }
    
     void outDrag_setText (String text) {
-      TextField tf;
+      JTextField tf;
       if (current_part == wing) tf = outDrag_wing;
       else if (current_part == stab) tf = outDrag_stab;
       else if (current_part == strut) tf = outDrag_strut;
       else tf = outDrag_fuse;
       tf.setText(text);
-      for (TextField f : outDrag_arr) f.setForeground(f == tf ? Color.YELLOW : Color.WHITE);
+      for (JTextField f : outDrag_arr) f.setForeground(f == tf ? Color.YELLOW : Color.WHITE);
     }
 
     void outLD_setText (String text) {
-      TextField tf;
+      JTextField tf;
       if (current_part == wing) tf = outLD_wing;
       else if (current_part == stab) tf = outLD_stab;
       else if (current_part == strut) tf = outLD_strut;
       else tf = outLD_fuse;
       tf.setText(text);
-      for (TextField f : outLD_arr) f.setForeground(f == tf ? Color.YELLOW : Color.WHITE);
+      for (JTextField f : outLD_arr) f.setForeground(f == tf ? Color.YELLOW : Color.WHITE);
     }
    
     void outReynolds_setText (String text) {
-      TextField tf;
+      JTextField tf;
       if (current_part == wing) tf = outReynolds_wing;
       else if (current_part == stab) tf = outReynolds_stab;
       else if (current_part == strut) tf = outReynolds_strut;
       else tf = outReynolds_fuse;
       tf.setText(text);
-      for (TextField f : outReynolds_arr) f.setForeground(f == tf ? Color.YELLOW : Color.WHITE);
+      for (JTextField f : outReynolds_arr) f.setForeground(f == tf ? Color.YELLOW : Color.WHITE);
     }
 
     void bt_action_switch_to_part (Button bt, Part part) {
@@ -5523,8 +5595,8 @@ public class FoilBoard extends  Applet {
         part_button.setBackground(Color.yellow);
         switch_to_part(part);
         current_part.foil.adjust_foil_shape_in_tab();
-        in.load_current_panel();
-        out.plot.loadPlot();
+        //ttbt in.load_current_panel();
+        //ttbt out.plot.loadPlot();
       }    
     }
 
@@ -5534,9 +5606,9 @@ public class FoilBoard extends  Applet {
       app = target;
       setLayout(new GridLayout(9,/*ignored!*/0,5,5));
 
-      // l1 = new Label("Output", Label.RIGHT);
+      // l1 = new JLabel("Output", JLabel.RIGHT);
       // l1.setForeground(Color.red);
-      // l2 = new Label("Input", Label.CENTER);
+      // l2 = new JLabel("Input", JLabel.CENTER);
       // l2.setForeground(Color.blue);
 
 
@@ -5551,7 +5623,7 @@ public class FoilBoard extends  Applet {
           }});
 
 
-      untch = new Choice();
+      untch = new JComboBox();
       untch.setBackground(Color.white);
       untch.setForeground(color_very_dark);
       untch.addItem("Imperial");
@@ -5559,7 +5631,7 @@ public class FoilBoard extends  Applet {
       untch.addItem("Metric kg/kmh");
       untch.addItem("Naval");
       untch.addItem("Imperial ft");
-      untch.select(0);
+      untch.setSelectedIndex(0);
       untch.addActionListener(new ActionListener() {
           public void actionPerformed(ActionEvent arg0) {
             display_units = untch.getSelectedIndex();
@@ -5569,13 +5641,13 @@ public class FoilBoard extends  Applet {
           }
         });
 
-      outch = new Choice();
+      outch = new JComboBox();
       outch.setBackground(Color.white);
       outch.setForeground(color_very_dark);
       outch.addItem("Lift ");
       outch.addItem("  Cl ");
       outch.addItem("Total Lift");
-      outch.select(0);
+      outch.setSelectedIndex(0);
       outch.addActionListener(new ActionListener() {
           public void actionPerformed(ActionEvent arg0) {
             lftout = outch.getSelectedIndex();
@@ -5584,12 +5656,12 @@ public class FoilBoard extends  Applet {
           }
         });
 
-      dragOutputCh = new Choice();
+      dragOutputCh = new JComboBox();
       dragOutputCh.setBackground(Color.white);
       dragOutputCh.setForeground(color_very_dark);
       dragOutputCh.addItem("Drag");
       dragOutputCh.addItem(" Cd ");
-      dragOutputCh.select(0);
+      dragOutputCh.setSelectedIndex(0);
       dragOutputCh.addActionListener(new ActionListener() {
           public void actionPerformed(ActionEvent arg0) {
             dragOut = dragOutputCh.getSelectedIndex();
@@ -5598,36 +5670,36 @@ public class FoilBoard extends  Applet {
           }
         });
 
-      pitchMomentLabel = new Label("Cm",Label.RIGHT);
+      pitchMomentJLabel = new JLabel("Cm",JLabel.RIGHT);
  
-      liftOverDrag = new Label("L/D ratio",Label.RIGHT);
+      liftOverDrag = new JLabel("L/D ratio",JLabel.RIGHT);
       liftOverDrag.setForeground(color_very_dark);
 
-      reynoldsLabel = new Label("Reynolds #", Label.RIGHT);
-      reynoldsLabel.setForeground(color_very_dark);
+      reynoldsJLabel = new JLabel("Reynolds #", JLabel.RIGHT);
+      reynoldsJLabel.setForeground(color_very_dark);
 
 
       // row 1 
 
 
-      addLabel("Kite/Wind Foil", Color.red, null, Label.RIGHT);
-      addLabel("Simulator v1.0", Color.red, null, Label.LEFT);
+      addJLabel("Kite/Wind Foil", Color.red, null, JLabel.RIGHT);
+      addJLabel("Simulator v1.0", Color.red, null, JLabel.LEFT);
       // doe snot fit in 1
-      // addLabel(t_foil_name, null, null, Label.RIGHT);
-      addLabel(make_name, null, null, Label.RIGHT);
-      addLabel(model_name, null, null, Label.RIGHT);
-      addLabel(year_etc, null, null, Label.RIGHT);
+      // addJLabel(t_foil_name, null, null, JLabel.RIGHT);
+      addJLabel(make_name, null, null, JLabel.RIGHT);
+      addJLabel(model_name, null, null, JLabel.RIGHT);
+      addJLabel(year_etc, null, null, JLabel.RIGHT);
 
 
       // add(l2);
-      // add(new Label("Student ", Label.RIGHT));
-      // add(new Label(" Version 1.5b", Label.LEFT));
+      // add(new JLabel("Student ", JLabel.RIGHT));
+      // add(new JLabel(" Version 1.5b", JLabel.LEFT));
       // add(l1);
 
       // row 2
       {
 
-        addLabel("Foil part:", null, null, Label.RIGHT);
+        addJLabel("Foil part:", null, null, JLabel.RIGHT);
         
         final Button bt_strut = new_button("Mast");
         part_button = bt_strut;
@@ -5677,14 +5749,14 @@ public class FoilBoard extends  Applet {
       outlft_stab = addOutput();
       outlft_strut = addOutput();
       outlft_fuse = addOutput();
-      outlft_arr = new TextField[]{outlft_wing, outlft_stab, outlft_strut, outlft_fuse};
+      outlft_arr = new JTextField[]{outlft_wing, outlft_stab, outlft_strut, outlft_fuse};
 
       add(dragOutputCh);
       outDrag_wing = addOutput();
       outDrag_stab = addOutput();
       outDrag_strut = addOutput();
       outDrag_fuse  = addOutput();
-      outDrag_arr = new TextField[]{outDrag_wing, outDrag_stab, outDrag_strut, outDrag_fuse};
+      outDrag_arr = new JTextField[]{outDrag_wing, outDrag_stab, outDrag_strut, outDrag_fuse};
 
       // outlft_strut.addMouseListener(new java.awt.event.MouseAdapter() {
       //     @Override
@@ -5710,55 +5782,55 @@ public class FoilBoard extends  Applet {
       outLD_stab = addOutput();
       outLD_strut = addOutput();
       outLD_fuse = addOutput();
-      outLD_arr  = new TextField[]{outLD_wing,outLD_stab,outLD_strut,outLD_fuse};
+      outLD_arr  = new JTextField[]{outLD_wing,outLD_stab,outLD_strut,outLD_fuse};
 
       // row 6
-      add(reynoldsLabel);
+      add(reynoldsJLabel);
       outReynolds_wing = addOutput();
       outReynolds_stab = addOutput();
       outReynolds_strut = addOutput();
       outReynolds_fuse = addOutput();
-      outReynolds_arr  = new TextField[]{outReynolds_wing, outReynolds_stab, outReynolds_strut, outReynolds_fuse};
+      outReynolds_arr  = new JTextField[]{outReynolds_wing, outReynolds_stab, outReynolds_strut, outReynolds_fuse};
 
       
       // row 7. Panel tab coplot_trace_countols. output coplot_trace_countols
 
-      addLabel("Units: ", null, null, Label.RIGHT);
+      addJLabel("Units: ", null, null, JLabel.RIGHT);
       add(untch);
       add(bt3);
 
       boolean want_matte_border = false;
 
       if (want_matte_border) {
-        javax.swing.JLabel jlbl = new javax.swing.JLabel("Total Lift", javax.swing.JLabel.RIGHT);
+        JLabel jlbl = new JLabel("Total Lift", JLabel.RIGHT);
         jlbl.setBorder(javax.swing.BorderFactory.createMatteBorder(1, 1, 0, 0, color_very_dark));
         add(jlbl);
       } else
-        addLabel("Total Lift", null, null, Label.RIGHT);
+        addJLabel("Total Lift", null, null, JLabel.RIGHT);
 
       outTotalLift = addOutput();
 
 
       // row 8
-      add(new Label("Total L/D"));
+      add(new JLabel("Total L/D"));
       outTotalLDRatio = addOutput();
-      add(new Label(""));
+      add(new JLabel(""));
 
       if (want_matte_border) {
-        javax.swing.JLabel jlbl = new javax.swing.JLabel("Total Drag", javax.swing.JLabel.RIGHT);
+        JLabel jlbl = new JLabel("Total Drag", JLabel.RIGHT);
         jlbl.setBorder(javax.swing.BorderFactory.createMatteBorder(0, 1, 1, 0, color_very_dark));
         add(jlbl);
       } else
-        addLabel("Total Drag", null, null, Label.RIGHT);
+        addJLabel("Total Drag", null, null, JLabel.RIGHT);
 
       outTotalDrag = addOutput();
 
       // row 9 
-      add(new Label("Power"));
+      add(new JLabel("Power"));
       outPower = addOutput();
-      add(new Label(""));
+      add(new JLabel(""));
 
-      lbl_cg_pos = addLabel("CG to Mast LE", null, null, Label.RIGHT);
+      lbl_cg_pos = addJLabel("CG to Mast LE", null, null, JLabel.RIGHT);
       outCGPosition = addOutput();
 
       // row 8
@@ -5770,7 +5842,7 @@ public class FoilBoard extends  Applet {
 
       // row 9
       // add(ibt_analysis);
-      // addLabel("", null, null, Label.RIGHT);
+      // addJLabel("", null, null, JLabel.RIGHT);
       // add(bt_gages);
       // add(bt_plot);
     }
@@ -5778,14 +5850,12 @@ public class FoilBoard extends  Applet {
 
   } // Con
 
-  class In extends 
-           // Panel {
-           javax.swing.JTabbedPane {
+  class In extends javax.swing.JTabbedPane {
     FoilBoard app;
     Flight flt;
     Shape shp;
     Size size;
-    Cyl cyl;
+    BallCylinderShape cylShape;
     PlotSelectorTab grf;
     Anl anl;
     Env env;
@@ -5806,7 +5876,7 @@ public class FoilBoard extends  Applet {
       flt = new Flight(app);
       shp = new Shape(app);
       size = new Size(app);       
-      cyl = new Cyl(app);
+      cylShape = new BallCylinderShape(app);
       grf = new PlotSelectorTab(app);
       anl = new Anl(app);
       env = new Env(app);
@@ -5815,7 +5885,7 @@ public class FoilBoard extends  Applet {
           flt,
             shp,
             size,  
-            cyl,
+            cylShape,
             grf,
             anl,
             env
@@ -5826,8 +5896,12 @@ public class FoilBoard extends  Applet {
       addTab(size, "Size", "Size Panel");
       addTab(grf, "Choose Plot", "Select Plot Panel");
       addTab(anl, "Options", "Settings Panel");
+
+      // not really useful for Hydrofoiling board...
       addTab(env, "Env", "Environment Panel");
-      // addTab(cyl, "Ball", "cylinder-or-ball-shape-panel");
+
+      // not really useful for Hydrofoiling board...
+      addTab(cylShape, "Ball", "cylinder-or-ball-shape-panel");
 
       // can be used to attach aux logic here..
       this.addChangeListener(new javax.swing.event.ChangeListener() {
@@ -5856,8 +5930,8 @@ public class FoilBoard extends  Applet {
     }
 
     void toggle_shp_tab () {
-      if (in.indexOfComponent(cyl) > -1) 
-        in.remove(cyl);
+      if (in.indexOfComponent(cylShape) > -1) 
+        in.remove(cylShape);
       int idx = indexOfComponent(shp);
       if (idx < 0) 
         add(shp, idx=1); // right after Flight tab
@@ -5865,9 +5939,9 @@ public class FoilBoard extends  Applet {
     void toggle_cyl_tab () {
       if (in.indexOfComponent(shp) > -1) 
         in.remove(shp);
-      int idx = indexOfComponent(cyl);
+      int idx = indexOfComponent(cylShape);
       if (idx < 0) 
-        add(cyl, idx=1); // right after Flight tab
+        add(cylShape, idx=1); // right after Flight tab
     }
     
     void switch_to (Component c) {
@@ -5878,13 +5952,13 @@ public class FoilBoard extends  Applet {
       set_current();
     }
 
-    public void handleCho (Event evt) {
+    public void update_state () {
       for (Button b : shp.old_style_buttons) b.setBackground(Color.WHITE);
 
       if (current_part.foil == FOIL_CYLINDER || current_part.foil == FOIL_BALL) {
         current_part.aoa = 0.0;
         in.toggle_cyl_tab();
-        in.switch_to(cyl);
+        in.switch_to(cylShape);
         if (current_part.foil == FOIL_CYLINDER) {
           // in.anl.cbt1.setBackground(Color.white);
           // in.anl.cbt2.setBackground(Color.white);
@@ -5921,7 +5995,7 @@ public class FoilBoard extends  Applet {
         //in.anl.bt8.setBackground(Color.yellow);
       }
 
-      //in.cyl.rightPanel.shape_choice.select(foil.id);
+      //in.cylShape.rightPanel.shape_choice.setSelectedIndex(foil.id);
       //layout.show(out, "first");
       // con.bt_plot.setBackground(Color.yellow);
       // con.bt_probe.setBackground(Color.white);
@@ -5944,25 +6018,25 @@ public class FoilBoard extends  Applet {
       FoilBoard app;
       boolean autobalance = true;
 
-      class Name extends Label { 
-        Name(String text) { super(text, Label.RIGHT); }
+      class Name extends JLabel { 
+        Name(String text) { super(text, JLabel.RIGHT); }
         Name(String text, int align) { super(text, align); }
       }
 
       // Example: Speed,km/h [ 20] <-----x---->
       class NameBoxBar extends InputPanel{ 
         Name name;
-        TextField box;
-        Scrollbar bar;
+        JTextField box;
+        JScrollBar bar;
         NameBoxBar(Flight ft, String text, String val, double min, double max) { 
           name = new Name(text);
-          box = new TextField(val, 5);
+          box = new JTextField(val, 5);
           String[] input = val.trim().split("\\s+");
           double val_double = Double.parseDouble(input[0]);
           if (val_double < min) val_double = min;
           else if (val_double > max) val_double = max;
           int pos = (int) (((val_double - min)/(max- min))*1000.);
-          bar = new Scrollbar(Scrollbar.HORIZONTAL, pos ,10, 0, 1000);
+          bar = new JScrollBar(JScrollBar.HORIZONTAL, pos ,10, 0, 1000);
           Panel left = new Panel(new GridLayout(1,2,2,2));
           left.add(name);
           left.add(box);
@@ -5979,7 +6053,7 @@ public class FoilBoard extends  Applet {
       // Example:  Lift< [  735] Drag< [  85] {Find Lowest Takeoff Speed}
       class NameBoxNameBoxButton extends Panel{ 
         Name name1, name2;
-        TextField box1, box2;
+        JTextField box1, box2;
         Button button;
         Panel constraints, pair;
         NameBoxNameBoxButton(Flight ft, 
@@ -5987,10 +6061,10 @@ public class FoilBoard extends  Applet {
                              String text2, String prop2, String dflt2, 
                              String button_text, ActionListener action) { 
           name1 = new Name(" @ " + text1);
-          box1 = new TextField(getParamOrProp(prop1, dflt1), 5);
+          box1 = new JTextField(getParamOrProp(prop1, dflt1), 5);
 
           name2 = new Name(text2);
-          box2 = new TextField(getParamOrProp(prop2, dflt2), 5);
+          box2 = new JTextField(getParamOrProp(prop2, dflt2), 5);
 
           button = new Button(button_text);
           button.addActionListener(action);
@@ -6006,14 +6080,14 @@ public class FoilBoard extends  Applet {
         }
       }
 
-      TextField f1,fAoA;
+      JTextField f1,fAoA;
 
-      Scrollbar s1, sAoA;
-      javax.swing.JLabel constraints_label;
+      JScrollBar s1, sAoA;
+      JLabel constraints_label;
 
-      TextField tf_tkoff_min_lift, tf_tkoff_max_drag;
-      TextField tf_cruise_min_lift, tf_cruise_starting_speed;
-      TextField tf_race_min_lift, tf_race_max_drag;
+      JTextField tf_tkoff_min_lift, tf_tkoff_max_drag;
+      JTextField tf_cruise_min_lift, tf_cruise_starting_speed;
+      JTextField tf_race_min_lift, tf_race_max_drag;
 
       int constr_tkoff_min_lift, constr_tkoff_max_drag;
       int constr_cruise_min_lift, constr_cruise_starting_speed;
@@ -6108,6 +6182,7 @@ public class FoilBoard extends  Applet {
         speed_ctrl = new NameBoxBar(this, "Speed m/s",  "20.0", v_min, v_max);
         speed_ctrl.bar.addAdjustmentListener(new AdjustmentListener() {
             public void adjustmentValueChanged(AdjustmentEvent evt) {
+              if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
               if (on_load) return;
               int i1 = evt.getValue();
               float new_velocity = filter3(i1 * (v_max - v_min)/ 1000. + v_min);
@@ -6122,19 +6197,43 @@ public class FoilBoard extends  Applet {
                 con.recomp_all_parts();
 
               //  set limits on spin
-              if (foil_is_cylinder_or_ball(current_part.foil)) cyl.setLims();
+              if (foil_is_cylinder_or_ball(current_part.foil)) cylShape.setLims();
 
               //?speed_kts_mph_kmh_ms_info = make_speed_kts_mph_kmh_ms_info(velocity);
             }});
+        speed_ctrl.box.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+               double speed = Double.valueOf(f1.getText()).doubleValue();
+               speed = speed_input_in_display_units_to_kmh(speed, display_units);
+               speed = filter1or3(speed);
+               if (speed != velocity) {
+                 velocity = limit(v_min, speed, v_max);
+               speed_ctrl.box.setText(String.valueOf(speed));
 
-        f1 = speed_ctrl.box;
-        s1 = speed_ctrl.bar;
+               // i1 = (int) (((speed - v_min)/(v_max-v_min))*1000.);
+               // s1.setValue(i1);
+
+               //  set limits on spin
+               if (foil_is_cylinder_or_ball(current_part.foil)) cylShape.setLims();
+
+               if (autobalance)
+                 find_steady_conditions();
+               else 
+                 con.recomp_all_parts();
+               //?speed_kts_mph_kmh_ms_info = make_speed_kts_mph_kmh_ms_info(velocity);
+             }
+            } });
+        
+
+        f1 = speed_ctrl.box; // legacy..
+        s1 = speed_ctrl.bar; // legacy..
 
         // row 3
         rows++;
         alt_ctrl = new NameBoxBar(this, "Altitude %", "70", alt_min, alt_max);
         alt_ctrl.bar.addAdjustmentListener(new AdjustmentListener() {
             public void adjustmentValueChanged(AdjustmentEvent evt) {
+              if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
               if (on_load) return;
               float new_val = filter3(alt_ctrl.bar.getValue() * (alt_max - alt_min)/ 1000. + alt_min);
               if (new_val == alt) return;
@@ -6146,6 +6245,21 @@ public class FoilBoard extends  Applet {
               else 
                 con.recomp_all_parts();
             }});
+        alt_ctrl.box.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+              double new_val = Double.valueOf(alt_ctrl.box.getText()).doubleValue();
+              if (new_val != alt) {
+                alt = new_val;
+                //alt_ctrl.bar.setValue((int) (((alt - alt_min)/(alt_max-alt_min))*1000.));
+
+                if (autobalance)
+                  find_steady_conditions();
+                else 
+                  con.recomp_all_parts();
+
+                //?speed_kts_mph_kmh_ms_info = make_speed_kts_mph_kmh_ms_info(velocity);
+              }
+            }});
 
         // row 4
         rows++;
@@ -6153,6 +6267,7 @@ public class FoilBoard extends  Applet {
         load = Double.parseDouble(load_ctrl.box.getText());
         load_ctrl.bar.addAdjustmentListener(new AdjustmentListener() {
             public void adjustmentValueChanged(AdjustmentEvent evt) {
+              if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
               if (on_load) return;
 
               double new_val = filter1(load_ctrl.bar.getValue() * (load_max - load_min)/ 1000.);
@@ -6164,13 +6279,27 @@ public class FoilBoard extends  Applet {
               else 
                 con.recomp_all_parts();
             }});
-
+        load_ctrl.box.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+              double new_val = Double.valueOf(load_ctrl.box.getText()).doubleValue();
+              new_val = filter1(force_input_in_display_units_to_n(new_val, display_units));
+              new_val = limit(load_min, new_val, load_max);
+              if (new_val != load) {
+                load = new_val;
+                if (autobalance)
+                  find_steady_conditions();
+                else 
+                  con.recomp_all_parts();
+                //?speed_kts_mph_kmh_ms_info = make_speed_kts_mph_kmh_ms_info(velocity);
+              }
+            }}); 
 
         // row 2
         rows++;
         pitch_ctrl = new NameBoxBar(this, "Craft Pitch deg", "0.0", ang_min, ang_max);
         pitch_ctrl.bar.addAdjustmentListener(new AdjustmentListener() {
             public void adjustmentValueChanged(AdjustmentEvent evt) {
+              if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
               if (on_load) return;
               float new_pitch = filter3(evt.getValue() * (ang_max - ang_min)/ 1000. + ang_min);
               if (new_pitch == craft_pitch) return;
@@ -6183,12 +6312,24 @@ public class FoilBoard extends  Applet {
               con.recomp_all_parts();
               //? computeFlowAndRegenPlot();
             }});
+        pitch_ctrl.box.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+            double new_pitch = Double.valueOf(pitch_ctrl.box.getText()).doubleValue();
+            System.out.println("-- new_pitch: " + new_pitch);
+            if (new_pitch != craft_pitch) {
+              craft_pitch = new_pitch;
+              // sAoA.setValue((int) (((craft_pitch - ang_min)/(ang_max-ang_min))*1000.));
+              con.recomp_all_parts();
+              //?speed_kts_mph_kmh_ms_info = make_speed_kts_mph_kmh_ms_info(velocity);
+            }
+            }});
+
         sAoA = pitch_ctrl.bar;
         fAoA = pitch_ctrl.box;
 
 
         Panel p;
-        Checkbox chb;
+        JCheckBox chb;
 
         // row 6
         rows++;
@@ -6202,7 +6343,8 @@ public class FoilBoard extends  Applet {
             }});
         p.add(b); 
         // p.add(p = new Panel(new GridLayout(1,2,0,0)));
-        p.add(chb = new Checkbox("Autoadjust Pitch for Equilibrium", true));
+        p.add(chb = new JCheckBox("Autoadjust Pitch for Equilibrium", true));
+        chb.setToolTipText("Automatically adjust the craft pitch for level flight");
         chb.addItemListener(new ItemListener() {
             public void itemStateChanged(ItemEvent e) {             
               autobalance = e.getStateChange() == ItemEvent.SELECTED;
@@ -6210,8 +6352,8 @@ public class FoilBoard extends  Applet {
             }
           });
 
-        // p.add(new Label("trace"));
-
+        
+        // p.add(new JLabel("trace"));
         // row 5
         rows++;
 
@@ -6225,6 +6367,7 @@ public class FoilBoard extends  Applet {
           }
           mfp_ctrl.bar.addAdjustmentListener(new AdjustmentListener() {
               public void adjustmentValueChanged(AdjustmentEvent evt) {
+                if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
                 if (on_load) return;
 
                 float new_mfp = filter3(0.01*evt.getValue() * (35 - 0)/ 1000.);
@@ -6235,32 +6378,32 @@ public class FoilBoard extends  Applet {
               }});
         } else {
           
-        add(p = new Panel(new GridLayout(1,2,0,0)));
-        p.add(new Label(""));
-        p.add(chb = new Checkbox("Autoload Mast", false));
-        chb.addItemListener(new ItemListener() {
-            public void itemStateChanged(ItemEvent e) {             
-              vpp.set_mast_aoa_for_given_drag_auto  = e.getStateChange() == ItemEvent.SELECTED;
-              System.out.println("-- mast autolading is " + (vpp.set_mast_aoa_for_given_drag_auto ? "ON" : "OFF"));
-              if (!vpp.set_mast_aoa_for_given_drag_auto) strut.aoa = 0;
-              vpp.set_mast_aoa_for_given_drag(total_drag());
-              con.recomp_all_parts(); // just in case 
-              vpp.set_mast_aoa_for_given_drag(total_drag());
-              con.recomp_all_parts(); // just in case 
-              //vpp.steady_flight_at_given_speed(5, 0);
-            }
-          });              
+          add(p = new Panel(new GridLayout(1,2,0,0)));
+          p.add(new JLabel(""));
+          p.add(chb = new JCheckBox("Autoload Strut/Mast", false));
+          chb.setToolTipText("Automatically adjust foil mast/strut AoA to realistically load it accotding to current drag force");
+          chb.addItemListener(new ItemListener() {
+              public void itemStateChanged(ItemEvent e) {             
+                vpp.set_mast_aoa_for_given_drag_auto  = e.getStateChange() == ItemEvent.SELECTED;
+                System.out.println("-- mast autolading is " + (vpp.set_mast_aoa_for_given_drag_auto ? "ON" : "OFF"));
+                if (!vpp.set_mast_aoa_for_given_drag_auto) strut.aoa = 0;
+                vpp.set_mast_aoa_for_given_drag(total_drag());
+                con.recomp_all_parts(); // just in case 
+                vpp.set_mast_aoa_for_given_drag(total_drag());
+                con.recomp_all_parts(); // just in case 
+                //vpp.steady_flight_at_given_speed(5, 0);
+              }
+            });              
 
         }
 
-
         // row 7
         rows++;
-        add(new javax.swing.JLabel("\u2015\u2015\u2015\u2015\u2015\u2015   VELOCITY PREDICTION MODULE (a.k.a. VPP) \u2015\u2015\u2015\u2015\u2015\u2015", Label.CENTER));
+        add(new JLabel("\u2015\u2015\u2015\u2015\u2015\u2015   VELOCITY PREDICTION MODULE (a.k.a. VPP) \u2015\u2015\u2015\u2015\u2015\u2015", JLabel.CENTER));
 
         p = new Panel(new GridLayout(1,2,0,0));
-        p.add(new javax.swing.JLabel("    \u2193     Solvers     \u2193", Label.LEFT));
-        p.add(constraints_label = new javax.swing.JLabel("    \u2193    Constraints, in "+current_display_force_unit_string()+"    \u2193", Label.LEFT));
+        p.add(new JLabel("    \u2193     Solvers     \u2193", JLabel.LEFT));
+        p.add(constraints_label = new JLabel("    \u2193    Constraints, in "+current_display_force_unit_string()+"    \u2193", JLabel.LEFT));
         // row 8
         rows++;
         add(p);
@@ -6390,7 +6533,7 @@ public class FoilBoard extends  Applet {
 
 
         Panel bottom = new Panel(new GridLayout(1,2,2,2));
-        bottom.add(new Label(""));
+        bottom.add(new JLabel(""));
 
         Panel buttons = new Panel(new GridLayout(1,2,2,10));
 
@@ -6405,7 +6548,7 @@ public class FoilBoard extends  Applet {
             }});
         
 
-        buttons.add(chb = new Checkbox("Trace", false));
+        buttons.add(chb = new JCheckBox("Trace", false));
         chb.addItemListener(new ItemListener() {
             public void itemStateChanged(ItemEvent e) {             
               vpp.trace = e.getStateChange() == ItemEvent.SELECTED;
@@ -6413,16 +6556,16 @@ public class FoilBoard extends  Applet {
             }
           });
 
-        // currently exclude these
-        // row 12
+        // att: currently exclude these
+        // // row 12
         // rows++;
-        //add(bottom);
+        // add(bottom);
 
         // done!
         setLayout(new GridLayout(rows,1,2,2));
       }
 
-      boolean separate_suffix (String val, TextField tf, String suff) {
+      boolean separate_suffix (String val, JTextField tf, String suff) {
         if (val.endsWith(suff)) { 
           tf.setText(val.replace(suff, " " + suff));
           return true;
@@ -6431,13 +6574,13 @@ public class FoilBoard extends  Applet {
       }
 
       // no suffix mode
-      double parse_force_constraint (TextField tf, String prop_name, String dflt) {
+      double parse_force_constraint (JTextField tf, String prop_name, String dflt) {
         return force_input_in_display_units_to_n(tf, display_units);
       }
 
       // for convenience, allow user to enter units here
       // todo: respect current unit mode.
-      double parse_force_constraint_with_suffix (TextField tf, String prop_name, String dflt) {
+      double parse_force_constraint_with_suffix (JTextField tf, String prop_name, String dflt) {
         String[] input = tf.getText().trim().split("\\s+");
         switch (input.length) {
         case 0: 
@@ -6473,7 +6616,7 @@ public class FoilBoard extends  Applet {
         }
       }
 
-      double parse_speed_constraint (TextField tf, String prop_name, String dflt) {
+      double parse_speed_constraint (JTextField tf, String prop_name, String dflt) {
         String[] input = tf.getText().trim().split("\\s+");
         switch (input.length) {
         case 0: 
@@ -6525,98 +6668,9 @@ public class FoilBoard extends  Applet {
         else if (unit.startsWith("mm")) return 0.001*val;
         else return val;
       }
-
-      @Override
-      public boolean handleEvent (Event evt) {
-        // System.out.println("-- evt: " + evt);
-
-        Double V2,V3;
-        double v2,v3;
-        int i1,i2,i3;
-
-        switch (evt.id)  {
-        case Event.ACTION_EVENT : 
-
-          if (evt.target == f1) {
-            double speed = Double.valueOf(f1.getText()).doubleValue();
-            speed = speed_input_in_display_units_to_kmh(speed, display_units);
-            speed = filter1or3(speed);
-            if (speed != velocity) {
-              velocity = limit(v_min, speed, v_max);
-              f1.setText(String.valueOf(speed));
-    
-              // i1 = (int) (((speed - v_min)/(v_max-v_min))*1000.);
-              // s1.setValue(i1);
-
-              //  set limits on spin
-              if (foil_is_cylinder_or_ball(current_part.foil)) cyl.setLims();
-
-              if (autobalance)
-                find_steady_conditions();
-              else 
-                con.recomp_all_parts();
-              //?speed_kts_mph_kmh_ms_info = make_speed_kts_mph_kmh_ms_info(velocity);
-            }
-            return true;
-          } else if (evt.target == fAoA) {
-            double new_pitch = Double.valueOf(fAoA.getText()).doubleValue();
-            System.out.println("-- new_pitch: " + new_pitch);
-            if (new_pitch != craft_pitch) {
-              craft_pitch = new_pitch;
-              // sAoA.setValue((int) (((craft_pitch - ang_min)/(ang_max-ang_min))*1000.));
-              con.recomp_all_parts();
-              //?speed_kts_mph_kmh_ms_info = make_speed_kts_mph_kmh_ms_info(velocity);
-              return true;
-            }
-          } else if (evt.target == alt_ctrl.box) {
-            double new_val = Double.valueOf(alt_ctrl.box.getText()).doubleValue();
-            if (new_val != alt) {
-              alt = new_val;
-              //alt_ctrl.bar.setValue((int) (((alt - alt_min)/(alt_max-alt_min))*1000.));
-
-              if (autobalance)
-                find_steady_conditions();
-              else 
-                con.recomp_all_parts();
-
-              //?speed_kts_mph_kmh_ms_info = make_speed_kts_mph_kmh_ms_info(velocity);
-              return true;
-            }
-          } else if (evt.target == load_ctrl.box) {
-            double new_val = Double.valueOf(load_ctrl.box.getText()).doubleValue();
-            new_val = filter1(force_input_in_display_units_to_n(new_val, display_units));
-            new_val = limit(load_min, new_val, load_max);
-            if (new_val != load) {
-              load = new_val;
-              if (autobalance)
-                find_steady_conditions();
-              else 
-                con.recomp_all_parts();
-              //?speed_kts_mph_kmh_ms_info = make_speed_kts_mph_kmh_ms_info(velocity);
-              return true;
-            }
-          } 
-
-          return false;
-        case Event.SCROLL_LINE_UP:
-        case Event.SCROLL_LINE_DOWN:
-        case Event.SCROLL_PAGE_UP: 
-        case Event.SCROLL_PAGE_DOWN:
-        case Event.SCROLL_ABSOLUTE:
-        case Event.SCROLL_BEGIN:
-        case Event.SCROLL_END:
-          return true;
-        default: 
-          return false;
-        }
-      }
-
-      public void handleBar (Event evt) {
-        System.out.println("-- Flight,handleBar: should not be called any more");
-      } // handle bar
     }  // Flight
 
-    class Env extends Panel {
+    class Env extends Panel { // currently now shown to simplify UI
       FoilBoard app;
       LeftPanel leftPanel;
       RightPanel rightPanel;
@@ -6640,35 +6694,40 @@ public class FoilBoard extends  Applet {
 
       class LeftPanel extends Panel {
         FoilBoard app;
-        TextField f2, o1,o3, o5;
-        Label l2, la1,la2;
-        Label lo1,lo3,lo5;
+        JTextField f2, o1,o3, o5;
+        JLabel l2, la1,la2;
+        JLabel lo1,lo3,lo5;
+
+        void add(JTextField tf, ActionListener al) {
+          super.add(tf);
+          tf.addActionListener(actionHandler);
+        }
      
         LeftPanel (FoilBoard target) {
     
           app = target;
           setLayout(new GridLayout(7,2,2,10));
 
-          la1 = new Label("Environmental", Label.RIGHT);
+          la1 = new JLabel("Environmental", JLabel.RIGHT);
           la1.setForeground(Color.blue);
-          la2 = new Label("Settings", Label.LEFT);
+          la2 = new JLabel("Settings", JLabel.LEFT);
           la2.setForeground(Color.blue);
 
-          l2 = new Label("Altitude ft", Label.CENTER);
-          f2 = new TextField("0.0",5);
+          l2 = new JLabel("Altitude ft", JLabel.CENTER);
+          f2 = new JTextField("0.0",5);
 
-          lo1 = new Label("Press lb/in2", Label.CENTER);
-          o1 = new TextField("0.0",5);
+          lo1 = new JLabel("Press lb/in2", JLabel.CENTER);
+          o1 = new JTextField("0.0",5);
           o1.setBackground(color_very_dark);
           o1.setForeground(Color.yellow);
 
-          lo3 = new Label("Dens slug/ft3", Label.CENTER);
-          o3 = new TextField("0.00027",5);
+          lo3 = new JLabel("Dens slug/ft3", JLabel.CENTER);
+          o3 = new JTextField("0.00027",5);
           o3.setBackground(color_very_dark);
           o3.setForeground(Color.yellow);
 
-          lo5 = new Label("Dyn Press lb/ft2", Label.CENTER);
-          o5 = new TextField("100.",5);
+          lo5 = new JLabel("Dyn Press lb/ft2", JLabel.CENTER);
+          o5 = new JTextField("100.",5);
           o5.setBackground(color_very_dark);
           o5.setForeground(Color.yellow);
 
@@ -6689,85 +6748,79 @@ public class FoilBoard extends  Applet {
 
         }
 
-        public boolean handleEvent(Event evt) {
-          Double V2,V3;
-          double v2,v3;
-          float fl1;
-          int i1,i2,i3;
-          boolean recomp_all_parts = false;
+        ActionListener actionHandler = new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+              Double V2,V3;
+              double v2,v3;
+              float fl1;
+              int i1,i2,i3;
 
+              V2 = Double.valueOf(f2.getText());
+              v2 = V2.doubleValue();
 
-          if (evt.id == Event.ACTION_EVENT) {
-            V2 = Double.valueOf(f2.getText());
-            v2 = V2.doubleValue();
-
-            alt = v2;
-            if (v2 < alt_min) {
-              alt = v2 = alt_min;
-              fl1 = (float) v2;
-              f2.setText(String.valueOf(fl1));
-            }
-            if (v2 > alt_max) {
-              alt = v2 = alt_max;
-              fl1 = (float) v2;
-              f2.setText(String.valueOf(fl1));
-            }
+              alt = v2;
+              if (v2 < alt_min) {
+                alt = v2 = alt_min;
+                fl1 = (float) v2;
+                f2.setText(String.valueOf(fl1));
+              }
+              if (v2 > alt_max) {
+                alt = v2 = alt_max;
+                fl1 = (float) v2;
+                f2.setText(String.valueOf(fl1));
+              }
     
-            // i2 = (int) (((v2 - alt_min)/(alt_max-alt_min))*1000.);
-            // rightPanel.altitude.setValue(i2);
+              // i2 = (int) (((v2 - alt_min)/(alt_max-alt_min))*1000.);
+              // rightPanel.altitude.setValue(i2);
 
-            if (planet == 3) {    // read in the pressure
-              double pressure = Double.valueOf(o1.getText()).doubleValue();
-              ps0 = pressure /pconv * 2116.;
-              if (ps0 < .5) {
-                ps0 = .5;
-                pressure = ps0 / 2116. * pconv;
-                fl1 = (float) pressure;
-                o1.setText(String.valueOf(fl1));
+              if (planet == 3) {    // read in the pressure
+                double pressure = Double.valueOf(o1.getText()).doubleValue();
+                ps0 = pressure /pconv * 2116.;
+                if (ps0 < .5) {
+                  ps0 = .5;
+                  pressure = ps0 / 2116. * pconv;
+                  fl1 = (float) pressure;
+                  o1.setText(String.valueOf(fl1));
+                }
+                if (ps0 > 5000.) {
+                  ps0 = 5000.;
+                  pressure = ps0 / 2116. * pconv;
+                  fl1 = (float) pressure;
+                  o1.setText(String.valueOf(fl1));
+                }
               }
-              if (ps0 > 5000.) {
-                ps0 = 5000.;
-                pressure = ps0 / 2116. * pconv;
-                fl1 = (float) pressure;
-                o1.setText(String.valueOf(fl1));
+
+              if (planet == 4) {    // read in the density
+                double density = Double.valueOf(o3.getText()).doubleValue();
+                rho_EN = density;
+                if (lunits == METRIC) rho_EN = density / 515.378819;
+                if (rho_EN < .000001) {
+                  rho_EN = .000001;
+                  density = rho_EN;
+                  if (lunits == METRIC) density = rho_EN * 515.4;
+                  fl1 = (float) density;
+                  o3.setText(String.valueOf(fl1));
+                }
+                if (rho_EN > 3.0) {
+                  rho_EN = 3.;
+                  density = rho_EN;
+                  if (lunits == METRIC) density = rho_EN * 515.4;
+                  fl1 = (float) density;
+                  o3.setText(String.valueOf(fl1));
+                }
+                rho_SI = 515.378819 * rho_EN;              
               }
-            }
 
-            if (planet == 4) {    // read in the density
-              double density = Double.valueOf(o3.getText()).doubleValue();
-              rho_EN = density;
-              if (lunits == METRIC) rho_EN = density / 515.378819;
-              if (rho_EN < .000001) {
-                rho_EN = .000001;
-                density = rho_EN;
-                if (lunits == METRIC) density = rho_EN * 515.4;
-                fl1 = (float) density;
-                o3.setText(String.valueOf(fl1));
-              }
-              if (rho_EN > 3.0) {
-                rho_EN = 3.;
-                density = rho_EN;
-                if (lunits == METRIC) density = rho_EN * 515.4;
-                fl1 = (float) density;
-                o3.setText(String.valueOf(fl1));
-              }
-              rho_SI = 515.378819 * rho_EN;              
-            }
+              //  set limits on spin
+              if (foil_is_cylinder_or_ball(current_part.foil)) cylShape.setLims();
 
-            //  set limits on spin
-            if (foil_is_cylinder_or_ball(current_part.foil)) cyl.setLims();
-
-            con.recomp_all_parts();
-
-            return true;
-          }
-          else return false;
-        } // Handler
+              con.recomp_all_parts();
+            }}; // actionHandler
       }  // LeftPanel
 
       class RightPanel extends Panel {
         FoilBoard app;
-        Choice plntch;
+        JComboBox plntch;
         RightPanel2 rightPanel2;
         RightPanel3 rightPanel3;
         RightPanel6 rightPanel6;
@@ -6782,7 +6835,7 @@ public class FoilBoard extends  Applet {
           i2 = (int) (((0.0 - alt_min)/(alt_max-alt_min))*1000.);
           iAoA = (int) (((0.0 - ang_min)/(ang_max-ang_min))*1000.);
 
-          plntch = new Choice();
+          plntch = new JComboBox();
           plntch.addItem("Earth - Average Day");
           plntch.addItem("Mars - Average Day");
           plntch.addItem("Water-Const Density");
@@ -6791,311 +6844,250 @@ public class FoilBoard extends  Applet {
           plntch.addItem("Venus - Surface");
           plntch.setBackground(Color.white);
           plntch.setForeground(Color.blue);
-          plntch.select(0);
+          plntch.setSelectedIndex(0);
 
           rightPanel2 = new RightPanel2(app);
           rightPanel3 = new RightPanel3(app);
           rightPanel6 = new RightPanel6(app);
 
           add(plntch);
+          // System.out.println("-- planet: " + planet);
+          plntch.addActionListener(new ActionListener() {
+              public void actionPerformed(ActionEvent e) {
+
+                int i1,i2;
+                double v1,v2;
+                float fl1,fl2;
+
+                planet  = plntch.getSelectedIndex();
+                System.out.println("-- actionPerformed planet: " + planet);
+                new Exception().printStackTrace(System.out);
+
+                if (planet == 2) {
+                  velocity = 5.;
+                  vmax = 40.;
+                  if (lunits == 1) vmax = 60.;
+                  alt = 0.0;
+                  altmax = strut.span;
+                  current_part.area = 10.0;
+                  // armax = 50.;
+                }
+                else {
+                  vmax = 250.;
+                  if (lunits == 1) vmax = 400.;
+                  altmax = strut.span;
+                  // armax = 2500.;
+                }
+
+                if (planet == 0 || planet == 3) {
+                  rightPanel.rightPanel6.o6.setBackground(Color.white);
+                  rightPanel.rightPanel6.o6.setForeground(color_very_dark);
+                }
+                if (planet == 1 || planet == 2) {
+                  rightPanel.rightPanel6.o6.setBackground(color_very_dark);
+                  rightPanel.rightPanel6.o6.setForeground(Color.yellow);
+                }
+                if (planet == 4 || planet == 6) {
+                  rightPanel.rightPanel6.o6.setBackground(color_very_dark);
+                  rightPanel.rightPanel6.o6.setForeground(Color.yellow);
+                }
+
+                if (planet == 3) {
+                  leftPanel.o1.setBackground(Color.white);
+                  leftPanel.o1.setForeground(color_very_dark);
+                  rightPanel.rightPanel2.o2.setBackground(Color.white);
+                  rightPanel.rightPanel2.o2.setForeground(color_very_dark);
+                }
+                else {
+                  leftPanel.o1.setBackground(color_very_dark);
+                  leftPanel.o1.setForeground(Color.yellow);
+                  rightPanel.rightPanel2.o2.setBackground(color_very_dark);
+                  rightPanel.rightPanel2.o2.setForeground(Color.yellow);
+                }
+
+                if (planet == 4) {
+                  leftPanel.o3.setBackground(Color.white);
+                  leftPanel.o3.setForeground(color_very_dark);
+                  rightPanel.rightPanel3.o4.setBackground(Color.white);
+                  rightPanel.rightPanel3.o4.setForeground(color_very_dark);
+                }
+                else {
+                  leftPanel.o3.setBackground(color_very_dark);
+                  leftPanel.o3.setForeground(Color.yellow);
+                  rightPanel.rightPanel3.o4.setBackground(color_very_dark);
+                  rightPanel.rightPanel3.o4.setForeground(Color.yellow);
+                }
+
+                //layplt.show(in.grf.l, foil_is_cylinder_or_ball(current_part.foil) ? "second" : "first");
+
+                //layout.show(out, "first");
+
+                solver.getFreeStream ();
+                computeFlowAndRegenPlotAndAdjust();
+
+              } // action
+            });
+
+          // System.out.println("-- planet: " + planet);
           add(rightPanel2);
           add(rightPanel3);
           add(rightPanel6);
 
-          Scrollbar test = new Scrollbar(Scrollbar.HORIZONTAL, 300,10, 0, 1000);
+          add(new JLabel("below is rider drive height slider:"));
+          JScrollBar test = new JScrollBar(JScrollBar.HORIZONTAL, 300,10, 0, 1000);
           test.addAdjustmentListener(new AdjustmentListener() {
-              public void adjustmentValueChanged(AdjustmentEvent adjustmentEvent) {
+              public void adjustmentValueChanged(AdjustmentEvent evt) {
+                if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
                 // center_of_lift = adjustmentEvent.getValue()/1000.0;
                 // System.out.println("-- center_of_lift: " + center_of_lift);
-                RIDER_DRIVE_HEIGHT = 0.5+ adjustmentEvent.getValue()/1000.0;
+                RIDER_DRIVE_HEIGHT = 0.5+ evt.getValue()/1000.0;
               }});
           add(test);
-          
 
         }
 
         class RightPanel6 extends Panel {
           FoilBoard app;
-          TextField o6;
-          Label lo6;
+          JTextField o6;
+          JLabel lo6;
 
           RightPanel6 (FoilBoard target) {
             app = target;
             setLayout(new GridLayout(1,2,2,10));
 
-            lo6 = new Label("Rel Humid %", Label.LEFT);
-            o6 = new TextField("0.0",5);
+            lo6 = new JLabel("Rel Humid %", JLabel.LEFT);
+            o6 = new JTextField("0.0",5);
             o6.setBackground(Color.white);
             o6.setForeground(color_very_dark);
 
             add(lo6);
             add(o6);
-          }
-
-          public boolean handleEvent(Event evt) {
-            Double V1;
-            double v1;
-            float fl1;
+            o6.addActionListener(new ActionListener() {
+                public void actionPerformed(ActionEvent e) {
+                  Double V1;
+                  double v1;
+                  float fl1;
   
-            if (evt.id == Event.ACTION_EVENT) {
+                  V1 = Double.valueOf(o6.getText());
+                  v1 = V1.doubleValue();
+                  rlhum = v1;
+                  if (rlhum < 0) {
+                    rlhum = 0;
+                    v1 = rlhum;
+                    fl1 = (float) v1;
+                    o6.setText(String.valueOf(fl1));
+                  }
+                  if (rlhum > 100.0) {
+                    rlhum = 100.;
+                    v1 = rlhum;
+                    fl1 = (float) v1;
+                    o6.setText(String.valueOf(fl1));
+                  }
 
-              V1 = Double.valueOf(o6.getText());
-              v1 = V1.doubleValue();
-              rlhum = v1;
-              if (rlhum < 0) {
-                rlhum = 0;
-                v1 = rlhum;
-                fl1 = (float) v1;
-                o6.setText(String.valueOf(fl1));
-              }
-              if (rlhum > 100.0) {
-                rlhum = 100.;
-                v1 = rlhum;
-                fl1 = (float) v1;
-                o6.setText(String.valueOf(fl1));
-              }
+                  solver.getFreeStream ();
+                  con.recomp_all_parts();
 
-              solver.getFreeStream ();
-              con.recomp_all_parts();
-
-              return true;
-            }
-            else return false;
+                } });
           }
         }
 
         class RightPanel3 extends Panel {
           FoilBoard app;
-          TextField o4;
-          Label lo4;
+          JTextField o4;
+          JLabel lo4;
 
           RightPanel3 (FoilBoard target) {
             app = target;
             setLayout(new GridLayout(1,2,2,10));
 
-            lo4 = new Label("Visc slug/ft-s", Label.LEFT);
-            o4 = new TextField("0.0",5);
+            lo4 = new JLabel("Visc slug/ft-s", JLabel.LEFT);
+            o4 = new JTextField("0.0",5);
             o4.setBackground(color_very_dark);
             o4.setForeground(Color.yellow);
 
             add(lo4);
             add(o4);
-          }
-
-          public boolean handleEvent(Event evt) {
-            Double V1;
-            double v1;
-            float fl1;
+            o4.addActionListener(new ActionListener() {
+                public void actionPerformed(ActionEvent e) {
+                  Double V1;
+                  double v1;
+                  float fl1;
   
-            if (evt.id == Event.ACTION_EVENT) {
+                  if (planet == 4) {    // read in viscosity
+                    V1 = Double.valueOf(o4.getText());
+                    v1 = V1.doubleValue();
+                    viscos = v1;
+                    if (lunits == METRIC) viscos = v1 /47.87;
+                    if (viscos < .0000001) {
+                      viscos = .0000001;
+                      v1 = viscos;
+                      if (lunits == METRIC) v1 = viscos * 47.87;
+                      fl1 = (float) v1;
+                      o4.setText(String.valueOf(fl1));
+                    }
+                    if (viscos > 3.0) {
+                      viscos = 3.;
+                      v1 = viscos;
+                      if (lunits == METRIC) v1 = viscos * 47.87;
+                      fl1 = (float) v1;
+                      o4.setText(String.valueOf(fl1));
+                    }
+                  }
 
-              if (planet == 4) {    // read in viscosity
-                V1 = Double.valueOf(o4.getText());
-                v1 = V1.doubleValue();
-                viscos = v1;
-                if (lunits == METRIC) viscos = v1 /47.87;
-                if (viscos < .0000001) {
-                  viscos = .0000001;
-                  v1 = viscos;
-                  if (lunits == METRIC) v1 = viscos * 47.87;
-                  fl1 = (float) v1;
-                  o4.setText(String.valueOf(fl1));
-                }
-                if (viscos > 3.0) {
-                  viscos = 3.;
-                  v1 = viscos;
-                  if (lunits == METRIC) v1 = viscos * 47.87;
-                  fl1 = (float) v1;
-                  o4.setText(String.valueOf(fl1));
-                }
-              }
-
-              con.recomp_all_parts();
-
-              return true;
-            }
-            else return false;
+                  con.recomp_all_parts();
+                }});
           }
         }
 
         class RightPanel2 extends Panel {
           FoilBoard app;
-          TextField o2;
-          Label lo2;
+          JTextField o2;
+          JLabel lo2;
 
           RightPanel2 (FoilBoard target) {
             app = target;
             setLayout(new GridLayout(1,2,2,10));
 
-            lo2 = new Label("Temp-F", Label.CENTER);
-            o2 = new TextField("12.5",5);
+            lo2 = new JLabel("Temp-F", JLabel.CENTER);
+            o2 = new JTextField("12.5",5);
             o2.setBackground(color_very_dark);
             o2.setForeground(Color.yellow);
 
             add(lo2);
             add(o2);
-          }
+            o2.addActionListener(new ActionListener() {
+                public void actionPerformed(ActionEvent e) {
+                  Double V1;
+                  double v1;
+                  float fl1;
 
-          public boolean handleEvent(Event evt) {
-            Double V1;
-            double v1;
-            float fl1;
+                  if (planet == 3) {    // read in the temperature
+                    V1 = Double.valueOf(o2.getText());
+                    v1 = V1.doubleValue();
+                    ts0 = v1 + 460.;
+                    if (lunits == 1) ts0 = (v1 + 273.1)*9.0/5.0;
+                    if (ts0 < 350.) {
+                      ts0 = 350.;
+                      v1 = ts0 - 460.;
+                      if (lunits == 1) v1 = ts0*5.0/9.0 - 273.1;
+                      fl1 = (float) v1;
+                      o2.setText(String.valueOf(fl1));
+                    }
+                    if (ts0 > 660.) {
+                      ts0 = 660.;
+                      v1 = ts0 - 460.;
+                      if (lunits == 1) v1 = ts0*5.0/9.0 - 273.1;
+                      fl1 = (float) v1;
+                      o2.setText(String.valueOf(fl1));
+                    }
+                  }
 
-            if (evt.id == Event.ACTION_EVENT) {
-
-              if (planet == 3) {    // read in the temperature
-                V1 = Double.valueOf(o2.getText());
-                v1 = V1.doubleValue();
-                ts0 = v1 + 460.;
-                if (lunits == 1) ts0 = (v1 + 273.1)*9.0/5.0;
-                if (ts0 < 350.) {
-                  ts0 = 350.;
-                  v1 = ts0 - 460.;
-                  if (lunits == 1) v1 = ts0*5.0/9.0 - 273.1;
-                  fl1 = (float) v1;
-                  o2.setText(String.valueOf(fl1));
-                }
-                if (ts0 > 660.) {
-                  ts0 = 660.;
-                  v1 = ts0 - 460.;
-                  if (lunits == 1) v1 = ts0*5.0/9.0 - 273.1;
-                  fl1 = (float) v1;
-                  o2.setText(String.valueOf(fl1));
-                }
-              }
-
-              solver.getFreeStream ();
-              con.recomp_all_parts();
-
-              return true;
-            }
-            else return false;
+                  solver.getFreeStream ();
+                  con.recomp_all_parts();
+                }});
           }
         }
 
-        public boolean handleEvent(Event evt) {
-          if (evt.id == Event.ACTION_EVENT) {
-            this.handleCho(evt);
-            return true;
-          }
-          if (evt.id == Event.SCROLL_ABSOLUTE) {
-            this.handleBar(evt);
-            return true;
-          }
-          if (evt.id == Event.SCROLL_LINE_DOWN) {
-            this.handleBar(evt);
-            return true;
-          }
-          if (evt.id == Event.SCROLL_LINE_UP) {
-            this.handleBar(evt);
-            return true;
-          }
-          if (evt.id == Event.SCROLL_PAGE_DOWN) {
-            this.handleBar(evt);
-            return true;
-          }
-          if (evt.id == Event.SCROLL_PAGE_UP) {
-            this.handleBar(evt);
-            return true;
-          }
-          else return false;
-        }
-
-        public void handleBar (Event evt) {
-          // int altitude_int;
-          double v1,v2;
-          float fl1,fl2;
-          boolean recomp_all_parts = false;
-
-          // Input for computations
-          // altitude_int = altitude.getValue();
-
-          // alt = 
-          v2 = 0; // altitude_int * (alt_max - alt_min)/ 1000. + alt_min;
-
-          if (recomp_all_parts) 
-            con.recomp_all_parts();
-
-          fl2 = (float) v2;
-
-          // leftPanel.f2.setText(String.valueOf(fl2));
-
-          //  set limits on spin
-          if (foil_is_cylinder_or_ball(current_part.foil)) cyl.setLims();
-
-          solver.getFreeStream ();
-          con.recomp_all_parts();
-        } // handle bar
-
-        public void handleCho (Event evt) {
-          int i1,i2;
-          double v1,v2;
-          float fl1,fl2;
-
-          planet  = plntch.getSelectedIndex();
-
-          if (planet == 2) {
-            velocity = 5.;
-            vmax = 40.;
-            if (lunits == 1) vmax = 60.;
-            alt = 0.0;
-            altmax = strut.span;
-            current_part.area = 10.0;
-            // armax = 50.;
-          }
-          else {
-            vmax = 250.;
-            if (lunits == 1) vmax = 400.;
-            altmax = strut.span;
-            // armax = 2500.;
-          }
-
-          if (planet == 0 || planet == 3) {
-            rightPanel.rightPanel6.o6.setBackground(Color.white);
-            rightPanel.rightPanel6.o6.setForeground(color_very_dark);
-          }
-          if (planet == 1 || planet == 2) {
-            rightPanel.rightPanel6.o6.setBackground(color_very_dark);
-            rightPanel.rightPanel6.o6.setForeground(Color.yellow);
-          }
-          if (planet == 4 || planet == 6) {
-            rightPanel.rightPanel6.o6.setBackground(color_very_dark);
-            rightPanel.rightPanel6.o6.setForeground(Color.yellow);
-          }
-
-          if (planet == 3) {
-            leftPanel.o1.setBackground(Color.white);
-            leftPanel.o1.setForeground(color_very_dark);
-            rightPanel.rightPanel2.o2.setBackground(Color.white);
-            rightPanel.rightPanel2.o2.setForeground(color_very_dark);
-          }
-          else {
-            leftPanel.o1.setBackground(color_very_dark);
-            leftPanel.o1.setForeground(Color.yellow);
-            rightPanel.rightPanel2.o2.setBackground(color_very_dark);
-            rightPanel.rightPanel2.o2.setForeground(Color.yellow);
-          }
-
-          if (planet == 4) {
-            leftPanel.o3.setBackground(Color.white);
-            leftPanel.o3.setForeground(color_very_dark);
-            rightPanel.rightPanel3.o4.setBackground(Color.white);
-            rightPanel.rightPanel3.o4.setForeground(color_very_dark);
-          }
-          else {
-            leftPanel.o3.setBackground(color_very_dark);
-            leftPanel.o3.setForeground(Color.yellow);
-            rightPanel.rightPanel3.o4.setBackground(color_very_dark);
-            rightPanel.rightPanel3.o4.setForeground(Color.yellow);
-          }
-
-          //layplt.show(in.grf.l, foil_is_cylinder_or_ball(current_part.foil) ? "second" : "first");
-
-          //layout.show(out, "first");
-
-          solver.getFreeStream ();
-          computeFlowAndRegenPlotAndAdjust();
-        } // handle  choice
       }  // RightPanel 
     } // Env
 
@@ -7108,7 +7100,7 @@ public class FoilBoard extends  Applet {
       Button inb1,inb2;
       Button inb3,inb4;
       Button[] old_style_buttons;
-      Scrollbar sb_ci_eff;
+      JScrollBar sb_ci_eff;
 
       Shape (FoilBoard target) {
 
@@ -7130,9 +7122,7 @@ public class FoilBoard extends  Applet {
       // what needs be done in general when user altered current foil shape?
       void recompute () {
         current_part.t_Cl = current_part.t_Cd = null;
-
         computeFlowAndRegenPlot();
-
       }
 
       void set_camber_and_thickness_controls (boolean enable) {
@@ -7147,6 +7137,7 @@ public class FoilBoard extends  Applet {
       // Shape.loadPanel
       @Override
       public void loadPanel () {
+        long loadPanel_time = System.currentTimeMillis();
         on_load = true;
 
         current_part.foil.adjust_foil_shape_in_tab();
@@ -7157,7 +7148,7 @@ public class FoilBoard extends  Applet {
         rightPanel.s2.setValue((int) (((current_part.thickness - thk_min)/(thk_max-thk_min))*1000.));
         sb_ci_eff.setValue((int) (((current_part.Ci_eff - 0)/(3-0))*1000.));
 
-        rightPanel.shape_choice.select(current_part.foil.id);
+        rightPanel.shape_choice.setSelectedIndex(current_part.foil.id);
 
         leftPanel.f_angle.setText(pprint(filter3(current_part.aoa)));
         leftPanel.f_camber.setText(pprint(filter3(current_part.camber)));
@@ -7165,162 +7156,145 @@ public class FoilBoard extends  Applet {
 
         on_load = false;
 
+        //tt 
+        System.out.println("-- Shape loadPanel_time, ms: " + (System.currentTimeMillis()-loadPanel_time)); //System.exit(0);
+
       }
 
       class LeftPanel extends Panel {
         FoilBoard app;
-        TextField f_camber, f_thickness, f_angle;
-        Label l_camber, l_thickness, l_angle;
+        JTextField f_camber, f_thickness, f_angle;
+        JLabel l_camber, l_thickness, l_angle;
      
         LeftPanel (FoilBoard target) {
       
           app = target;
           setLayout(new GridLayout(8,2,2,10));
 
-          Label l;
-          add(l = new Label("Foil", Label.RIGHT)); l.setForeground(Color.blue);
-          add(l = new Label("Shape", Label.LEFT));  l.setForeground(Color.blue);
+          JLabel l;
+          add(l = new JLabel("Foil", JLabel.RIGHT)); l.setForeground(Color.blue);
+          add(l = new JLabel("Shape", JLabel.LEFT));  l.setForeground(Color.blue);
 
-          add(new Label(""));
-          add(new Label(""));
+          add(new JLabel(""));
+          add(new JLabel(""));
 
-          add(l_angle = new Label("Angle deg", Label.CENTER));
-          add(f_angle = new TextField("5.0",5));
+          add(l_angle = new JLabel("Angle deg", JLabel.CENTER));
+          add(f_angle = new JTextField("5.0",5));
+          f_angle.addActionListener(new ActionListener() {
+              public void actionPerformed(ActionEvent e) {
+                double v = Double.valueOf(f_angle.getText()).doubleValue();
+                current_part.aoa = v;
+                if (v < ang_min) {
+                  current_part.aoa = v = ang_min;
+                  float fl1 = (float) v;
+                  f_angle.setText(String.valueOf(fl1));
+                }
+                else if (v > ang_max) {
+                  current_part.aoa = v = ang_max;
+                  float fl1 = (float) v;
+                  f_angle.setText(String.valueOf(fl1));
+                }
+                int i = (int) (((v - ang_min)/(ang_max-ang_min))*1000.);
+                rightPanel.s3.setValue(i);
+                recompute();
+              }});
 
-          add(l_camber = new Label("Camber % chord", Label.CENTER));
-          add(f_camber = new TextField("0.0",5));
+          add(l_camber = new JLabel("Camber % chord", JLabel.CENTER));
+          add(f_camber = new JTextField("0.0",5));
+          f_camber.addActionListener(new ActionListener() {
+              public void actionPerformed(ActionEvent e) {
+                double v = Double.valueOf(f_camber.getText()).doubleValue();
+                current_part.camber = v;
+                if (v < ca_min) {
+                  current_part.camber = v = ca_min;
+                  float fl1 = (float) v;
+                  f_camber.setText(String.valueOf(fl1));
+                }
+                else if (v > ca_max) {
+                  current_part.camber = v = ca_max;
+                  float fl1 = (float) v;
+                  f_camber.setText(String.valueOf(fl1));
+                }
+                int i = (int) (((v - ca_min)/(ca_max-ca_min))*1000.);
+                rightPanel.s1.setValue(i);
+                recompute();
+              }});
+          add(l_thickness = new JLabel("Thickness %", JLabel.CENTER));
+          add(f_thickness = new JTextField("12.5",5));
+          f_thickness.addActionListener(new ActionListener() {
+              public void actionPerformed(ActionEvent e) {
+                double v = Double.valueOf(f_thickness.getText()).doubleValue();
+                current_part.thickness = v;
+                if (v < thk_min) {
+                  current_part.thickness = v = thk_min;
+                  float fl1 = (float) v;
+                  f_thickness.setText(String.valueOf(fl1));
+                }
+                else if (v > thk_max) {
+                  current_part.thickness = v = thk_max;
+                  float fl1 = (float) v;
+                  f_thickness.setText(String.valueOf(fl1));
+                }
+                int i = (int) (((v - thk_min)/(thk_max-thk_min))*1000.);
+                rightPanel.s2.setValue(i);
+                recompute();
+              }});
 
-          add(l_thickness = new Label("Thickness %", Label.CENTER));
-          add(f_thickness = new TextField("12.5",5));
+          add(new JLabel("Tip Perform"));
+          add(new JLabel("Factor"));
 
-          add(new Label("Tip Perform"));
-          add(new Label("Factor"));
-
-          add(l = new Label("Quick Shapes:", Label.RIGHT)); l.setForeground(color_very_dark);
+          add(l = new JLabel("Quick Shapes:", JLabel.RIGHT)); l.setForeground(color_very_dark);
 
           add(b_symm = new Button ("Symmetric"));
           b_symm.setBackground(Color.white);
           b_symm.setForeground(Color.blue);
+          b_symm.addActionListener(new ActionListener() {
+              @Override
+              public void actionPerformed(ActionEvent e) {
+                for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
+                b_symm.setBackground(Color.yellow);
+                current_part.camber = 0.0;
+                current_part.thickness = 12;
+                buttons_action_epilogue();
+              }});
+
           add(b_high_cam = new_button("Flat Bottom"));
+          b_high_cam.addActionListener(new ActionListener() {
+              @Override
+              public void actionPerformed(ActionEvent e) {
+                for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
+                b_high_cam.setBackground(Color.yellow);
+                current_part.camber = 5.0;
+                current_part.thickness = 12;
+                buttons_action_epilogue();
+              }});
+
           add(b_neg_cam = new_button("Neg. Camber"));
+          b_neg_cam.addActionListener(new ActionListener() {
+              @Override
+              public void actionPerformed(ActionEvent e) {
+                for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
+                b_neg_cam.setBackground(Color.yellow);
+                current_part.camber = -5.0;
+                current_part.thickness = 12;
+                buttons_action_epilogue();
+              }});
         }
 
-        // something was done by user
-        public boolean action(Event evt, Object arg) {
-          Double V1,V2,V3;
-          double v1,v2,v3;
-          float fl1;
-          int i1,i2,i3;
-
-          if (evt.target instanceof Button) {
-            handleBut (evt,arg);
-            return true;
-          } else {
-            V1 = Double.valueOf(f_camber.getText());
-            v1 = V1.doubleValue();
-            V2 = Double.valueOf(f_thickness.getText());
-            v2 = V2.doubleValue();
-            V3 = Double.valueOf(f_angle.getText());
-            v3 = V3.doubleValue();
-
-            current_part.camber = v1;
-            if (v1 < ca_min) {
-              current_part.camber = v1 = ca_min;
-              fl1 = (float) v1;
-              f_camber.setText(String.valueOf(fl1));
-            }
-            else if (v1 > ca_max) {
-              current_part.camber = v1 = ca_max;
-              fl1 = (float) v1;
-              f_camber.setText(String.valueOf(fl1));
-            }
-
-            current_part.thickness = v2;
-            if (v2 < thk_min) {
-              current_part.thickness = v2 = thk_min;
-              fl1 = (float) v2;
-              f_thickness.setText(String.valueOf(fl1));
-            }
-            else if (v2 > thk_max) {
-              current_part.thickness = v2 = thk_max;
-              fl1 = (float) v2;
-              f_thickness.setText(String.valueOf(fl1));
-            }
-    
-            current_part.aoa = v3;
-            if (v3 < ang_min) {
-              current_part.aoa = v3 = ang_min;
-              fl1 = (float) v3;
-              f_angle.setText(String.valueOf(fl1));
-            }
-            else if (v3 > ang_max) {
-              current_part.aoa = v3 = ang_max;
-              fl1 = (float) v3;
-              f_angle.setText(String.valueOf(fl1));
-            }
-
-            i1 = (int) (((v1 - ca_min)/(ca_max-ca_min))*1000.);
-            i2 = (int) (((v2 - thk_min)/(thk_max-thk_min))*1000.);
-            i3 = (int) (((v3 - ang_min)/(ang_max-ang_min))*1000.);
-    
-            rightPanel.s1.setValue(i1);
-            rightPanel.s2.setValue(i2);
-            rightPanel.s3.setValue(i3);
-
-            recompute();
-            return true;
-          }
-        } // Handler
-
-        public void handleBut(Event evt, Object arg) {
-          float fl1,fl2,fl3;
-          int i1,i2,i3;
-          int index;
-          double mapfac; 
-
-          String label = (String)arg;
-   
+        void buttons_action_epilogue() {
           setFoil(FOIL_NACA4);
-
-          if (label.equals("Symmetric")) {
-            for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
-            b_symm.setBackground(Color.yellow);
-            //current_part.aoa = 0.0;
-            current_part.camber = 0.0;
-            current_part.thickness = 12;
-          }
-
-          if (label.equals("Flat Bottom")) {
-            for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
-            b_high_cam.setBackground(Color.yellow);
-            //current_part.aoa = 7.0;
-            current_part.camber = 5.0;
-            current_part.thickness = 12;
-          }
-
-          if (label.equals("Neg. Camber")) {
-            for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
-            b_neg_cam.setBackground(Color.yellow);
-            //current_part.aoa = -7.0;
-            current_part.camber = -5.0;
-            current_part.thickness = 12;
-          }
 
           leftPanel.f_camber.setText(String.valueOf(current_part.camber));
           leftPanel.f_thickness.setText(String.valueOf(current_part.thickness));
-          leftPanel.f_angle.setText(String.valueOf(current_part.aoa));
 
-          i1 = (int) (((current_part.camber - ca_min)/(ca_max-ca_min))*1000.);
-          i2 = (int) (((current_part.thickness - thk_min)/(thk_max-thk_min))*1000.);
-          i3 = (int) (((current_part.aoa - ang_min)/(ang_max-ang_min))*1000.);
+          int i1 = (int) (((current_part.camber - ca_min)/(ca_max-ca_min))*1000.);
+          int i2 = (int) (((current_part.thickness - thk_min)/(thk_max-thk_min))*1000.);
     
           rightPanel.s1.setValue(i1);
           rightPanel.s2.setValue(i2);
-          rightPanel.s3.setValue(i3);
 
-          rightPanel.shape_choice.select(FOIL_NACA4.id);
-          // in.cyl.rightPanel.shape_choice.select(FOIL_JOUKOWSKI.id);
-
+          //ttshch rightPanel.shape_choice.setSelectedIndex(FOIL_NACA4.id);
+          // in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_JOUKOWSKI.id);
           recompute();
         }
       }  // LeftPanel 
@@ -7328,8 +7302,8 @@ public class FoilBoard extends  Applet {
 
       class RightPanel extends Panel {
         FoilBoard app;
-        Scrollbar s1,s2,s3;
-        Choice shape_choice;
+        JScrollBar s1,s2,s3;
+        JComboBox shape_choice;
         RightPanel1 rightPanel1;
         RightPanel2 rightPanel2;
 
@@ -7346,20 +7320,54 @@ public class FoilBoard extends  Applet {
           i2 = (int) (((12.5 - thk_min)/(thk_max-thk_min))*1000.);
           i3 = (int) (((current_part.aoa - ang_min)/(ang_max-ang_min))*1000.);
 
-          s1 = new Scrollbar(Scrollbar.HORIZONTAL,i1,10,0,1000);
-          s2 = new Scrollbar(Scrollbar.HORIZONTAL,i2,10,0,1000);
-          s3 = new Scrollbar(Scrollbar.HORIZONTAL,i3,10,0,1000);
+          s1 = new JScrollBar(JScrollBar.HORIZONTAL,i1,10,0,1000);
+          s1.addAdjustmentListener(new AdjustmentListener() {
+            public void adjustmentValueChanged(AdjustmentEvent evt) {
+              if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
+              int pos = s1.getValue();
+              current_part.camber = pos * (ca_max - ca_min)/ 1000. + ca_min;
+              leftPanel.f_camber.setText(String.valueOf((float)current_part.camber));
+              recompute();
+            }});
 
-          shape_choice = new Choice();
+          s2 = new JScrollBar(JScrollBar.HORIZONTAL,i2,10,0,1000);
+          s2.addAdjustmentListener(new AdjustmentListener() {
+            public void adjustmentValueChanged(AdjustmentEvent evt) {
+              if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
+              int pos = s2.getValue();
+              current_part.thickness = pos * (thk_max - thk_min)/ 1000. + thk_min;
+              leftPanel.f_thickness.setText(String.valueOf((float)current_part.thickness));
+              recompute();
+            }});
 
+          s3 = new JScrollBar(JScrollBar.HORIZONTAL,i3,10,0,1000);
+          s3.addAdjustmentListener(new AdjustmentListener() {
+            public void adjustmentValueChanged(AdjustmentEvent evt) {
+              if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
+              int pos = s3.getValue();
+              current_part.aoa  = pos * (ang_max - ang_min)/ 1000. + ang_min;
+              leftPanel.f_angle.setText(String.valueOf((float)current_part.aoa));
+              recompute();
+            }});
+
+          shape_choice = new JComboBox();
           for (int id = 0; id < foil_arr.length; id++) {
             String text = foil_arr[id].descr;
             shape_choice.addItem(text);
           }
-
           shape_choice.setBackground(Color.white);
           shape_choice.setForeground(Color.blue);
-          shape_choice.select(FOIL_JOUKOWSKI.id);
+          shape_choice.setSelectedIndex(FOIL_JOUKOWSKI.id);
+
+          shape_choice.addActionListener(new ActionListener() {
+              public void actionPerformed(ActionEvent e) {
+                int id = shape_choice.getSelectedIndex();
+                String foil = (String)shape_choice.getItemAt(id);
+                //debug System.out.println("-- shape_choice ActionEvent  id: " + id + " foil: " + foil);
+                setFoil(foil);
+                in.update_state();
+              }});
+
           add(shape_choice);
 
           Button import_bt;
@@ -7401,7 +7409,7 @@ public class FoilBoard extends  Applet {
               foil.points_y = new double[count];
               imp.getPoints(foil.points_x, foil.points_y);
               shape_choice.addItem(foil.descr);
-              in.cyl.rightPanel.shape_choice.addItem(foil.descr);
+              in.cylShape.rightPanel.shape_choice.addItem(foil.descr);
             }
             in.shp.loadPanel();
           }});
@@ -7410,9 +7418,10 @@ public class FoilBoard extends  Applet {
           add(s1);
           add(s2);
           
-          sb_ci_eff = new Scrollbar(Scrollbar.HORIZONTAL,i1,10,0,1000);
+          sb_ci_eff = new JScrollBar(JScrollBar.HORIZONTAL,i1,10,0,1000);
           sb_ci_eff.addAdjustmentListener(new AdjustmentListener() {
             public void adjustmentValueChanged(AdjustmentEvent evt) {
+              if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
               if (on_load) return;
 
               int i1 = evt.getValue();
@@ -7428,61 +7437,6 @@ public class FoilBoard extends  Applet {
           add(rightPanel2);
         }
 
-        public boolean handleEvent(Event evt) {
-          if (evt.id == Event.ACTION_EVENT) {
-            setFoil(shape_choice.getItem(shape_choice.getSelectedIndex()));
-            in.handleCho(evt);
-            return true;
-          }
-          if (evt.id == Event.SCROLL_ABSOLUTE) {
-            this.handleBar(evt);
-            return true;
-          }
-          if (evt.id == Event.SCROLL_LINE_DOWN) {
-            this.handleBar(evt);
-            return true;
-          }
-          if (evt.id == Event.SCROLL_LINE_UP) {
-            this.handleBar(evt);
-            return true;
-          }
-          if (evt.id == Event.SCROLL_PAGE_DOWN) {
-            this.handleBar(evt);
-            return true;
-          }
-          if (evt.id == Event.SCROLL_PAGE_UP) {
-            this.handleBar(evt);
-            return true;
-          }
-          else return false;
-        }
-
-        public void handleBar (Event evt) {
-          int i1,i2,i3;
-          double v1,v2,v3;
-          float fl1,fl2,fl3;
-              
-          // Input for computations
-          i1 = s1.getValue();
-          i2 = s2.getValue();
-          i3 = s3.getValue();
-
-          current_part.camber = v1 = i1 * (ca_max - ca_min)/ 1000. + ca_min;
-          current_part.thickness = v2 = i2 * (thk_max - thk_min)/ 1000. + thk_min;
-          current_part.aoa  = v3 = i3 * (ang_max - ang_min)/ 1000. + ang_min;
-
-          fl1 = (float) v1;
-          fl2 = (float) v2;
-          fl3 = (float) v3;
-
-          leftPanel.f_camber.setText(String.valueOf(fl1));
-          leftPanel.f_thickness.setText(String.valueOf(fl2));
-          leftPanel.f_angle.setText(String.valueOf(fl3));
-     
-          recompute();
-        }
-
-
         class RightPanel1 extends Panel {
           FoilBoard app;
 
@@ -7492,72 +7446,75 @@ public class FoilBoard extends  Applet {
             setLayout(new GridLayout(1,2,2,10));
 
             inb1 = new_button("High Camber");
-
             inb2 = new_button("Flat Plate");
+
+            inb1.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                  shape_choice.setSelectedIndex(FOIL_NACA4.id);
+                  in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_NACA4.id);
+
+                  for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
+                  inb1.setBackground(Color.yellow);
+
+                  current_part.camber = 15.0;
+                  current_part.thickness = 12;
+                  if (current_part.foil.id >= FOIL_ELLIPTICAL.id) {
+                    setFoil(FOIL_JOUKOWSKI);
+                    shape_choice.setSelectedIndex(FOIL_JOUKOWSKI.id);
+                    in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_JOUKOWSKI.id);
+                  }
+
+                  leftPanel.f_camber.setText(String.valueOf(current_part.camber));
+                  leftPanel.f_thickness.setText(String.valueOf(current_part.thickness));
+
+                  int i1 = (int) (((current_part.camber - ca_min)/(ca_max-ca_min))*1000.);
+                  int i2 = (int) (((current_part.thickness - thk_min)/(thk_max-thk_min))*1000.);
+    
+                  rightPanel.s1.setValue(i1);
+                  rightPanel.s2.setValue(i2);
+
+                  recompute();
+
+                }});
+
+            inb2.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                  shape_choice.setSelectedIndex(FOIL_NACA4.id);
+                  in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_NACA4.id);
+
+                  for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
+                  inb2.setBackground(Color.yellow);
+
+                  setFoil(FOIL_FLAT_PLATE);
+                  current_part.camber = 0.0;
+                  current_part.thickness = 1.0;
+                  shape_choice.setSelectedIndex(FOIL_FLAT_PLATE.id);
+                  in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_FLAT_PLATE.id);
+
+                  leftPanel.f_camber.setText(String.valueOf(current_part.camber));
+                  leftPanel.f_thickness.setText(String.valueOf(current_part.thickness));
+
+                  int i1 = (int) (((current_part.camber - ca_min)/(ca_max-ca_min))*1000.);
+                  int i2 = (int) (((current_part.thickness - thk_min)/(thk_max-thk_min))*1000.);
+    
+                  rightPanel.s1.setValue(i1);
+                  rightPanel.s2.setValue(i2);
+
+                  recompute();
+
+                }});
 
             add(inb1);
             add(inb2);
           }
 
-          public boolean action(Event evt, Object arg) {
-
-            if (evt.target instanceof Button) {
-              handleBut (evt,arg);
-              return true;
-            }
-
-            else {
+          public boolean action (Event evt, Object arg) {
+            System.out.println("-- warning: obsolete action() invoked... arg: " + arg);
               return false;
-            }
           }
 
-          public void handleBut(Event evt, Object arg) {
-            float fl1,fl2,fl3;
-            int i1,i2,i3;
-
-            String label = (String)arg;
-
-            shape_choice.select(FOIL_NACA4.id);
-            in.cyl.rightPanel.shape_choice.select(FOIL_NACA4.id);
-   
-            if (label.equals("High Camber")) {
-              for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
-              inb1.setBackground(Color.yellow);
-              // current_part.aoa = 0.0;
-              current_part.camber = 15.0;
-              current_part.thickness = 12;
-              if (current_part.foil.id >= FOIL_ELLIPTICAL.id) {
-                setFoil(FOIL_JOUKOWSKI);
-                shape_choice.select(FOIL_JOUKOWSKI.id);
-                in.cyl.rightPanel.shape_choice.select(FOIL_JOUKOWSKI.id);
-              }
-            }
-
-            if (label.equals("Flat Plate")) {
-              for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
-              inb2.setBackground(Color.yellow);
-              setFoil(FOIL_FLAT_PLATE);
-              //current_part.aoa = 5.0;
-              current_part.camber = 0.0;
-              current_part.thickness = 1.0;
-              shape_choice.select(FOIL_FLAT_PLATE.id);
-              in.cyl.rightPanel.shape_choice.select(FOIL_FLAT_PLATE.id);
-            }
-
-            leftPanel.f_camber.setText(String.valueOf(current_part.camber));
-            leftPanel.f_thickness.setText(String.valueOf(current_part.thickness));
-            leftPanel.f_angle.setText(String.valueOf(current_part.aoa));
-
-            i1 = (int) (((current_part.camber - ca_min)/(ca_max-ca_min))*1000.);
-            i2 = (int) (((current_part.thickness - thk_min)/(thk_max-thk_min))*1000.);
-            i3 = (int) (((current_part.aoa - ang_min)/(ang_max-ang_min))*1000.);
-    
-            rightPanel.s1.setValue(i1);
-            rightPanel.s2.setValue(i2);
-            rightPanel.s3.setValue(i3);
-
-            recompute();
-          }
         }  // RightPanel1
 
         class RightPanel2 extends Panel {
@@ -7569,65 +7526,57 @@ public class FoilBoard extends  Applet {
             setLayout(new GridLayout(1,2,2,10));
 
             inb3 = new_button("Ellipse");
-
             inb4 = new_button("Curve Plate");
+            inb3.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                  for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
+                  inb3.setBackground(Color.yellow);
+                  setFoil(FOIL_ELLIPTICAL);
+                  current_part.camber = 0.0;
+                  current_part.thickness = 12.5;
+                  shape_choice.setSelectedIndex(FOIL_ELLIPTICAL.id);
+                  in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_ELLIPTICAL.id);
+                  leftPanel.f_camber.setText(String.valueOf(current_part.camber));
+                  leftPanel.f_thickness.setText(String.valueOf(current_part.thickness));
+
+                  int i1 = (int) (((current_part.camber - ca_min)/(ca_max-ca_min))*1000.);
+                  int i2 = (int) (((current_part.thickness - thk_min)/(thk_max-thk_min))*1000.);
+    
+                  rightPanel.s1.setValue(i1);
+                  rightPanel.s2.setValue(i2);
+                  recompute();
+                }});
+
+            inb4.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                  for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
+                  inb4.setBackground(Color.yellow);
+                  setFoil(FOIL_FLAT_PLATE);
+                  //current_part.aoa = 5.0;
+                  current_part.camber = 5.0;
+                  current_part.thickness = 1.0;
+                  shape_choice.setSelectedIndex(FOIL_FLAT_PLATE.id);
+                  in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_FLAT_PLATE.id);
+
+                  int i1 = (int) (((current_part.camber - ca_min)/(ca_max-ca_min))*1000.);
+                  int i2 = (int) (((current_part.thickness - thk_min)/(thk_max-thk_min))*1000.);
+    
+                  rightPanel.s1.setValue(i1);
+                  rightPanel.s2.setValue(i2);
+                  recompute();
+                }});
 
             add(inb3);
             add(inb4);
           }
 
-          public boolean action(Event evt, Object arg) {
-
-            if (evt.target instanceof Button) {
-              handleBut (evt,arg);
-              return true;
-            }
-
-            else {
-              return false;
-            }
+          public boolean action (Event evt, Object arg) {
+            System.out.println("-- warning: obsolete action() invoked... arg: " + arg);
+            return false;
           }
 
-          public void handleBut(Event evt, Object arg) {
-            float fl1,fl2,fl3;
-            int i1,i2,i3;
-
-            String label = (String)arg;
-   
-            if (label.equals("Ellipse")) {
-              for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
-              inb3.setBackground(Color.yellow);
-              setFoil(FOIL_ELLIPTICAL);
-              //current_part.aoa = 0.0;
-              current_part.camber = 0.0;
-              current_part.thickness = 12.5;
-              shape_choice.select(FOIL_ELLIPTICAL.id);
-              in.cyl.rightPanel.shape_choice.select(FOIL_ELLIPTICAL.id);
-            } else if (label.equals("Curve Plate")) {
-              for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
-              inb4.setBackground(Color.yellow);
-              setFoil(FOIL_FLAT_PLATE);
-              //current_part.aoa = 5.0;
-              current_part.camber = 5.0;
-              current_part.thickness = 1.0;
-              shape_choice.select(FOIL_FLAT_PLATE.id);
-              in.cyl.rightPanel.shape_choice.select(FOIL_FLAT_PLATE.id);
-            }
-
-            leftPanel.f_camber.setText(String.valueOf(current_part.camber));
-            leftPanel.f_thickness.setText(String.valueOf(current_part.thickness));
-            leftPanel.f_angle.setText(String.valueOf(current_part.aoa));
-
-            i1 = (int) (((current_part.camber - ca_min)/(ca_max-ca_min))*1000.);
-            i2 = (int) (((current_part.thickness - thk_min)/(thk_max-thk_min))*1000.);
-            i3 = (int) (((current_part.aoa - ang_min)/(ang_max-ang_min))*1000.);
-    
-            rightPanel.s1.setValue(i1);
-            rightPanel.s2.setValue(i2);
-            rightPanel.s3.setValue(i3);
-
-            recompute();
-          }
         }  // RightPanel2
       }  // RightPanel
     }  // Shape 
@@ -7652,73 +7601,137 @@ public class FoilBoard extends  Applet {
       int set_to_units = IMPERIAL;
 
       // Size.loadPanel 
-      @Override
+      @Override // FoilBoard.Panel
       public void loadPanel () {
-        if (set_to_units != display_units) {
-          set_to_units = display_units;
-          switch (display_units) {
-          case IMPERIAL: 
-          case NAVAL: 
-            leftPanel.l1.setText("Chord in");
-            leftPanel.l2.setText("Span in");
-            leftPanel.l3.setText("Area sq in");
-            break;
-          case METRIC:
-            leftPanel.l1.setText("Chord m");
-            leftPanel.l2.setText("Span m");
-            leftPanel.l3.setText("Area sq m");
-            break;
-          case METRIC_2:
-            leftPanel.l1.setText("Chord cm");
-            leftPanel.l2.setText("Span cm");
-            leftPanel.l3.setText("Area-sq cm");
-            break;
-          case IMPERIAL_FEET: 
-            leftPanel.l1.setText("Chord ft");
-            leftPanel.l2.setText("Span ft");
-            leftPanel.l3.setText("Area sq ft");
-            break;
+        if (DEBUG_SPEED_SUPPR) return;
+        // System.out.println("-- Size.loadPanel enter");
+        if (on_loadPanel) return;
+        try {
+          on_loadPanel = true;
+          // System.out.println("-- Size.loadPanel doit");
+          if (set_to_units != display_units) {
+            set_to_units = display_units;
+            switch (display_units) {
+            case IMPERIAL: 
+            case NAVAL: 
+              leftPanel.l1.setText("Chord in");
+              leftPanel.l2.setText("Span in");
+              leftPanel.l3.setText("Area sq in");
+              break;
+            case METRIC:
+              leftPanel.l1.setText("Chord m");
+              leftPanel.l2.setText("Span m");
+              leftPanel.l3.setText("Area sq m");
+              break;
+            case METRIC_2:
+              leftPanel.l1.setText("Chord cm");
+              leftPanel.l2.setText("Span cm");
+              leftPanel.l3.setText("Area-sq cm");
+              break;
+            case IMPERIAL_FEET: 
+              leftPanel.l1.setText("Chord ft");
+              leftPanel.l2.setText("Span ft");
+              leftPanel.l3.setText("Area sq ft");
+              break;
+            }
           }
-        }
 
-        // these cause events, so do them first
-        rightPanel.sld1.s1.setValue((int) (((current_part.chord - chrd_min)/(chrd_max-chrd_min))*1000.));
-        rightPanel.sld2.s2.setValue((int) (((current_part.span - span_min)/(span_max-span_min))*1000.));
-        rightPanel.sld3.s3.setValue((int) (((current_part.area - ar_min)/(ar_max-ar_min))*1000.));
+          // these cause events, so do them first.
+          int pos = (int) (((current_part.chord - chrd_min)/(chrd_max-chrd_min))*1000.);
+          System.out.println("-- pos: " + pos);
+          rightPanel.chord_SB.setValue(pos);
+          rightPanel.span_SB.setValue((int) (((current_part.span - span_min)/(span_max-span_min))*1000.));
+          rightPanel.area_SB.setValue((int) (((current_part.area - ar_min)/(ar_max-ar_min))*1000.));
 
-        leftPanel.f1.setText(make_size_info_in_display_units(current_part.chord, false));
-        leftPanel.f2.setText(make_size_info_in_display_units(current_part.span, false));
-        leftPanel.f3.setText(make_area_info_in_display_units(current_part.area, false));
-        leftPanel.o4.setText(""+filter1or3(current_part.aspect_rat));
+          leftPanel.f1.setText(make_size_info_in_display_units(current_part.chord, false));
+          leftPanel.f2.setText(make_size_info_in_display_units(current_part.span, false));
+          leftPanel.f3.setText(make_area_info_in_display_units(current_part.area, false));
+          
+          leftPanel.o4.setText(""+filter1or3(current_part.aspect_rat));
+        } catch (Throwable t) { on_loadPanel = false; throw t;} 
+        on_loadPanel = false;
       }
 
       class LeftPanel extends Panel {
         FoilBoard app;
-        TextField f1,f2,f3,o4;
-        Label l1,l2,l3,l4;
-        Label l01,l02;
+        JTextField f1,f2,f3,o4;
+        JLabel l1,l2,l3,l4;
+        JLabel l01,l02;
     
         LeftPanel (FoilBoard target) {
    
           app = target;
           setLayout(new GridLayout(5,2,2,10));
 
-          l01 = new Label("Wing", Label.RIGHT);
+          l01 = new JLabel("Wing", JLabel.RIGHT);
           l01.setForeground(Color.blue);
-          l02 = new Label("Size", Label.LEFT);
+          l02 = new JLabel("Size", JLabel.LEFT);
           l02.setForeground(Color.blue);
 
-          l1 = new Label("Chord-ft", Label.CENTER);
-          f1 = new TextField("5.0",5);
+          l1 = new JLabel("Chord-ft", JLabel.CENTER);
+          f1 = new JTextField("5.0",5);
+          f1.addActionListener(new ActionListener() {
+              @Override
+              public void actionPerformed(ActionEvent e) {
+                Double V1 = Double.valueOf(f1.getText());
+                System.out.println("-chord - ActionEvent: " + e);
+                double chord = V1.doubleValue();
+                chord = limit(chrd_min,
+                              size_input_in_display_units_to_m(chord, display_units),
+                              chrd_max);
+                current_part.chord = chord;
+                current_part.area = current_part.span * chord;
 
-          l2 = new Label("Span-ft", Label.CENTER);
-          f2 = new TextField("20.0",5);
+                current_part.aspect_rat = current_part.span/chord;
+                current_part.spanfac = (int)(2.0*fact*current_part.aspect_rat*.3535);
 
-          l3 = new Label("Area-sq ft", Label.CENTER);
-          f3 = new TextField("100.0",5);
+                // sync up slider, this fires up event
+                rightPanel.chord_SB.setValue((int) (((current_part.chord - chrd_min)/(chrd_max-chrd_min))*1000.));
+                
+                computeFlowAndRegenPlot();
+                // size.loadPanel();
+              }});
 
-          l4 = new Label("Aspect Rat", Label.CENTER);
-          o4 = new TextField("0.0",5);
+          l2 = new JLabel("Span-ft", JLabel.CENTER);
+          f2 = new JTextField("20.0",5);
+          f2.addActionListener(new ActionListener() {
+              @Override
+              public void actionPerformed(ActionEvent e) {
+                Double V2 = Double.valueOf(f2.getText());
+                double span = V2.doubleValue();
+                span = limit(span_min, 
+                             size_input_in_display_units_to_m(span, display_units),
+                             span_max);
+                current_part.span = span;
+                current_part.area = span * current_part.chord;
+                current_part.aspect_rat = span*span/current_part.area;
+
+                current_part.spanfac = (int)(2.0*fact*current_part.aspect_rat*.3535);
+                computeFlowAndRegenPlot();
+                size.loadPanel();
+              }});
+
+          l3 = new JLabel("Area-sq ft", JLabel.CENTER);
+          f3 = new JTextField("100.0",5);
+          f3.addActionListener(new ActionListener() {
+              @Override
+              public void actionPerformed(ActionEvent e) {
+                Double V3 = Double.valueOf(f3.getText());
+                double area = V3.doubleValue();
+                area = size_input_in_display_units_to_m(area, display_units);
+                area = limit(ar_min, area, ar_max);
+                double scale_k = area/current_part.area;
+                current_part.area = area;
+                // scale area preserving aspect ratio.
+                current_part.span *= Math.sqrt(scale_k);
+                current_part.chord *= Math.sqrt(scale_k);
+
+                computeFlowAndRegenPlot();
+                size.loadPanel();
+              }});
+
+          l4 = new JLabel("Aspect Rat", JLabel.CENTER);
+          o4 = new JTextField("0.0",5); // todo? make not editable?
           o4.setBackground(color_very_dark);
           o4.setForeground(Color.yellow);
 
@@ -7738,266 +7751,173 @@ public class FoilBoard extends  Applet {
           add(o4);
         }
 
-        public boolean handleEvent(Event evt) {
-          Double V1,V2,V3;
-          float fl1;
-          int i1,i2,i3,choice;
-
-          if (evt.id == Event.ACTION_EVENT) {
-
-            if (evt.target == f1) {
-              V1 = Double.valueOf(f1.getText());
-              double chord = V1.doubleValue();
-              chord = limit(chrd_min,
-                            size_input_in_display_units_to_m(chord, display_units),
-                          chrd_max);
-              current_part.chord = chord;
-              current_part.area = current_part.span * chord;
-              current_part.aspect_rat = current_part.span/chord;
-            } else if (evt.target == f2) {
-              V2 = Double.valueOf(f2.getText());
-              double span = V2.doubleValue();
-              span = limit(span_min, 
-                           size_input_in_display_units_to_m(span, display_units),
-                           span_max);
-              current_part.span = span;
-              current_part.area = span * current_part.chord;
-              current_part.aspect_rat = span*span/current_part.area;
-            } else if (evt.target == f3) {
-              V3 = Double.valueOf(f3.getText());
-              double area = V3.doubleValue();
-              area = size_input_in_display_units_to_m(size_input_in_display_units_to_m(area, display_units), display_units);
-              area = limit(ar_min, area, ar_max);
-              current_part.area = area;
-              current_part.span = area/current_part.chord;
-              current_part.aspect_rat = current_part.span*current_part.span/area;
-            }
-
-            // loadPanel does it 
-            // f1.setText(make_size_info_in_display_units(v1, false));
-
-            current_part.spanfac = (int)(2.0*fact*current_part.aspect_rat*.3535);
-
-            // loadPanel takes care
-            // i1 = (int) (((v1 - chrd_min)/(chrd_max-chrd_min))*1000.);
-            // rightPanel.sld1.s1.setValue(i1);
-            // i2 = (int) (((v2 - span_min)/(span_max-span_min))*1000.);
-            // rightPanel.sld2.s2.setValue(i2);
-            // i3 = (int) (((v3 - ar_min)/(ar_max-ar_min))*1000.);
-            // rightPanel.sld3.s3.setValue(i3);
-   
-            computeFlowAndRegenPlot();
-            size.loadPanel();
-            return true;
-          }
-          else return false;
-        } // Handler
       }  // LeftPanel 
 
       class RightPanel extends Panel {
         FoilBoard app;
-        Sld1 sld1;
-        Sld2 sld2;
-        Sld3 sld3;
+        ChordSB chord_SB;
+        SpanSB span_SB;
+        AreaSB area_SB;
 
         RightPanel (FoilBoard target) {
-          int i1,i2,i3;
-
           app = target;
           setLayout(new GridLayout(5,1,2,10));
 
-          i1 = (int) (((current_part.chord - chrd_min)/(chrd_max-chrd_min))*1000.);
-          i2 = (int) (((current_part.span - span_min)/(span_max-span_min))*1000.);
-          i3 = (int) (((current_part.area - ar_min)/(ar_max-ar_min))*1000.);
+          chord_SB = new ChordSB(app);
+          span_SB = new SpanSB(app);
+          area_SB = new AreaSB(app);
 
-          sld1 = new Sld1(app);
-          sld2 = new Sld2(app);
-          sld3 = new Sld3(app);
-
-          add(new Label(" ", Label.CENTER));
-          add(sld1);
-          add(sld2);
-          add(sld3);
-          add(new Label(" ", Label.CENTER));
+          add(new JLabel(" ", JLabel.CENTER));
+          add(chord_SB);
+          add(span_SB);
+          add(area_SB);
+          add(new JLabel(" ", JLabel.CENTER));
         }
 
-        class Sld1 extends Panel {  // chord slider
+        class ChordSB extends JScrollBar {  // chord slider
           FoilBoard app;
-          Scrollbar s1; 
 
-          Sld1 (FoilBoard target) {
-            int i1;
+          @Override
+          public void setValue(int i) {
+            System.out.println("-- ChordSB setValue: " + i);
+            if (i == getValue()) return;
+            new Exception("-------").printStackTrace(System.out);
+            super.setValue(i);
+          }
 
+          ChordSB (FoilBoard target) {
+            super(JScrollBar.HORIZONTAL,
+                  (int)(((current_part.chord - chrd_min)/(chrd_max-chrd_min))*1000.), 
+                  10,0,1000);
             app = target;
-            setLayout(new GridLayout(1,1,0,0));
+            addAdjustmentListener(new AdjustmentListener() {
+                public void adjustmentValueChanged(AdjustmentEvent evt) {
+                  if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
+                  if (on_loadPanel) return;
+                  int i = getValue();
+                  System.out.println("-- Chord AdjustmentEvent: i=" + i);
+                  current_part.chord  = i * (chrd_max - chrd_min)/ 1000. + chrd_min;
+                  // rounded up text box value
+                  //// leftPanel.f1.setText(make_size_info_in_display_units(current_part.chord, false));
+                  
+                  // recalc area, move slider, update text
+                  current_part.area = current_part.span * current_part.chord;
+                  //// rightPanel.area_SB.setValue((int) (((current_part.area - ar_min)/(ar_max-ar_min))*1000.));
+                  
+                  current_part.aspect_rat = current_part.span*current_part.span/current_part.area;
+                  current_part.spanfac = (int)(2.0*fact*current_part.aspect_rat*.3535);
 
-            i1 = (int) (((current_part.chord - chrd_min)/(chrd_max-chrd_min))*1000.);
-
-            s1 = new Scrollbar(Scrollbar.HORIZONTAL,i1,10,0,1000);
-
-            add(s1);
+                  // old order
+                  computeFlowAndRegenPlot();
+                  size.loadPanel();
+                  
+                }});
           }
 
-          public boolean handleEvent(Event evt) {
-            if (evt.id == Event.ACTION_EVENT) {
-              this.handleBar(evt);
-              return true;
-            }
-            if (evt.id == Event.SCROLL_ABSOLUTE) {
-              this.handleBar(evt);
-              return true;
-            }
-            if (evt.id == Event.SCROLL_LINE_DOWN) {
-              this.handleBar(evt);
-              return true;
-            }
-            if (evt.id == Event.SCROLL_LINE_UP) {
-              this.handleBar(evt);
-              return true;
-            }
-            if (evt.id == Event.SCROLL_PAGE_DOWN) {
-              this.handleBar(evt);
-              return true;
-            }
-            if (evt.id == Event.SCROLL_PAGE_UP) {
-              this.handleBar(evt);
-              return true;
-            }
-            else return false;
+          public boolean handleEvent (Event evt) {
+              System.out.println("-- handleEvent: obsolete");
+              return false;
           }
+        }  // ChordSB
 
-          public void handleBar (Event evt) {
-            int i1;
-            i1 = s1.getValue();
-            current_part.chord  = i1 * (chrd_max - chrd_min)/ 1000. + chrd_min;
-            current_part.area = current_part.span * current_part.chord;
-            current_part.aspect_rat = current_part.span*current_part.span/current_part.area;
-            size.loadPanel();
-            computeFlowAndRegenPlot();
-          }  // handler for scroll
-        }  // sld1
-
-        class Sld2 extends Panel {  // span slider
+        class SpanSB extends JScrollBar {  // span slider
           FoilBoard app;
-          Scrollbar s2; 
 
-          Sld2 (FoilBoard target) {
-            int i2;
-
+          @Override
+          public void setValue(int i) {
+            if (i == getValue()) return;
+            super.setValue(i);
+          }
+ 
+          SpanSB (FoilBoard target) {
+            super(JScrollBar.HORIZONTAL,
+                  (int) (((current_part.span - span_min)/(span_max-span_min))*1000.),
+                  10,0,1000);
             app = target;
-            setLayout(new GridLayout(1,1,0,0));
 
-            i2 = (int) (((current_part.span - span_min)/(span_max-span_min))*1000.);
+            addAdjustmentListener(new AdjustmentListener() {
+                public void adjustmentValueChanged(AdjustmentEvent evt) {
+                  if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
+                  if (on_loadPanel) return;
+                  int i = getValue();
+                  current_part.span  = i * (span_max - span_min)/ 1000. + span_min;
+                  //// leftPanel.f2.setText(make_size_info_in_display_units(current_part.span, false));
 
-            s2 = new Scrollbar(Scrollbar.HORIZONTAL,i2,10,0,1000);
+                  // recalc area, move slider, update text
+                  current_part.area = current_part.span * current_part.chord;
+                  //// rightPanel.area_SB.setValue((int) (((current_part.area - ar_min)/(ar_max-ar_min))*1000.));
 
-            add(s2);
+                  current_part.aspect_rat = current_part.span*current_part.span/current_part.area;
+                  current_part.spanfac = (int)(2.0*fact*current_part.aspect_rat*.3535);
+
+                  // old order
+                  computeFlowAndRegenPlot();
+                  size.loadPanel();
+                }});
+
           }
 
-          public boolean handleEvent(Event evt) {
-            if (evt.id == Event.ACTION_EVENT) {
-              this.handleBar(evt);
-              return true;
-            }
-            if (evt.id == Event.SCROLL_ABSOLUTE) {
-              this.handleBar(evt);
-              return true;
-            }
-            if (evt.id == Event.SCROLL_LINE_DOWN) {
-              this.handleBar(evt);
-              return true;
-            }
-            if (evt.id == Event.SCROLL_LINE_UP) {
-              this.handleBar(evt);
-              return true;
-            }
-            if (evt.id == Event.SCROLL_PAGE_DOWN) {
-              this.handleBar(evt);
-              return true;
-            }
-            if (evt.id == Event.SCROLL_PAGE_UP) {
-              this.handleBar(evt);
-              return true;
-            }
-            else return false;
+          public boolean handleEvent (Event evt) {
+              System.out.println("-- handleEvent: obsolete");
+              return false;
           }
+        }  // SpanSB
 
-          public void handleBar (Event evt) {
-            int i1;
-            i1 = s2.getValue();
-            current_part.span  = i1 * (span_max - span_min)/ 1000. + span_min;
-            current_part.area = current_part.span * current_part.chord;
-            current_part.aspect_rat = current_part.span*current_part.span/current_part.area;
-            current_part.spanfac = (int)(2.0*fact*current_part.aspect_rat*.3535);
-            size.loadPanel();
-            computeFlowAndRegenPlot();
-          }  // handler for scroll
-        }  // sld2
-
-        class Sld3 extends Panel {  // area slider
+        class AreaSB extends JScrollBar {  // area slider
           FoilBoard app;
-          Scrollbar s3; 
+
+          @Override
+          public void setValue(int i) {
+            if (i == getValue()) return;
+            super.setValue(i);
+          }
  
-          Sld3 (FoilBoard target) {
-            int i3;
- 
+          AreaSB (FoilBoard target) {
+            super(JScrollBar.HORIZONTAL,
+                  (int) (((current_part.area - ar_min)/(ar_max-ar_min))*1000.),
+                  10,0,1000);
             app = target;
-            setLayout(new GridLayout(1,1,0,0));
-  
-            i3 = (int) (((current_part.area - ar_min)/(ar_max-ar_min))*1000.);
- 
-            s3 = new Scrollbar(Scrollbar.HORIZONTAL,i3,10,0,1000);
+            addAdjustmentListener(new AdjustmentListener() {
+                public void adjustmentValueChanged(AdjustmentEvent evt) {
+                  if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
+                  if (on_loadPanel) return;
+                  int i = getValue();
+                  double new_area = i * (ar_max - ar_min)/ 1000. + ar_min; 
+                  double scale_k = new_area/current_part.area;
+                  current_part.area = new_area;
 
-            add(s3);
+                  // scale sizes preserving aspect
+                  // this moves all 3 sliders (and resets all 3 boxes)
+
+                  current_part.chord  *= Math.sqrt(scale_k);
+                  //// rightPanel.chord_SB.setValue((int) (((current_part.chord - chrd_min)/(chrd_max-chrd_min))*1000.));
+
+                  current_part.span  *= Math.sqrt(scale_k);
+                  //// rightPanel.span_SB.setValue((int) (((current_part.span - span_min)/(span_max-span_min))*1000.));
+
+                  current_part.area = current_part.span * current_part.chord;
+                  //// leftPanel.f3.setText(make_area_info_in_display_units(current_part.area, false));
+
+                  // old order
+                  computeFlowAndRegenPlot();
+                  size.loadPanel();
+                }});
           }
 
-          public boolean handleEvent(Event evt) {
-            if (evt.id == Event.ACTION_EVENT) {
-              this.handleBar(evt);
-              return true;
-            }
-            if (evt.id == Event.SCROLL_ABSOLUTE) {
-              this.handleBar(evt);
-              return true;
-            }
-            if (evt.id == Event.SCROLL_LINE_DOWN) {
-              this.handleBar(evt);
-              return true;
-            }
-            if (evt.id == Event.SCROLL_LINE_UP) {
-              this.handleBar(evt);
-              return true;
-            }
-            if (evt.id == Event.SCROLL_PAGE_DOWN) {
-              this.handleBar(evt);
-              return true;
-            }
-            if (evt.id == Event.SCROLL_PAGE_UP) {
-              this.handleBar(evt);
-              return true;
-            }
-            else return false;
+          public boolean handleEvent (Event evt) {
+              System.out.println("-- handleEvent: obsolete");
+              return false;
           }
- 
-          public void handleBar (Event evt) {
-            int i1 = s3.getValue() ;
-            current_part.area = i1 * (ar_max - ar_min)/ 1000. + ar_min ;            
-            current_part.span  = current_part.area/current_part.chord;
-            current_part.aspect_rat = current_part.span*current_part.span/current_part.area;
-            current_part.spanfac = (int)(2.0*fact*current_part.aspect_rat*.3535);
-            size.loadPanel();
-            computeFlowAndRegenPlot();
-          }  // handler for scroll
-        }  // sld3
+        }  // AreaSB
       }     // RightPanel
     }  // Size 
 
-    class Cyl extends InputPanel {
+    class BallCylinderShape extends InputPanel {
       FoilBoard app;
       LeftPanel leftPanel;
       RightPanel rightPanel;
 
-      Cyl (FoilBoard target) {
+      BallCylinderShape (FoilBoard target) {
 
         app = target;
         setLayout(new GridLayout(1,2,5,5));
@@ -8011,7 +7931,6 @@ public class FoilBoard extends  Applet {
 
       @Override
       public void loadPanel () {}
-
 
       public void setLims() {
         Double V1;
@@ -8037,27 +7956,37 @@ public class FoilBoard extends  Applet {
 
       class LeftPanel extends Panel {
         FoilBoard app;
-        TextField f1,f2,f3;
-        Label l1,l2,l3;
+        JTextField f1,f2,f3;
+        JLabel l1,l2,l3;
      
         LeftPanel (FoilBoard target) {
      
           app = target;
           setLayout(new GridLayout(6,2,2,10));
 
-          Label l = new Label("Cylinder-", Label.RIGHT); add(l);
+          JLabel l = new JLabel("Cylinder-", JLabel.RIGHT); add(l);
           l.setForeground(Color.blue);
-          l = new Label("Ball Input", Label.LEFT); add(l);
+          l = new JLabel("Ball Input", JLabel.LEFT); add(l);
           l.setForeground(Color.blue);
 
-          l1 = new Label("Spin rpm", Label.CENTER);
-          f1 = new TextField("0.0",5);
+          l1 = new JLabel("Spin rpm", JLabel.CENTER);
+          f1 = new JTextField("0.0",5);
 
-          l2 = new Label("Radius ft", Label.CENTER);
-          f2 = new TextField(".5",5);
+          l2 = new JLabel("Radius ft", JLabel.CENTER);
+          f2 = new JTextField(".5",5);
 
-          l3 = new Label("Span ft", Label.CENTER);
-          f3 = new TextField("5.0",5);
+          l3 = new JLabel("Span ft", JLabel.CENTER);
+          f3 = new JTextField("5.0",5);
+
+          f1.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+              _handleEvent(e); }});
+          f2.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+              _handleEvent(e); }});
+          f3.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+              _handleEvent(e); }});
 
           add(l1);
           add(f1);
@@ -8068,20 +7997,20 @@ public class FoilBoard extends  Applet {
           add(l3);
           add(f3);
 
-          add(new Label(" ", Label.CENTER));
-          add(new Label(" ", Label.CENTER));
+          add(new JLabel(" ", JLabel.CENTER));
+          add(new JLabel(" ", JLabel.CENTER));
 
-          add(new Label(" ", Label.CENTER));
-          add(new Label(" ", Label.CENTER));
+          add(new JLabel(" ", JLabel.CENTER));
+          add(new JLabel(" ", JLabel.CENTER));
         }
 
-        public boolean handleEvent(Event evt) {
+        private void _handleEvent (ActionEvent evt) {
           Double V1,V2,V3;
           double v1,v2,v3;
           float fl1;
           int i1,i2,i3;
 
-          if (evt.id == Event.ACTION_EVENT) {
+          {
             V1 = Double.valueOf(f1.getText());
             v1 = V1.doubleValue();
             V2 = Double.valueOf(f2.getText());
@@ -8113,7 +8042,7 @@ public class FoilBoard extends  Applet {
               fl1 = (float) v2;
               f2.setText(String.valueOf(fl1));
             }
-            cyl.setLims();
+            cylShape.setLims();
    
             current_part.span = v3;
             if (current_part.foil == FOIL_BALL) {
@@ -8144,16 +8073,14 @@ public class FoilBoard extends  Applet {
             rightPanel.s3.setValue(i3);
 
             computeFlowAndRegenPlot();
-            return true;
           }
-          else return false;
         } // Handler
       }  // LeftPanel 
 
       class RightPanel extends Panel {
         FoilBoard app;
-        Scrollbar s1,s2,s3;
-        Choice shape_choice;
+        JScrollBar s1,s2,s3;
+        JComboBox shape_choice;
 
         RightPanel (FoilBoard target) {
           int i1,i2,i3;
@@ -8165,12 +8092,25 @@ public class FoilBoard extends  Applet {
           i2 = (int) (((radius - rad_min)/(rad_max-rad_min))*1000.);
           i3 = (int) (((current_part.span - span_min)/(span_max-span_min))*1000.);
 
-          s1 = new Scrollbar(Scrollbar.HORIZONTAL,i1,10,0,1000);
-          s2 = new Scrollbar(Scrollbar.HORIZONTAL,i2,10,0,1000);
-          s3 = new Scrollbar(Scrollbar.HORIZONTAL,i3,10,0,1000);
+          s1 = new JScrollBar(JScrollBar.HORIZONTAL,i1,10,0,1000);
+          s2 = new JScrollBar(JScrollBar.HORIZONTAL,i2,10,0,1000);
+          s3 = new JScrollBar(JScrollBar.HORIZONTAL,i3,10,0,1000);
 
-          shape_choice = new Choice();
-          
+          s1.addAdjustmentListener(new AdjustmentListener() {
+            public void adjustmentValueChanged(AdjustmentEvent evt) {
+              if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
+              handleBar(evt);}});
+          s2.addAdjustmentListener(new AdjustmentListener() {
+            public void adjustmentValueChanged(AdjustmentEvent evt) {
+              if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
+              handleBar(evt);}});
+          s3.addAdjustmentListener(new AdjustmentListener() {
+            public void adjustmentValueChanged(AdjustmentEvent evt) {
+              if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
+              handleBar(evt);}});
+
+          shape_choice = new JComboBox();
+
           for (int id = 0; id < foil_arr.length; id++) {
             String text = foil_arr[id].descr;
             shape_choice.addItem(text);
@@ -8178,48 +8118,23 @@ public class FoilBoard extends  Applet {
           
           shape_choice.setBackground(Color.white);
           shape_choice.setForeground(Color.blue);
-          shape_choice.select(FOIL_JOUKOWSKI.id);
+          shape_choice.setSelectedIndex(FOIL_JOUKOWSKI.id);
+
+          shape_choice.addActionListener(new ActionListener() {
+              public void actionPerformed(ActionEvent e) {
+                setFoil((String)shape_choice.getItemAt(shape_choice.getSelectedIndex()));
+                if (in != null) in.update_state();
+              }});
 
           add(shape_choice);
           add(s1);
           add(s2);
           add(s3);
-          add(new Label(" ", Label.CENTER));
-          add(new Label(" ", Label.CENTER));
+          add(new JLabel(" ", JLabel.CENTER));
+          add(new JLabel(" ", JLabel.CENTER));
         }
 
-        public boolean handleEvent(Event evt) {
-          // System.out.println("-- Cyl panel evt: " + evt);
-          // new Exception("========== see stack:").printStackTrace(System.out);
-          if (evt.id == Event.ACTION_EVENT) {
-            setFoil(shape_choice.getItem(shape_choice.getSelectedIndex()));
-            in.handleCho(evt);
-            return true;
-          }
-          if (evt.id == Event.SCROLL_ABSOLUTE) {
-            this.handleBar(evt);
-            return true;
-          }
-          if (evt.id == Event.SCROLL_LINE_DOWN) {
-            this.handleBar(evt);
-            return true;
-          }
-          if (evt.id == Event.SCROLL_LINE_UP) {
-            this.handleBar(evt);
-            return true;
-          }
-          if (evt.id == Event.SCROLL_PAGE_DOWN) {
-            this.handleBar(evt);
-            return true;
-          }
-          if (evt.id == Event.SCROLL_PAGE_UP) {
-            this.handleBar(evt);
-            return true;
-          }
-          else return false;
-        }
-
-        public void handleBar (Event evt) {
+        private void handleBar (AdjustmentEvent evt) {
           int i1,i2,i3;
           double v1,v2,v3;
           float fl1,fl2,fl3;
@@ -8237,7 +8152,7 @@ public class FoilBoard extends  Applet {
           current_part.spanfac = (int)(fact*current_part.span/radius*.3535);
           current_part.area = 2.0*radius*current_part.span;
           if (current_part.foil == FOIL_BALL) current_part.area = 3.1415926 * radius * radius;
-          cyl.setLims();
+          cylShape.setLims();
 
           fl1 = (float) v1;
           fl2 = (float) v2;
@@ -8249,26 +8164,21 @@ public class FoilBoard extends  Applet {
       
           computeFlowAndRegenPlot();
         }
-
       }  // RightPanel
-    }  // Cyl 
+    }  // BallCylinderShape 
 
     class PlotSelectorTab extends Panel {
       FoilBoard app;
 
-      // old ways...
-      //Upper u;
-      //Lower l;
-      // Button[] all;
+      ButtonGroup cbg = new ButtonGroup();
 
-      CheckboxGroup cbg = new CheckboxGroup();
-
-      Checkbox add (String caption, final int type_id) { return add(caption, type_id, 0); }
-      Checkbox add (String caption, final int type_id, final int y_id) {
-        Checkbox cb = new Checkbox(caption, plot_type == type_id);
+      JRadioButton add (String caption, final int type_id) { return add(caption, type_id, 0); }
+      JRadioButton add (String caption, final int type_id, final int y_id) {
+        JRadioButton cb = new JRadioButton(caption, plot_type == type_id);
         add(cb); 
         cbg.add(cb);
         cb.addItemListener(new ItemListener() { public void itemStateChanged(ItemEvent e) {             
+          //System.out.println("-- cb itemStateChanged e: " + e);
           plot_type = type_id;
           plot_y_val = y_id;
           out.setSelectedIndex(0);
@@ -8281,14 +8191,13 @@ public class FoilBoard extends  Applet {
         app = target;
 
         setLayout(new GridLayout(12,1));
-
         
-        add(new Label("Whole Craft + Rider Plots"));
+        add(new JLabel("Whole Craft + Rider Plots"));
         
         add("Rider C,G, Board Pitch, Total Drag vs Travel Speed", PLOT_TYPE_CG_VS_SPEED);
         add("Drag of Wing,Stab,Mast,Fuse,etc vs Travel Speed", PLOT_TYPE_DRAG_TOTALS_VS_SPEED);
 
-        add(new Label("Plots for the Selectet Part (Wing/Stab/Mast/Fuse)"));
+        add(new JLabel("Plots for the Selectet Part (Wing/Stab/Mast/Fuse)"));
 
         add("Cl/Cd Polar Diagaram", PLOT_TYPE_LIFT_DRAG_POLARS);
         add("Drag Components vs Travel Speed", PLOT_TYPE_CURR_PART_VS_SPEED);
@@ -8332,7 +8241,7 @@ public class FoilBoard extends  Applet {
       //
       // class Upper extends Panel {
       //   FoilBoard app;
-      //   Label l1;
+      //   JLabel l1;
       //   Button pl1,pl2,pl3, bt_balance_pos_vs_speed, bt_drag_elts_vs_speed;
       // 
       //   Upper(FoilBoard target) {
@@ -8350,10 +8259,10 @@ public class FoilBoard extends  Applet {
       //     bt_balance_pos_vs_speed = new_button("CG/Speed");
       //     bt_drag_elts_vs_speed =   new_button("Drag/Speed");
       // 
-      //     add(new Label(" ", Label.RIGHT));
-      //     add(new Label("Select", Label.RIGHT));
-      //     add(new Label("Plot", Label.LEFT));
-      //     add(new Label(" ", Label.RIGHT));
+      //     add(new JLabel(" ", JLabel.RIGHT));
+      //     add(new JLabel("Select", JLabel.RIGHT));
+      //     add(new JLabel("Plot", JLabel.LEFT));
+      //     add(new JLabel(" ", JLabel.RIGHT));
       // 
       //     add(pl1);
       //     add(pl2);
@@ -8361,13 +8270,13 @@ public class FoilBoard extends  Applet {
       //     add(bt_balance_pos_vs_speed);
       // 
       //     add(bt_drag_elts_vs_speed);
-      //     add(new Label(" ", Label.RIGHT));
-      //     add(new Label(" ", Label.RIGHT));
-      //     add(new Label(" ", Label.RIGHT));
+      //     add(new JLabel(" ", JLabel.RIGHT));
+      //     add(new JLabel(" ", JLabel.RIGHT));
+      //     add(new JLabel(" ", JLabel.RIGHT));
       // 
       //   }
       // 
-      //   public boolean action(Event evt, Object arg) {
+      //   public boolean action (Event evt, Object arg) {
       //     if (evt.target instanceof Button) {
       //       handleBut(evt,arg);
       //       return true;
@@ -8428,29 +8337,29 @@ public class FoilBoard extends  Applet {
       // 
       //   class FoilCtrls extends Panel {
       //     FoilBoard app;
-      //     Label l2;
+      //     JLabel l2;
       //     Button pl3,pl4,pl5,pl6,pl7,pl8,pl9;
-      //     Choice plout,ploutb;
+      //     JComboBox plout,ploutb;
       // 
       //     FoilCtrls(FoilBoard target) {
       //       app = target;
       //       setLayout(new GridLayout(3,4,5,5));
       // 
-      //       ploutb = new Choice();
+      //       ploutb = new JComboBox();
       //       ploutb.addItem("Lift vs.");
       //       ploutb.addItem("Drag vs.");
       //       ploutb.setBackground(Color.white);
       //       ploutb.setForeground(Color.red);
-      //       ploutb.select(0);
+      //       ploutb.setSelectedIndex(0);
       // 
-      //       plout = new Choice();
+      //       plout = new JComboBox();
       //       plout.addItem("Lift vs.");
       //       plout.addItem("Cl vs.");
       //       plout.addItem("Drag vs.");
       //       plout.addItem("Cd vs.");
       //       plout.setBackground(Color.white);
       //       plout.setForeground(Color.red);
-      //       plout.select(0);
+      //       plout.setSelectedIndex(0);
       // 
       //       pl3 = new_button("Angle");
       //       pl4 = new_button("Thickness");
@@ -8468,20 +8377,20 @@ public class FoilBoard extends  Applet {
       //       add(ploutb);
       //       add(pl6);
       //       add(pl7);
-      //       add(new Label(" ", Label.RIGHT));
+      //       add(new JLabel(" ", JLabel.RIGHT));
       // 
-      //       add(new Label(" ", Label.RIGHT));
+      //       add(new JLabel(" ", JLabel.RIGHT));
       //       add(pl8);
       //       add(pl9);
-      //       add(new Label(" ", Label.RIGHT));
+      //       add(new JLabel(" ", JLabel.RIGHT));
       //     }
       // 
-      //     public boolean action(Event evt, Object arg) {
+      //     public boolean action (Event evt, Object arg) {
       //       if (evt.target instanceof Button) {
       //         handleBut(evt,arg);
       //         return true;
       //       }
-      //       if (evt.target instanceof Choice) {
+      //       if (evt.target instanceof JComboBox) {
       //         String label = (String)arg;
       //         plot_y_val = plout.getSelectedIndex();
       //         plot_y_val_2 = ploutb.getSelectedIndex();
@@ -8538,13 +8447,13 @@ public class FoilBoard extends  Applet {
       // 
       //   class BallCtrls extends Panel {
       //     FoilBoard app;
-      //     Label l2;
+      //     JLabel l2;
       // 
       //     BallCtrls(FoilBoard target) {
       //       app = target;
       //       setLayout(new GridLayout(1,1,5,5));
       // 
-      //       l2 = new Label(" ", Label.RIGHT);
+      //       l2 = new JLabel(" ", JLabel.RIGHT);
       // 
       //       add(l2);
       //     }
@@ -8555,43 +8464,43 @@ public class FoilBoard extends  Applet {
     class Anl extends InputPanel {
       FoilBoard app;
 
-      // Label l1,l2,l3,l4,l5,l6;
+      // JLabel l1,l2,l3,l4,l5,l6;
 
       // Button bt1,bt2,bt3,bt4_1,bt4_2,bt5,bt6,bt7,bt8,bt9,bt10, bt_stab_aoa;
       //Button foilsim_drag, aquila_9p3_drag, naca4digit_drag;
       // int foil_drag_comp_method = DRAG_COMP_NACA4SERIES;
       //Button cbt1,cbt2,cbt3;
 
-      Checkbox chb_stab_aoa_corr;
+      JCheckBox chb_stab_aoa_corr;
 
       Anl (FoilBoard target) {
 
         app = target;
         setLayout(new GridLayout(8,1,5,5));
 
-        Checkbox chb; 
-        add(chb = new Checkbox("Aspect Ratio Correction for Lift", ar_lift_corr));
+        JCheckBox chb; 
+        add(chb = new JCheckBox("Aspect Ratio Correction for Lift", ar_lift_corr));
         chb.addItemListener(new ItemListener() { public void itemStateChanged(ItemEvent e) {             
           ar_lift_corr = e.getStateChange() == ItemEvent.SELECTED;
           computeFlowAndRegenPlotAndAdjust();
           con.recomp_all_parts();
         }});
 
-        add(chb = new Checkbox("Compute Lift-Induced Drag", induced_drag_on));
+        add(chb = new JCheckBox("Compute Lift-Induced Drag", induced_drag_on));
         chb.addItemListener(new ItemListener() { public void itemStateChanged(ItemEvent e) {             
           induced_drag_on = e.getStateChange() == ItemEvent.SELECTED;
           computeFlowAndRegenPlotAndAdjust();
           con.recomp_all_parts();
         }});
 
-        add(chb = new Checkbox("Reynolds Number Correction for Lift", re_corr));
+        add(chb = new JCheckBox("Reynolds Number Correction for Lift", re_corr));
         chb.addItemListener(new ItemListener() { public void itemStateChanged(ItemEvent e) {             
           re_corr = e.getStateChange() == ItemEvent.SELECTED;
           computeFlowAndRegenPlotAndAdjust();
           con.recomp_all_parts();
         }});
 
-        add(chb_stab_aoa_corr = new Checkbox("Front Wing Downwash Correction for Back wing eff angle", stab_aoa_correction));
+        add(chb_stab_aoa_corr = new JCheckBox("Front Wing Downwash Correction for Back wing eff angle", stab_aoa_correction));
         chb_stab_aoa_corr.addItemListener(new ItemListener() { public void itemStateChanged(ItemEvent e) { 
           stab_aoa_correction = e.getStateChange() == ItemEvent.SELECTED;
           if (stab_aoa_correction) {
@@ -8599,12 +8508,20 @@ public class FoilBoard extends  Applet {
             if (stab.xpos + stab.chord_xoffs <= wing.xpos + wing.chord_xoffs) {
               System.out.println("-- stab is not in wing downwash, no corretion needed");
               stab_aoa_correction = false;
-              chb_stab_aoa_corr.setState(stab_aoa_correction);
+              chb_stab_aoa_corr.setSelected(stab_aoa_correction);
             } 
           }
           computeFlowAndRegenPlotAndAdjust();
           con.recomp_all_parts();
         }});
+
+        add(chb = new JCheckBox("Trace VPP goal finding ", false));
+        chb.addItemListener(new ItemListener() {
+            public void itemStateChanged(ItemEvent e) {             
+              vpp.trace = e.getStateChange() == ItemEvent.SELECTED;
+              System.out.println("-- trace: " + vpp.trace);
+            }
+          });
 
       }
 
@@ -8683,13 +8600,9 @@ public class FoilBoard extends  Applet {
         // con.recomp_all_parts();
       }
 
-      public boolean action(Event evt, Object arg) {
+      public boolean action (Event evt, Object arg) {
         System.out.println("-- warning: obsolete action() invoked... arg: " + arg);
-        if (evt.target instanceof Button) {
-          // handleBut(evt,arg);
-          return true;
-        }
-        else return false;
+        return false;
       } // Handler
 
       // public void handleBut(Event evt, Object arg) {
@@ -8818,18 +8731,22 @@ public class FoilBoard extends  Applet {
       addTab("Geometry", null, geometry, "Hydrofoil components geometry,\nfoil/profile geometry tables or links");
       addTab("Data", null, data, "Hydrofoil components data,\nincluding size, shape etc");
 
+      // TODO: regen this on update (if active)
       perfweb = new PerfWeb(app);
       addTab("Summary", null, perfweb, "Shape and Performance Summary");
 
-      perfwebsrc = new PerfWebSrc(app);
-      addTab("<h1>Summary...", null, perfwebsrc, "Shape and Performance Summary,\n html codes for embedding");
+      // phasin out this.... (stil works). instead, copy&past "summary" tab into
+      // html tool such as https://html-online.com/editor/ and done!
+      //
+      // perfwebsrc = new PerfWebSrc(app);
+      // addTab("<h1>Summary...", null, perfwebsrc, "Shape and Performance Summary,\n html codes for embedding");
 
       setSelectedComponent(perfweb);
 
       // adding actions to tabs: following "whoa" ideas from stackoverflow work but I use
       // overloaded paint() instead, seem simple.
 
-      // Label label = new Label("XXX");
+      // JLabel label = new JLabel("XXX");
       // label.addMouseListener(new java.awt.event.MouseAdapter() {
       //   public void mouseClicked(MouseEvent e) {
       //     System.out.println("woah! ");
@@ -8846,6 +8763,15 @@ public class FoilBoard extends  Applet {
       //      setSelectedIndex(index);
       //    }
       //  });
+
+      // can be used to attach aux logic here..
+      this.addChangeListener(new javax.swing.event.ChangeListener() {
+                    @Override
+                    public void stateChanged(javax.swing.event.ChangeEvent e) {
+                      // e.getSource();
+                      // System.out.println("-- e: " + e);
+                      //System.out.println("Selected paneNo : " + .getSelectedIndex());
+                    } });
     }
 
 
@@ -9097,7 +9023,7 @@ public class FoilBoard extends  Applet {
 
 
       public void update (Graphics g) {
-        out.viewer.paint(g);
+        out.viewer.paint(g); // ?? is this just this.paint()??
       }
 
       int toInt (double val) {
@@ -10194,7 +10120,7 @@ public class FoilBoard extends  Applet {
           }
         }
 
-        // Labels
+        // JLabels
         // off1Gg.setColor(col_bg);
         // off1Gg.fillRect(0,0,350,30);
         off1Gg.setColor(Color.white);
@@ -10216,7 +10142,7 @@ public class FoilBoard extends  Applet {
 
         if (viewflg == VIEW_FORCES) {
           off1Gg.setColor(force_labels ? Color.yellow : Color.cyan);
-          off1Gg.drawString("Force Labels",85,25);
+          off1Gg.drawString("Force JLabels",85,25);
         } else if (viewflg == VIEW_3D_MESH) {
           off1Gg.setColor(perspective ? Color.cyan :  Color.yellow);
           off1Gg.drawString("Ortographic",85,25);
@@ -11910,59 +11836,63 @@ public class FoilBoard extends  Applet {
 
       class L extends Panel {
         FoilBoard app;
-        Label l01;
+        JLabel l01;
         Button bt1,bt2,bt3;
      
         L (FoilBoard target) {
           app = target;
           setLayout(new GridLayout(4,1,10,10));
 
-          l01 = new Label("Probe", Label.CENTER);
+          l01 = new JLabel("Probe", JLabel.CENTER);
           l01.setForeground(Color.red);
 
           bt1 = new_button("Velocity");
-
           bt2 = new_button("Pressure");
-
           bt3 = new_button("Smoke");
+          
+          bt1.addActionListener(new ActionListener() {
+              @Override
+              public void actionPerformed(ActionEvent e) {
+                pboflag = 1;
+                bt1.setBackground(Color.yellow);
+                bt2.setBackground(Color.white);
+                bt3.setBackground(Color.white);
+                out.plot.loadPlot();
+              }});
+          bt2.addActionListener(new ActionListener() {
+              @Override
+              public void actionPerformed(ActionEvent e) {
+                pboflag = 2;
+                bt2.setBackground(Color.yellow);
+                bt1.setBackground(Color.white);
+                bt3.setBackground(Color.white);
+                out.plot.loadPlot();
+              }});
+          bt3.addActionListener(new ActionListener() {
+              @Override
+              public void actionPerformed(ActionEvent e) {
+                pboflag = 3;
+                bt3.setBackground(Color.yellow);
+                bt2.setBackground(Color.white);
+                bt1.setBackground(Color.white);
+                out.plot.loadPlot();
+              }});
+
           add(l01);
           add(bt1);
           add(bt2);
           add(bt3);
         }
 
-        public boolean action(Event evt, Object arg) {
-          if (evt.target instanceof Button) {
-            String label = (String)arg;
-            if (label.equals("Velocity")) {
-              pboflag = 1;
-              bt1.setBackground(Color.yellow);
-              bt2.setBackground(Color.white);
-              bt3.setBackground(Color.white);
-            }
-            if (label.equals("Pressure")) {
-              pboflag = 2;
-              bt2.setBackground(Color.yellow);
-              bt1.setBackground(Color.white);
-              bt3.setBackground(Color.white);
-            }
-            if (label.equals("Smoke")) {
-              pboflag = 3;
-              bt3.setBackground(Color.yellow);
-              bt2.setBackground(Color.white);
-              bt1.setBackground(Color.white);
-            }
-
-            out.plot.loadPlot();
-            return true;
-          }
-          else return false;
-        } // Handler
+        public boolean action (Event evt, Object arg) {
+          System.out.println("-- warning: obsolete action() invoked... arg: " + arg);
+          return true;
+        }
       }  // LeftPanel
 
       class R extends Panel {
         FoilBoard app;
-        Scrollbar s1,s2;
+        JScrollBar s1,s2;
         L2 l2;
         Button bt4;
 
@@ -11971,12 +11901,37 @@ public class FoilBoard extends  Applet {
           app = target;
           setLayout(new BorderLayout(5,5));
 
-          s1 = new Scrollbar(Scrollbar.VERTICAL,550,10,0,1000);
-          s2 = new Scrollbar(Scrollbar.HORIZONTAL,550,10,0,1000);
+          s1 = new JScrollBar(JScrollBar.VERTICAL,550,10,0,1000);
+          s2 = new JScrollBar(JScrollBar.HORIZONTAL,550,10,0,1000);
+
+          s1.addAdjustmentListener(new AdjustmentListener() {
+              public void adjustmentValueChanged(AdjustmentEvent evt) {
+                if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
+                int i1 = s1.getValue();
+                ypval = 5.0 - i1 * 10.0/ 1000.;
+                computeFlowAndRegenPlot();
+              }});
+          s2.addAdjustmentListener(new AdjustmentListener() {
+              public void adjustmentValueChanged(AdjustmentEvent evt) {
+                if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
+                int i2 = s2.getValue();
+                xpval = i2 * 20.0/ 1000. -10.0;
+                computeFlowAndRegenPlot();
+              }});
 
           l2 = new L2(app);
 
           bt4 = new Button ("OFF");
+          bt4.addActionListener(new ActionListener() {
+              @Override
+              public void actionPerformed(ActionEvent e) {
+                pboflag = 0;
+                l.bt3.setBackground(Color.white);
+                l.bt2.setBackground(Color.white);
+                l.bt1.setBackground(Color.white);
+                computeFlowAndRegenPlot();
+              }});
+
           bt4.setBackground(Color.red);
           bt4.setForeground(Color.white);
 
@@ -11986,48 +11941,9 @@ public class FoilBoard extends  Applet {
           add("North",bt4);
         }
 
-        public boolean handleEvent(Event evt) {
-          if (evt.id == Event.ACTION_EVENT) {
-            pboflag = 0;
-            l.bt3.setBackground(Color.white);
-            l.bt2.setBackground(Color.white);
-            l.bt1.setBackground(Color.white);
-            computeFlowAndRegenPlot();
-            return true;
-          }
-          if (evt.id == Event.SCROLL_ABSOLUTE) {
-            this.handleBar(evt);
-            return true;
-          }
-          if (evt.id == Event.SCROLL_LINE_DOWN) {
-            this.handleBar(evt);
-            return true;
-          }
-          if (evt.id == Event.SCROLL_LINE_UP) {
-            this.handleBar(evt);
-            return true;
-          }
-          if (evt.id == Event.SCROLL_PAGE_DOWN) {
-            this.handleBar(evt);
-            return true;
-          }
-          if (evt.id == Event.SCROLL_PAGE_UP) {
-            this.handleBar(evt);
-            return true;
-          }
-          else return false;
-        }
-
-        public void handleBar (Event evt) {
-          int i1,i2;
-
-          i1 = s1.getValue();
-          i2 = s2.getValue();
-
-          ypval = 5.0 - i1 * 10.0/ 1000.;
-          xpval = i2 * 20.0/ 1000. -10.0;
-    
-          computeFlowAndRegenPlot();
+        public boolean handleEvent (Event evt) {
+          System.out.println("-- handleEvent: obsolete");
+          return false;
         }
 
         class L2 extends Canvas  {
@@ -12136,7 +12052,7 @@ public class FoilBoard extends  Applet {
     }  // Probe
 
     class Geometry extends Panel {
-      FoilBoard app; TextArea prnt;
+      FoilBoard app; GeometryText text;
 
       public void paint (Graphics g) {
         // System.out.println("-- Geometry paint " + this);
@@ -12145,17 +12061,16 @@ public class FoilBoard extends  Applet {
       }
 
       Geometry (FoilBoard target) {
-
         setLayout(new GridLayout(1,1,0,0));
-
-        prnt = new CustomTextArea();
-        prnt.setEditable(false);
-
-        prnt.appendText("Kite/Windsurf Hydrofoil Simulator V1.0.\nInitially derived from FoilSim III 1.5b beta");
-        add(prnt);
+        text = new GeometryText(this);
       }
 
-      class CustomTextArea extends TextArea {
+      class GeometryText extends JTextArea {
+        GeometryText(Panel panel) { 
+          this.setEditable(false);
+          this.append("Kite/Windsurf Hydrofoil Simulator V1.0.\nInitially derived from FoilSim III 1.5b beta");
+          panel.add(new JScrollPane(this));
+        }
 
         public void paint (Graphics g) {
           // System.out.println("-- CustomTextArea  paint " + this);
@@ -12174,72 +12089,72 @@ public class FoilBoard extends  Applet {
         //??pboflag = 0;
         volume = 0.0;
         
-        prnt.appendText(current_part.foil.genReportText(current_part.thickness, current_part.camber));
+        text.append(current_part.foil.genReportText(current_part.thickness, current_part.camber));
 
         if (!foil_is_cylinder_or_ball(current_part.foil)) {
-          prnt.appendText( "\n Camber = " + filter3(current_part.camber) );
-          prnt.appendText( " % of chord ," );
-          prnt.appendText( " Thickness = " + filter3(current_part.thickness) );
-          prnt.appendText( " % chord ," );
-          prnt.appendText( "\n Chord = " + filter3(current_part.chord) );
-          if (lunits == IMPERIAL) prnt.appendText( " ft ," );
-          else /*METRIC*/         prnt.appendText( " m ," );
-          prnt.appendText( " Span = " + filter3(current_part.span) );
-          if (lunits == IMPERIAL) prnt.appendText( " ft ," );
-          else /*METRIC*/         prnt.appendText( " m ," );
-          prnt.appendText( "\n Angle of attack = " + filter3(current_part.aoa) );
-          prnt.appendText( " degrees ," );
+          text.append( "\n Camber = " + filter3(current_part.camber) );
+          text.append( " % of chord ," );
+          text.append( " Thickness = " + filter3(current_part.thickness) );
+          text.append( " % chord ," );
+          text.append( "\n Chord = " + filter3(current_part.chord) );
+          if (lunits == IMPERIAL) text.append( " ft ," );
+          else /*METRIC*/         text.append( " m ," );
+          text.append( " Span = " + filter3(current_part.span) );
+          if (lunits == IMPERIAL) text.append( " ft ," );
+          else /*METRIC*/         text.append( " m ," );
+          text.append( "\n Angle of attack = " + filter3(current_part.aoa) );
+          text.append( " degrees ," );
         } else { // cylinder and ball
-          prnt.appendText( "\n Spin  = " + filter3(spin*60.0) );
-          prnt.appendText( " rpm ," );
-          prnt.appendText( " Radius = " + filter3(radius) );
-          if (lunits == IMPERIAL) prnt.appendText( " ft ," );
-          else /*METRIC*/         prnt.appendText( " m ," );
+          text.append( "\n Spin  = " + filter3(spin*60.0) );
+          text.append( " rpm ," );
+          text.append( " Radius = " + filter3(radius) );
+          if (lunits == IMPERIAL) text.append( " ft ," );
+          else /*METRIC*/         text.append( " m ," );
         }
         switch(planet) {
         case 0: {       
-          prnt.appendText( "\n Standard Earth Atmosphere" );
+          text.append( "\n Standard Earth Atmosphere" );
           break;
         }
         case 1: {       
-          prnt.appendText( "\n Martian Atmosphere" );
+          text.append( "\n Martian Atmosphere" );
           break;
         }
         case 2: {       
-          prnt.appendText( "\n Under Water" );
+          text.append( "\n Under Water" );
           break;
         }
         case 3: {       
-          prnt.appendText( "\n Specified Conditions" );
+          text.append( "\n Specified Conditions" );
           break;
         }
         case 4: {       
-          prnt.appendText( "\n Specified Conditions" );
+          text.append( "\n Specified Conditions" );
           break;
         }
         }
         switch (lunits)  {
         case 0: {                             /* English */
-          prnt.appendText( "\n Ambient Pressure = " + filter3(ps0/144.) );
-          prnt.appendText( "lb/sq in," );
+          text.append( "\n Ambient Pressure = " + filter3(ps0/144.) );
+          text.append( "lb/sq in," );
           break;
         }
         case 1: {                             /* Metric */
-          prnt.appendText( "\n Ambient Pressure = " + filter3(101.3/14.7*ps0/144.) );
-          prnt.appendText( "kPa," );
+          text.append( "\n Ambient Pressure = " + filter3(101.3/14.7*ps0/144.) );
+          text.append( "kPa," );
           break;
         }
         }
-        prnt.appendText( "\n Ambient Velocity = " + filter0(velocity) );
-        if (lunits == IMPERIAL) prnt.appendText( " mph ," );
-        else /*METRIC*/         prnt.appendText( " km/hr ," );
+        text.append( "\n Ambient Velocity = " + filter0(velocity) );
+        if (lunits == IMPERIAL) text.append( " mph ," );
+        else /*METRIC*/         text.append( " km/hr ," );
 
-        prnt.appendText( "\n \t Upper Surface \t \t \t ");
-        prnt.appendText( "\n X/c \t Y/c \t P \t V \t ");
+        text.append( "\n \t Upper Surface \t \t \t ");
+        text.append( "\n X/c \t Y/c \t P \t V \t ");
         mapfac = 4.0;
         if (foil_is_cylinder_or_ball(current_part.foil)) mapfac = 2.0;
         for (index = 0; index <= POINTS_COUNT_HALF-1; ++ index) {
-          prnt.appendText( "\n" + filter3(xpl[0][POINTS_COUNT_HALF-index]/mapfac) +  "\t"
+          text.append( "\n" + filter3(xpl[0][POINTS_COUNT_HALF-index]/mapfac) +  "\t"
                                         + filter3(ypl[0][POINTS_COUNT_HALF-index]/mapfac) + "\t" + filter3(plp[POINTS_COUNT_HALF-index]) + "\t"
                                         + filter0(plv[POINTS_COUNT_HALF-index]) + "\t"); 
           if (index <= POINTS_COUNT_HALF-2) {
@@ -12247,9 +12162,9 @@ public class FoilBoard extends  Applet {
                                      *(ypl[0][POINTS_COUNT_HALF-index]+ ypl[0][POINTS_COUNT_HALF-index-1])) / (mapfac * mapfac)) * current_part.chord;
           }
         }
-        prnt.appendText( "\n \t Lower Surface \t \t \t ");
+        text.append( "\n \t Lower Surface \t \t \t ");
         for (index = 0; index <= POINTS_COUNT_HALF-1; ++ index) {
-          prnt.appendText( "\n"  + filter3(xpl[0][POINTS_COUNT_HALF+index]/mapfac) + "\t"
+          text.append( "\n"  + filter3(xpl[0][POINTS_COUNT_HALF+index]/mapfac) + "\t"
                                         + filter3(ypl[0][POINTS_COUNT_HALF+index]/mapfac) + "\t" + filter3(plp[POINTS_COUNT_HALF+index]) + "\t"
                                         + filter0(plv[POINTS_COUNT_HALF+index]) );
           if (index <= POINTS_COUNT_HALF-2) {
@@ -12261,9 +12176,9 @@ public class FoilBoard extends  Applet {
         if (current_part.foil == FOIL_CYLINDER) volume = 3.14159 * radius * radius * current_part.span;
         else if (current_part.foil == FOIL_BALL) volume = 3.14159 * radius * radius * radius * 4.0 / 3.0;
            
-        prnt.appendText( "\n  Volume =" + filter3(volume));
-        if (lunits == IMPERIAL) prnt.appendText( " cu ft " );
-        else /*METRIC*/         prnt.appendText( " cu m " );
+        text.append( "\n  Volume =" + filter3(volume));
+        if (lunits == IMPERIAL) text.append( " cu ft " );
+        else /*METRIC*/         text.append( " cu m " );
 
         // needed?? computeFlowAndRegenPlotAndAdjust();
       }
@@ -12273,17 +12188,14 @@ public class FoilBoard extends  Applet {
 
     class Data extends Panel {
       FoilBoard app;
-      TextArea prnt;
+      JTextArea text;
 
       Data (FoilBoard target) {
-
         setLayout(new GridLayout(1,1,0,0));
-
-        prnt = new TextArea();
-        prnt.setEditable(false);
-
-        prnt.appendText("Kite/Windsurf Hydrofoil Simulator V1.0.\nDerived from FoilSim III 1.5b beta");
-        add(prnt);
+        text = new JTextArea();
+        text.setEditable(false);
+        text.append("Kite/Windsurf Hydrofoil Simulator V1.0.\nDerived from FoilSim III 1.5b beta");
+        add(new JScrollPane(text));
       }
 
       public void paint (Graphics g) {
@@ -12297,22 +12209,20 @@ public class FoilBoard extends  Applet {
 
         current_part.save_state(); 
 
-        TextArea out = FoilBoard.this.out.data.prnt;
+        JTextArea out = text;
 
         if (!t_foil_name.equals("Test"))
-          out.appendText("\n\nHydrofoil: " + t_foil_name);
+          out.append("\n\nHydrofoil: " + t_foil_name);
 
         java.util.Date date = new java.util.Date();
-        out.appendText(    "\n     Date: " + date);
-
-
+        out.append(    "\n     Date: " + date);
         
         wing.print( "Main Wing", out);
         stab.print( "Stabilizer Wing", out);
         strut.print("Mast (a.k.a. Strut)", out);
         fuse.print( "Fuselage", out);
 
-        out.appendText( "\n\n");
+        out.append( "\n\n");
         // tail volume is LAElev * AreaElev / (MACWing * AreaWing)
         // LAElev : The elevator's Lever Arm measured at the wing's and elevator's quarter chord point
         double LAElev = stab.xpos + stab.chord_xoffs + 0.25*stab.chord  - (wing.xpos + wing.chord_xoffs + 0.25*wing.chord);
@@ -12320,91 +12230,90 @@ public class FoilBoard extends  Applet {
         // AreaWing : The main wing's area
         // AreaElev : The elevator's area
         
-        out.appendText( "\nTail Voulume: " + LAElev*stab.span*stab.chord/(wing.chord*wing.chord*wing.span));
+        out.append( "\nTail Voulume: " + LAElev*stab.span*stab.chord/(wing.chord*wing.chord*wing.span));
         
 
-        out.appendText( "\n\n");
+        out.append( "\n\n");
         switch (planet) {
         case 0: {       
-          out.appendText( "\n Standard Earth Atmosphere" );
+          out.append( "\n Standard Earth Atmosphere" );
           break;
         }
         case 1: {       
-          out.appendText( "\n Martian Atmosphere" );
+          out.append( "\n Martian Atmosphere" );
           break;
         }
         case 2: {       
-          out.appendText( "\n Water" );
+          out.append( "\n Water" );
           break;
         }
         case 3: {       
-          out.appendText( "\n Specified Conditions" );
+          out.append( "\n Specified Conditions" );
           break;
         }
         case 4: {       
-          out.appendText( "\n Specified Conditions" );
+          out.append( "\n Specified Conditions" );
           break;
         }
         }
 
-        // out.appendText( "\n Altitude = " + filter0(alt) );
-        // if (lunits == IMPERIAL) out.appendText( " ft ," );
-        // else /*METRIC*/         out.appendText( " m ," );
+        // out.append( "\n Altitude = " + filter0(alt) );
+        // if (lunits == IMPERIAL) out.append( " ft ," );
+        // else /*METRIC*/         out.append( " m ," );
       
         switch (lunits)  {
         case 0: {                             /* English */
-          out.appendText( "\n Density = " + filter5(rho_EN) );
-          out.appendText( "slug/cu ft" );
-          out.appendText( "\n Pressure = " + filter3(ps0/144.) );
-          out.appendText( "lb/sq in," );
-          out.appendText( " Temperature = " + filter0(ts0 - 460.) );
-          out.appendText( "F," );
+          out.append( "\n Density = " + filter5(rho_EN) );
+          out.append( "slug/cu ft" );
+          out.append( "\n Pressure = " + filter3(ps0/144.) );
+          out.append( "lb/sq in," );
+          out.append( " Temperature = " + filter0(ts0 - 460.) );
+          out.append( "F," );
           break;
         }
         case 1: {                             /* Metric */
-          out.appendText( " Density = " + filter3(rho_EN*515.4) );
-          out.appendText( "kg/cu m" );
-          out.appendText( "\n Pressure = " + filter3(101.3/14.7*ps0/144.) );
-          out.appendText( "kPa," );
-          out.appendText( " Temperature = " + filter0(ts0*5.0/9.0 - 273.1) );
-          out.appendText( "C," );
+          out.append( " Density = " + filter3(rho_EN*515.4) );
+          out.append( "kg/cu m" );
+          out.append( "\n Pressure = " + filter3(101.3/14.7*ps0/144.) );
+          out.append( "kPa," );
+          out.append( " Temperature = " + filter0(ts0*5.0/9.0 - 273.1) );
+          out.append( "C," );
           break;
         }
         }
 
-        out.appendText( "\n Speed = " + filter1(velocity * (lunits==IMPERIAL? 0.868976 : 0.539957 )) + "Kts, or" );
-        out.appendText( " " + filter1(velocity) );
-        if (lunits == IMPERIAL) out.appendText( " mph ," );
-        else /*METRIC*/         out.appendText( " km/hr ," );
+        out.append( "\n Speed = " + filter1(velocity * (lunits==IMPERIAL? 0.868976 : 0.539957 )) + "Kts, or" );
+        out.append( " " + filter1(velocity) );
+        if (lunits == IMPERIAL) out.append( " mph ," );
+        else /*METRIC*/         out.append( " km/hr ," );
 
         // if (lftout == 1)
-        //   out.appendText( "\n  Lift Coefficient = " + filter3(current_part.cl) );
+        //   out.append( "\n  Lift Coefficient = " + filter3(current_part.cl) );
         // if (lftout == 0) {
-        //   if (Math.abs(lift) <= 10.0) out.appendText( "\n  Lift = " + filter3(lift) );
-        //   if (Math.abs(lift) > 10.0) out.appendText( "\n  Lift  = " + filter0(lift) );
-        //   if (lunits == IMPERIAL) out.appendText( " lbs " );
-        //   else /*METRIC*/         out.appendText( " Newtons " );
+        //   if (Math.abs(lift) <= 10.0) out.append( "\n  Lift = " + filter3(lift) );
+        //   if (Math.abs(lift) > 10.0) out.append( "\n  Lift  = " + filter0(lift) );
+        //   if (lunits == IMPERIAL) out.append( " lbs " );
+        //   else /*METRIC*/         out.append( " Newtons " );
         // }
         // if ( polarOut == 1)
-        //   out.appendText( "\n  Drag Coefficient = " + filter3(current_part.cd) );
+        //   out.append( "\n  Drag Coefficient = " + filter3(current_part.cd) );
         // if (lftout == 0) {
-        //   out.appendText( "\n  Drag  = " + filter0(drag) );
-        //   if (lunits == IMPERIAL) out.appendText( " lbs " );
-        //   else /*METRIC*/         out.appendText( " Newtons " );
+        //   out.append( "\n  Drag  = " + filter0(drag) );
+        //   if (lunits == IMPERIAL) out.append( " lbs " );
+        //   else /*METRIC*/         out.append( " Newtons " );
         // }
 
-        out.appendText( "\n  Lift = " + con.outTotalLift.getText());
-        out.appendText( "\n  Drag  = " + con.outTotalDrag.getText());
+        out.append( "\n  Lift = " + con.outTotalLift.getText());
+        out.append( "\n  Drag  = " + con.outTotalDrag.getText());
 
         if (min_takeoff_speed_info != null) 
-          out.appendText( "\n\n" + min_takeoff_speed_info);
+          out.append( "\n\n" + min_takeoff_speed_info);
 
         if (cruising_info != null) 
-          out.appendText( "\n\n" + cruising_info);
+          out.append( "\n\n" + cruising_info);
 
         if (max_speed_info != null) 
-          out.appendText( "\n\n" + max_speed_info);
-
+          out.append( "\n\n" + max_speed_info);
       }
     }  // Data
 
@@ -12422,10 +12331,9 @@ public class FoilBoard extends  Applet {
 
       public void paint (Graphics g) {
         // System.out.println("-- paint " + this);
-        prnt.setText(genReport());
+        updateReport();
         super.paint(g);
       }
-
 
       String cg_text (String cg_text) { 
         if (cg_text.equals("-"))
@@ -12433,6 +12341,12 @@ public class FoilBoard extends  Applet {
         else 
           return cg_text + " mast LE";
       
+      }
+
+      void updateReport () { 
+        long start = System.currentTimeMillis();
+        prnt.setText(genReport()); 
+        // System.out.println("-- PerfWeb updateReport, ms: " + (System.currentTimeMillis() - start));
       }
       
       String genReport () {
@@ -12514,22 +12428,21 @@ public class FoilBoard extends  Applet {
             return html_text;
 
       }
-
     }
 
     class PerfWebSrc extends Panel {
       FoilBoard app;
-      TextArea prnt;
+      JTextArea text;
 
       PerfWebSrc (FoilBoard target) {
         setLayout(new GridLayout(1,1,0,0));
-        prnt = new TextArea();
-        prnt.setEditable(false);
-        add(prnt);
+        text = new JTextArea();
+        text.setEditable(false);
+        add(new JScrollPane(text));
       }
       public void paint (Graphics g) {
         // System.out.println("-- paint " + this);
-        prnt.setText(out.perfweb.genReport());
+        text.setText(out.perfweb.genReport());
         super.paint(g);
       }
     }
