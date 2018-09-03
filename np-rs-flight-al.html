@@ -1,0 +1,28 @@
+<HTML>
+<HEAD>
+  <TITLE>NP RS Flight AL in T-Hydrofoil Simulator V 1.0</TITLE>
+  <META name="author" content="dmitrynizh"/>
+  <META name="copyright" content="(c) 2017"/>
+</HEAD>
+<BODY>
+<P><APPLET CODE="Foil.class" WIDTH='900' HEIGHT='600' ALIGN='bottom'>
+  <PARAM NAME="Make"  VALUE="Neil Pryde"/>
+  <PARAM NAME="Model" VALUE="RS:Flight:AL"/>
+  <PARAM NAME="Year"  VALUE="2017/8"/>
+<!-- Params Wing, Stab, Fuse, Mast have these VALUE formats: 
+  (1) simple:  VALUE="FOIL CHORD SPAN THICKNESS CAMBER ANGLE POS*"
+   where CHORD SPAN THICKNESS CAMBER ANGLE  - numeric values in meters
+         FOIL - either one of built-tin names or name of data/image file
+         POS* optional distance of part's leading edge (LE)  from the fuselage tip
+  (2) multi-segmented, with equally-spaced chords
+    where everything is as above except CHORD is ;-separated list of chord specs.
+    Each chord spec  can be either L or L/X or L/X/Z, where L is chord length, 
+    X is longitudinal relative offset from the prev chord, Z is same for vertical direction
+ -->
+  <PARAM NAME="Wing"  VALUE="NACA_4_Series 0.105  0.68  12 3.34  0"/>
+  <PARAM NAME="Stab"  VALUE="NACA_4_Series 0.075 0.421 12 0 -2"/>
+  <PARAM NAME="Fuse"  VALUE="NACA_4_Series 0.70  0.02 4  0    0.0"/>
+  <PARAM NAME="Mast"  VALUE="NACA_4_Series 0.145 0.85  10 0     0 0.35"/>
+</APPLET></P>
+</BODY>
+</HTML>

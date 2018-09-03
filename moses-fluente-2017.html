@@ -1,0 +1,32 @@
+<HTML>
+<HEAD>
+  <TITLE>Moses Fluente 2017 Foil in T-Hydrofoil Simulator V 1.0</TITLE>
+  <META name="author" content="dmitrynizh"/>
+  <META name="copyright" content="(c) 2017"/>
+</HEAD>
+<BODY>
+<P><APPLET CODE="Foil.class" WIDTH='900' HEIGHT='600' ALIGN='bottom'>
+  <PARAM NAME="TYPE" VALUE="KITEFOIL"/><PARAM NAME="TKL" VALUE="600"/><PARAM NAME="TKD" VALUE="120"/>
+  <PARAM NAME="CRL" VALUE="650"/><PARAM NAME="RSL" VALUE="750"/><PARAM NAME="RSD" VALUE="245"/>
+  <PARAM NAME="BH" VALUE="0.06"/><PARAM NAME="BL" VALUE="1.45"/><PARAM NAME="MFP" VALUE="-1"/>
+  <PARAM NAME="BW" VALUE="35"/><PARAM NAME="RW" VALUE="0"/>
+  <PARAM NAME="Make"  VALUE="Moses"/>
+  <PARAM NAME="Model" VALUE="Fluente"/>
+  <PARAM NAME="Year"  VALUE="2017"/> 
+<!-- Params Wing, Stab, Fuse, Mast have these VALUE formats: 
+  (1) simple:  VALUE="FOIL CHORD SPAN THICKNESS CAMBER ANGLE POS*"
+   where CHORD SPAN THICKNESS CAMBER ANGLE  - numeric values in meters
+         FOIL - either one of built-tin names or name of data/image file
+         POS* optional distance of part's leading edge (LE)  from the fuselage tip
+  (2) multi-segmented, with equally-spaced chords
+    where everything is as above except CHORD is ;-separated list of chord specs.
+    Each chord spec  can be either L or L/X or L/X/Z, where L is chord length, 
+    X is longitudinal relative offset from the prev chord, Z is same for vertical direction
+ -->
+  <PARAM NAME="Wing"  VALUE="NACA_4_Series 0.1315/0/-0.015;0.125/0.0025/-0.003;0.117/0.0057/-0.004;0.108/0.009/-0.005;0.098/0.0134/-0.007;0.0797/0.025/-0.009;0.0368/0.061/-0.017 0.55 10 4 -0.5"/>
+  <PARAM NAME="Stab"  VALUE="NACA_4_Series 0.0828/0/-0.012:0.067/0.01/0.003:0.031/0.05/0.01 0.325 8 -2 0"/>
+  <PARAM NAME="Mast"  VALUE="NACA_4_Series 0.107/0;0.11/-0.0015;0.113/-0.0015;0.116/-0.0015;0.12/-0.0025 0.91 11 0 0 0.17"/>
+  <PARAM NAME="Fuse"  VALUE="NACA_4_Series 0.7 0.025 4 0 0"/>
+</APPLET></P>
+</BODY>
+</HTML>
