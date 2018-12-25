@@ -1,14 +1,4 @@
-package test;
-
-//thsi section is for Swing 2 JS
-//web_Ready
-//web_AppletName= FoilBoard
-//web_Description= FoilBoard + FoilBoard + Fuse + Mast + Board!
-//web_JavaVersion= http://www.dmitrynizh.com
-//web_AppletImage= no
-//web_Category= foiling
-//web_Date= $Date: 2017-01-01 06:08:18 +0000 (Sun, 01 Jan 2017) $
-//web_Features= graphics, AWT-to-Swing
+// !!! DO NOT EDIT !!! source: d:/swingjs-myenv/src/test/FoilBoard.java 
 
 /*
 * 
@@ -41,16 +31,23 @@ package test;
 *
 * Portions of this foil simulator are derived from "FoilSim III", see
 * its copyright and header of FoilSim below. I tried to preserve the
-* original look and feel of "FoilSim III" with its 4 panels out of
-* which left top is graphical, left bottom is inputs, right top is
-* outputs and right bottom is for plots, data, gauges. Most code
-* inherited from "FoilSim III" has been reachitected, varianles were
-* renamned etc. 
+* original look and feel of "FoilSim III" with its 4 panels of equal
+* size arranged on a 2-by-2 grid, out of which left top is graphical,
+* left bottom is inputs, right top is outputs and right bottom is for
+* plots, data, gauges. Most code inherited from "FoilSim III" has been
+* reachitected, varianles were renamned etc.
 * 
-* 
-* This simulator computes lift and drag for a T-shape hydrofoil having
-* a vertical strut a.k.a. mast, a main wing, a stabilizer wing, and a
-* fuselage connecting the wings and the mast.
+* This simulator accurately computes lift and drag for a T-shape
+* hydrofoil having a vertical strut (a.k.a. "mast"), a main wing, a
+* horizontal stabilizer wing, and a fuselage connecting the wings and
+* the mast. Various performance goals, such as "what is the speed of
+* minimal drag?"  can be evaluated and solved. The results are
+* presented in numeric, graphical, tabular formats, and can help to
+* evaluate existing hydrofoils and predict properties and behavior of
+* new design ideas. The author used this tool extensively in the
+* design of DIY carbon windfoil built in 2017,
+* https://1drv.ms/f/s!AhpYSQuCj3vrjHeKi4Bvpnp_r7kB which came out
+* exactly as conceived, thanks to this tool's predictions.
 *
 *
 *----From FoilSim.java, https://www.grc.nasa.gov/www/k-12/FoilSim------------- 
@@ -138,7 +135,28 @@ or services provided hereunder.
                                              TJB 3 Sep 13
                                                                                           
 */
+//====  This section is for Swing 2 JS ==============================
+//
+// Note on SwingJS conversion: older versions of this tool are
+// available online, see
+// http://www.dmitrynizh.com/swingjs/mywebsite/FoilBoard.htm
+// http://www.dmitrynizh.com/swingjs/mywebsite/WindFoiling.htm The
+// latest/current version conversion is pending.  The original NASA
+// FoilSim III has been also successfully converted to JS:
+// http://www.dmitrynizh.com/swingjs/mywebsite/FoilOrig.html
+//
+//web_Ready
+//web_AppletName= FoilBoard
+//web_Description= FoilBoard = Wing + Fuse + Mast + Stab + Board!
+//web_JavaVersion= https://github.com/dmitrynizh/foilboard
+//web_AppletImage= no
+//web_Category= foiling
+//web_Date= $Date: 2017-01-01 06:08:18 +0000 (Sun, 01 Jan 2017) $
+//web_Features= graphics, AWT-to-Swing
+//===================================================================
 
+
+// AWT Classes. No '.*', keep track of all links.
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
@@ -166,7 +184,7 @@ import java.awt.event.TextEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 
-
+// Swing classes. No '.*', keep track of all links.
 import javax.swing.JDialog;
 import javax.swing.JButton;
 import javax.swing.JRadioButton;
@@ -182,18 +200,18 @@ import javax.swing.JScrollPane;
 import javax.swing.JFrame;
 import javax.swing.JApplet;
 
-
-// import a2s.A2SEvent;
-
+// Core Java Classes. No '.*', keep track of all links.
 import java.lang.Math;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.Properties;
-
 import java.io.File;
 
+
+public class FoilBoard extends JApplet {
+
 // really, a struct
-class Point2D {
+static public class Point2D {
   double x, y;
   Point2D (double x, double y) {
     this.x = x;
@@ -201,7 +219,7 @@ class Point2D {
   }
 }
 // really, a struct
-class Point3D {
+static public class Point3D {
   double x, y, z; // length, span, heigth. tail is + from nose, left is -, right is +.
   Point3D (double x, double y, double z) {
     this.x = x;
@@ -209,8 +227,6 @@ class Point3D {
     this.z = z;
   }
 }
-
-public class FoilBoard extends JApplet {
 
   class Part {
     /**/ String name; Foil foil; double xpos; double chord; double span; double thickness; double camber; double aoa;
@@ -313,36 +329,7 @@ public class FoilBoard extends JApplet {
     }
 
     // NO-OP now!!!
-    void save_state () {
-      // check data integrity
-      // if (false) { // if (DEBUG) {
-      //   double thickness = current_part.thickness;
-      //   if (thickness/25 != current_part.thickness/25) {
-      //     System.out.println("-- attention: thickness/35 != current_part.thickness/25. thickness: " + thickness + " current_part.thickness/25: " + current_part.thickness/25);
-      //   }
-      //   if (thkd != current_part.thickness) {
-      //     System.out.println("-- attention: thkd != current_part.thickness. thkd: " + thkd + " current_part.thickness: " + current_part.thickness);
-      //   }
-      // }
-
-      // state is always metric
-      // double conv = 1;
-      //done this.foil       = FoilBoard.this.foil;
-      // this.chord      = conv * FoilBoard.this.chord;
-      // this.span       = conv * FoilBoard.this.span;
-      // this.thickness  = conv * FoilBoard.this.current_part.thickness/25 * 25;
-      // this.camber     = FoilBoard.this.current_part.camber/25 * 25;
-      // this.aoa        = FoilBoard.this.current_part.aoa;
-      //this.lift       = FoilBoard.this.lift;
-      //this.drag       = FoilBoard.this.drag;
-      //this.moment       = FoilBoard.this.moment;
-      // do we need to cache these? probably not
-      //this.cl         = FoilBoard.this.current_part.cl;
-      // this.cm         = FoilBoard.this.current_part.cm;
-      //this.t_Cl = current_part.t_Cl;
-      //this.t_Cd = current_part.t_Cd;
-      
-    }
+    void save_state () { }
 
   } // Part
 
@@ -378,7 +365,6 @@ public class FoilBoard extends JApplet {
             if (nNode.getNodeType() == org.w3c.dom.Node.ELEMENT_NODE) {
               org.w3c.dom.Element eElement = (org.w3c.dom.Element) nNode;
               String name = eElement.getAttribute("NAME");
-              System.out.println("-- parse file: name: " + name);
               String value = eElement.getAttribute("VALUE");
               props.setProperty(name, value);
             }
@@ -416,81 +402,11 @@ public class FoilBoard extends JApplet {
 
   }
 
-
   boolean on_cg_plotting = false;
-  // for debugging
-  //class JTextField extends a2s.JTextField {
-  //  public JTextField(int width) {super(width);}
-  //  public JTextField() {super();}
-  //  public JTextField(String text) {super(text);}
-  //  public JTextField(String text, int width) {super(text, width);}
-  //  // debug it
-  //  public void setText(String text) {
-  //    if (on_cg_plotting) {
-  //      new Exception("-- JTextField setText called. can_do_gui_updates="+ can_do_gui_updates).printStackTrace(System.out);
-  //    }
-  //    super.setText(text);
-  //  }
-  //}
-  
+
   static boolean inited = false;
   
-
-  /**
-   * This class Panel is a substitute for legacy java.awt.Panel for JS
-   * conversion, implementing parts of it and its superclasses's
-   * functionality that's been deprecated since jdk1.1 and while still
-   * supported by modern java, not found in SwingJS.
-   * 
-   * The main mechanism supported by this class Panel is legacy jdk
-   * 1.0 event model involving methods action and handleEvent. This
-   * class automatically adds listeners to children components added
-   * to it, and fires up call to methods action and handleEvent. as
-   * appropriate to approximate AWT 1.0 behavior. One could wonder why
-   * not to move this bridging functionality to jsjava/awt/Container
-   * where it logically belongs but this will enable the legacy
-   * behavior with the burden associated with it for SwingJS
-   * components - because JComponent derives from java.awt.Container -
-   * probably not a good idea.
-   * 
-   * Class Panel author: dmitrynizh
-   * */
-  class Panel extends JPanel 
-              ////test implements ActionListener, AdjustmentListener 
-  {
-
-    // class Scrollbar extends a2s.Scrollbar {
-    //   public Scrollbar (int orientation, int value, int extent, int min, int max) {
-    //     super(orientation, value, extent, min, max);
-    //     //System.out.println("-- UI: " + getUI());
-    //     // not yet setUI(new CustomUI());
-    //   }
-    //   class CustomUI extends javax.swing.plaf.metal.MetalScrollBarUI {
-    //     @Override
-    //     protected void installListeners() {
-    //       super.installListeners();
-    //       if (incrButton != null) {
-    //         incrButton.addMouseListener(new java.awt.event.MouseAdapter() {
-    // 
-    //             @Override
-    //             public void mouseClicked(MouseEvent e) {
-    //               System.out.println("-- mouseClicked: " + e);
-    //             }
-    //           });
-    //       }
-    //       if (decrButton != null) {
-    //         decrButton.addMouseListener(new java.awt.event.MouseAdapter() {
-    //             @Override
-    //             public void mouseClicked(MouseEvent e) {
-    //               System.out.println("-- mouseClicked: " + e);
-    //               setValue(getValue()-10);
-    //               computeFlowAndRegenPlot();
-    //             }
-    //           });
-    //       }
-    //     }
-    //   }
-    // }
+  class Panel extends JPanel {
 
     public Panel (LayoutManager layout) {
       super(layout);
@@ -522,146 +438,6 @@ public class FoilBoard extends JApplet {
       b.setForeground(Color.blue);
       return b;
     }
-
-
-    ////test Aug 19 2018: lets see if we can drop these
-    ////test 
-    ////test @Override
-    ////test @SuppressWarnings("deprecation")
-    ////test public void actionPerformed (ActionEvent e) {
-    ////test   System.out.println("-- Panel actionPerformed e: " + e);
-    ////test   if (!inited)
-    ////test     return;    
-    ////test   new A2SEvent(this, e).run();
-    ////test }
-    ////test 
-    ////test //@Override
-    ////test @SuppressWarnings("deprecation")
-    ////test public void actionPerformed_v3 (ActionEvent e) {
-    ////test   if (!inited)
-    ////test     return;
-    ////test   Event olde = A2SEvent.convertToOld(e);
-    ////test   deliverEvent(olde);
-    ////test }
-    ////test 
-    ////test public void adjustmentValueChanged (AdjustmentEvent e) {
-    ////test   //System.out.println("comp " + e.getSource() + " value: " + ((JScrollBar) e.getSource()).getValue());
-    ////test   new A2SEvent(this, e).run();
-    ////test }
-    ////test 
-    ////test public void adjustmentValueChanged_v3 (AdjustmentEvent e) {
-    ////test   //System.out.println("comp " + e.getSource() + " value: " + ((JScrollBar) e.getSource()).getValue());
-    ////test   Event olde = A2SEvent.convertToOld(e);
-    ////test   deliverEvent(olde);
-    ////test }
-    ////test 
-    ////test @Override
-    ////test protected void/*Component in jsjava/awt/!*/ addImpl (Component comp, Object constraints, int index) {
-    ////test   super.addImpl(comp, constraints, index);
-    ////test   System.out.println(" -- addImpl  adding comp: " + comp);
-    ////test   // this is wrong time for buttons
-    ////test   //comp.setPreferredSize(comp.getPreferredSize());
-    ////test   if (comp instanceof Button)
-    ////test     ((Button)comp).addActionListener(this);
-    ////test   else if (comp instanceof JScrollBar)
-    ////test     ((JScrollBar)comp).addAdjustmentListener(this);
-    ////test   else if (comp instanceof JTextField) {
-    ////test     comp.setPreferredSize(new Dimension(120, 24));
-    ////test     ((JTextField)comp).addActionListener(this);
-    ////test   } else if (comp instanceof JComboBox)
-    ////test     ((JComboBox)comp).addActionListener(this);
-    ////test   
-    ////test   //return comp;
-    ////test }
-
-    //    public Component add(Button bt) {
-    //      super.add(bt);
-    //      bt.addActionListener(this);
-    //      return bt;
-    //    }
-    //
-    //    public Component add(JScrollBar comp) {
-    //      super.add(comp);
-    //      comp.addAdjustmentListener(this);
-    //      return comp;
-    //    }
-    //    public Component add(String pos, JScrollBar comp) {
-    //      super.add(pos, comp);
-    //      comp.addAdjustmentListener(this);
-    //      return comp;
-    //    }
-    //
-    //    public Component add(JTextField comp) {
-    //      super.add(comp);
-    //      comp.setPreferredSize(new Dimension(400, 80));
-    //      comp.addActionListener(this);
-    //      return comp;
-    //    }
-    //
-    //    public Component add(JComboBox comp) {
-    //      super.add(comp);
-    //      // return A2SEvent.addComponent((EventListener)
-    //      // this.getTopLevelAncestor(), comp);
-    //      comp.addActionListener(this);
-    //      return comp;
-    //    }
-
-    // public boolean action (Event evt, Object arg) { }
-
-
-    // Tease variants work but are kludgey. v1 does not deliver to enclosing panels
-    //    
-    //    @SuppressWarnings("deprecation")
-    //    public void actionPerformed_old_v1 (ActionEvent e) {
-    //      if (!inited)
-    //        return;
-    //      Object src = e.getSource();
-    //      if (src instanceof JTextField) {
-    //        System.out.println("TF " + src + "this " + this.getClass());
-    //        boolean ok = this.action(new Event(src, Event.ACTION_EVENT, e), src);
-    //        if (!ok)
-    //          this.handleEvent(new Event(src, Event.ACTION_EVENT, e));
-    //      } else if (src instanceof Button) {
-    //        System.out.println("Button: " + ((Button) src).getText() + " " + src);
-    //        boolean ok = this.action(new Event(src, Event.ACTION_EVENT, e), ((Button) src).getText());
-    //        // if (!ok) this.handleEvent(new Event(src, Event.ACTION_EVENT, e));
-    //      } else if (src instanceof JComboBox) {
-    //        System.out.println("choice " + src + " idx: " + ((JComboBox) src).getSelectedIndex() + " sel: " + ((JComboBox) src).getSelectedItem());
-    //        boolean ok = this.action(new Event(src, Event.ACTION_EVENT, e), src);
-    //        if (!ok)
-    //          this.handleEvent(new Event(src, Event.ACTION_EVENT, e));
-    //      }
-    //    }
-    //    
-    //    // var 2, improved, handles enclosing panels
-    //    @SuppressWarnings("deprecation")
-    //    public void actionPerformed_old_v2 (ActionEvent e) {
-    //      if (!inited)
-    //        return;
-    //      Object src = e.getSource();
-    //      // must convert the awt.event.ActionEvent to awt.Event (not a superclass!) with appropriate 'arg'
-    //      // which may differ depending on the source.
-    //      // TODO: should likely use AWTEvent.convertToOld as e.convertToOld() instead. Try it!
-    //      // Note: calling deliverEvent, not handleEvent is important otherwise parents (enclosing containers) are not delivered to!
-    //      if (src instanceof JTextField) {
-    //        System.out.println("TF " + src + "this " + this.getClass());
-    //        this.deliverEvent(new Event(src, Event.ACTION_EVENT, src));
-    //      } else if (src instanceof Button) {
-    //        System.out.println("Button: " + ((Button) src).getText() + " " + src);
-    //        this.deliverEvent(new Event(src, Event.ACTION_EVENT, ((Button) src).getText()));
-    //      } else if (src instanceof JComboBox) {
-    //        System.out.println("choice " + src + " idx: " + ((JComboBox) src).getSelectedIndex() + " sel: " + ((JComboBox) src).getSelectedItem());
-    //        this.deliverEvent(new Event(src, Event.ACTION_EVENT, src));
-    //      }
-    //    }
-
-    //    public void adjustmentValueChanged_old_v1 (AdjustmentEvent e) {
-    //      //System.out.println("comp " + e.getSource() + " value: " + ((JScrollBar) e.getSource()).getValue());
-    //      boolean ok = this.action(new Event(e.getSource(), Event.SCROLL_ABSOLUTE, e), e.getSource());
-    //      if (!ok)
-    //        this.handleEvent(new Event(e.getSource(), Event.SCROLL_ABSOLUTE, e));
-    //    }
-
   } // Panel
 
   class Canvas extends JPanel {
@@ -743,6 +519,7 @@ public class FoilBoard extends JApplet {
     current_part.foil = (Foil)foils.get(name);
   }
 
+  // Not jargon "Foil", but CFD foil-profile
   class Foil { 
     int id; 
     String descr;
@@ -1320,10 +1097,10 @@ public class FoilBoard extends JApplet {
   static double stall_model_apos = 10, stall_model_aneg = -10;
   
   static final boolean DEBUG_SPEED_SUPPR_ADJ = false;
+  static final boolean DEBUG_SPEED_SUPPR     = false;
   static void debug_speed_suppr_adj (AdjustmentEvent e) {
     System.out.println("-- AdjustmentEvent"); }
 
-  static final boolean DEBUG_SPEED_SUPPR     = true;
   
   static final int STALL_MODEL_IDEAL_FLOW = 0,
     STALL_MODEL_DFLT = 1, // default 0.5 + 0.1A + 0.005A^2 and +-10
@@ -1708,7 +1485,6 @@ public class FoilBoard extends JApplet {
     // constants hence uppercased, but then became initialized from
     // props...
     craft_type      = getParamOrProp("TYPE","WIND").toUpperCase().startsWith("WIND") ? WINDFOIL : KITEFOIL;
-    System.out.println("-- craft_type: " + craft_type);
     BOARD_THICKNESS = Double.parseDouble(getParamOrProp("BH","0.1"));
     BOARD_LENGTH    = Double.parseDouble(getParamOrProp("BL","2.35"));
     BOARD_WEIGHT    = Double.parseDouble(getParamOrProp("BW","65"));
@@ -2297,137 +2073,13 @@ public class FoilBoard extends JApplet {
   String toStringOptQMFilter0 (double val) {
     return (val <= 0) ? "??" : make_force_info_in_display_units(val, false);
   }
-  
-  // oct 17: fed up with loadInput, try not to call this anymore....
+
+  // loadInput has been removed.
+  // Oct 17: fed up with loadInput, try not to call this anymore....
   // note: this also does computeFlow(), 
   // hence no need to do {computeFlowAndRegenPlotAndAdjust();computeFlowAndRegenPlot();}
   // public void loadInput () {   // load the input panels
-  //   int i1,i2,i3,i4,i5,i6;
-  //   double v1,v2,v3,v4,v5,v6;
-  //   float fl1,fl2,fl3,fl4,fl5,fl6;
-  //   //  dimensional
-  //   if (lunits == IMPERIAL) {
-  //     in.size.leftPanel.l1.setText("Chord-ft");
-  //     in.size.leftPanel.l2.setText("Span-ft");
-  //     in.size.leftPanel.l3.setText("Area-sq ft");
-  //     in.flt.speed_ctrl.name.setText("Speed-mph");
-  //     in.cylShape.leftPanel.l2.setText("Radius ft");
-  //     in.cylShape.leftPanel.l3.setText("Span ft");
-  //     in.flt.alt_ctrl.name.setText("Altitude-%");
-  //     in.flt.load_ctrl.name.setText("Load-lb");
-  //     // in.flt.lbl_min_lift.setText("Total Lift lb >=");
-  //     // in.flt.lbl_max_drag.setText("Total Drag lb <=");
-  //   } else /*METRIC*/ {
-  //     in.size.leftPanel.l1.setText("Chord-m");
-  //     in.size.leftPanel.l2.setText("Span-m");
-  //     in.size.leftPanel.l3.setText("Area-sq m");
-  //     in.flt.speed_ctrl.name.setText("Speed-km/h");
-  //     in.cylShape.leftPanel.l2.setText("Radius m");
-  //     in.cylShape.leftPanel.l3.setText("Span m");
-  //     in.flt.alt_ctrl.name.setText("Altitude-%");
-  //     in.flt.load_ctrl.name.setText("Load-N");
-  //     // in.flt.lbl_min_lift.setText("Total Lift N >=");
-  //     // in.flt.lbl_max_drag.setText("Total Drag N <=");
-  //   }
-  // 
-  //   speed_kts_mph_kmh_ms_info = make_speed_kts_mph_kmh_ms_info(velocity);
-  //   
-  //   // trying NOT to set tehse here as it causes lots of panel shifts
-  //   // in.shp.rightPanel.shape_choice.setSelectedIndex(foil.id);
-  //   // in.cylShape.rightPanel.shape_choice.setSelectedIndex(foil.id);
-  // 
-  //   v1 = current_part.chord;
-  //   chrd_min = 0.1*lconv;   chrd_max = 20.1*lconv;
-  //   v2 = current_part.span;
-  //   span_min = 0.01*lconv;   span_max = 125.1*lconv;
-  //   if (planet == 2) {
-  //     chrd_max = 5.1*lconv;
-  //     span_max = 10.1*lconv;
-  //   }
-  //   v3 = current_part.area;
-  //   //ar_min = armin*lconv*lconv; ar_max = armax*lconv*lconv;
-  //   v4 = velocity;
-  //   v_min = 0.0;   v_max= vmax;
-  //   v5 = alt;
-  //   alt_min = 0.0;  alt_max = 85; // in % not in altmax*lconv;
-  //   v6 = radius;
-  //   rad_min = .05*lconv;  rad_max = 5.0*lconv;
-  //   //aspect_rat = span/chord; // aspect
-  //   //current_part.spanfac = (int)(2.0*fact*aspect_rat*.3535);
-  // 
-  //   fl1 = (float) v1;
-  //   fl2 = (float) v2;
-  //   fl3 = (float) v3;
-  //   fl4 = filter3(v4);
-  //   fl5 = (float) v5;
-  //   fl6 = (float) v6;
-  //  
-  //   in.size.leftPanel.f1.setText(String.valueOf(fl1));
-  //   in.size.leftPanel.f2.setText(String.valueOf(fl2));
-  //   in.size.leftPanel.f3.setText(String.valueOf(fl3));
-  //   in.flt.f1.setText(String.valueOf(fl4));
-  //   in.flt.fAoA.setText(pprint(filter3(craft_pitch)));
-  // 
-  // 
-  //   String tmp = in.flt.fAoA.getText();
-  //   System.out.println("-- tmp: " + tmp);
-  //   // in.flt.f2.setText(String.valueOf(fl5));
-  // 
-  //   // in.flt.o1.setText(""+Double.valueOf(in.flt.o1.getText()) /lconv);
-  //   // in.flt.o3.setText(""+Double.valueOf(in.flt.o3.getText()) / lconv);
-  // 
-  //   in.cylShape.leftPanel.f2.setText(String.valueOf(fl6));
-  //   in.cylShape.leftPanel.f3.setText(String.valueOf(fl2));
-  //  
-  //   i1 = (int) (((v1 - chrd_min)/(chrd_max-chrd_min))*1000.);
-  //   i2 = (int) (((v2 - span_min)/(span_max-span_min))*1000.);
-  //   i3 = (int) (((v3 - ar_min)/(ar_max-ar_min))*1000.);
-  //   i4 = (int) (((v4 - v_min)/(v_max-v_min))*1000.);
-  //   i5 = (int) (((v5 - alt_min)/(alt_max-alt_min))*1000.);
-  //   i6 = (int) (((v6 - rad_min)/(rad_max-rad_min))*1000.);
-  // 
-  // 
-  //   in.size.rightPanel.chord_SB.s1.setValue(i1);
-  //   in.size.rightPanel.span_SB.s2.setValue(i2);
-  //   in.size.rightPanel.area_SB.s3.setValue(i3);
-  //   in.flt.s1.setValue(i4);
-  //   in.flt.sAoA.setValue((int) (((craft_pitch - ang_min)/(ang_max-ang_min))*1000.));
-  //   double tmp2  = in.flt.sAoA.getValue() * (ang_max - ang_min)/ 1000. + ang_min;
-  //   System.out.println("-- tmp2: " + tmp2);
-  // 
-  //   // in.flt.s2.setValue(i5);
-  //   in.cylShape.rightPanel.s2.setValue(i6);
-  //   in.cylShape.rightPanel.s3.setValue(i2);
-  //   //  non-dimensional
-  //   v1 = current_part.camber;
-  //   v2 = current_part.thickness;
-  //   v3 = current_part.aoa;
-  //   v4 = spin*60.0;
-  // 
-  //   fl1 = (float) v1;
-  //   fl2 = (float) v2;
-  //   fl3 = (float) v3;
-  //   fl4 = (float) v4;
-  // 
-  //   in.shp.leftPanel.f_camber.setText(String.valueOf(fl1));
-  //   in.shp.leftPanel.f_thickness.setText(String.valueOf(fl2));
-  //   in.shp.leftPanel.f_angle.setText(String.valueOf(fl3));
-  //   in.cylShape.leftPanel.f1.setText(String.valueOf(fl4));
-  // 
-  //   i1 = (int) (((v1 - ca_min)/(ca_max-ca_min))*1000.);
-  //   i2 = (int) (((v2 - thk_min)/(thk_max-thk_min))*1000.);
-  //   i3 = (int) (((v3 - ang_min)/(ang_max-ang_min))*1000.);
-  //   i4 = (int) (((v4 - spin_min)/(spin_max-spin_min))*1000.);
-  //    
-  //   in.shp.rightPanel.s1.setValue(i1);
-  //   in.shp.rightPanel.s2.setValue(i2);
-  //   in.shp.rightPanel.s3.setValue(i3);
-  //   in.cylShape.rightPanel.s1.setValue(i4);
-  // 
-  //   computeFlowAndRegenPlot();
-  //   if (can_do_gui_updates)
-  //     out.viewer.find_it();
-  //   return;
+  //   ... lots of code
   // }
 
   public void computeFlowAndRegenPlotAndAdjust () { 
@@ -7380,7 +7032,18 @@ public class FoilBoard extends JApplet {
            * var can_not_do_it_in_js;
            */
           public void actionPerformed(ActionEvent e) {
-            Import imp = new Import();
+            Import imp = null;
+            try { // Import depends on mhclasses.jar, so have that handled...
+              imp = new Import();
+            } catch (Throwable err) {
+              if (err.toString().indexOf("AirfoilGeometry") > -1)
+                System.out.println("Warning: can not import foil profile because file mhclasses.jar can not be found");
+              else {
+                System.out.println("Warning: can not import, got error:" + err);
+                err.printStackTrace(System.out);
+              }
+              return;
+            }
             // adjust name for images
             // maybe we have it?
             Foil foil = current_part.foil;
@@ -7638,7 +7301,6 @@ public class FoilBoard extends JApplet {
 
           // these cause events, so do them first.
           int pos = (int) (((current_part.chord - chrd_min)/(chrd_max-chrd_min))*1000.);
-          System.out.println("-- pos: " + pos);
           rightPanel.chord_SB.setValue(pos);
           rightPanel.span_SB.setValue((int) (((current_part.span - span_min)/(span_max-span_min))*1000.));
           rightPanel.area_SB.setValue((int) (((current_part.area - ar_min)/(ar_max-ar_min))*1000.));
@@ -7779,9 +7441,7 @@ public class FoilBoard extends JApplet {
 
           @Override
           public void setValue(int i) {
-            System.out.println("-- ChordSB setValue: " + i);
             if (i == getValue()) return;
-            new Exception("-------").printStackTrace(System.out);
             super.setValue(i);
           }
 
@@ -7795,7 +7455,7 @@ public class FoilBoard extends JApplet {
                   if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
                   if (on_loadPanel) return;
                   int i = getValue();
-                  System.out.println("-- Chord AdjustmentEvent: i=" + i);
+                  //tt System.out.println("-- Chord AdjustmentEvent: i=" + i);
                   current_part.chord  = i * (chrd_max - chrd_min)/ 1000. + chrd_min;
                   // rounded up text box value
                   //// leftPanel.f1.setText(make_size_info_in_display_units(current_part.chord, false));
@@ -8207,32 +7867,7 @@ public class FoilBoard extends JApplet {
         add("Fluid Pressure Variation alone Chord", PLOT_TYPE_PRESSURE);
         add("Fluid Velocity Variation alone Chord", PLOT_TYPE_VELOCITY);
  
-        // //old ways...
-        // setLayout(new GridLayout(2,1,5,5));
-        // u = new Upper(app);
-        // l = new Lower(app);
-        // add (u);
-        // add (l);
       }
-
-      // old ways
-      // void ensure_all_array() {
-      //   if (all == null)
-      //     all = new Button[] {
-      //       l.f.pl3, 
-      //       l.f.pl4, 
-      //       l.f.pl5, 
-      //       l.f.pl6, 
-      //       l.f.pl7, 
-      //       l.f.pl8, 
-      //       l.f.pl9,
-      //       u.pl1,
-      //       u.pl2,
-      //       u.pl3,
-      //       u.bt_balance_pos_vs_speed,
-      //       u.bt_drag_elts_vs_speed
-      //     };
-      // }
 
       @Override
       public void loadPanel () { }
@@ -10142,7 +9777,7 @@ public class FoilBoard extends JApplet {
 
         if (viewflg == VIEW_FORCES) {
           off1Gg.setColor(force_labels ? Color.yellow : Color.cyan);
-          off1Gg.drawString("Force JLabels",85,25);
+          off1Gg.drawString("Force Labels",85,25);
         } else if (viewflg == VIEW_3D_MESH) {
           off1Gg.setColor(perspective ? Color.cyan :  Color.yellow);
           off1Gg.drawString("Ortographic",85,25);
