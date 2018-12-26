@@ -1,6 +1,8 @@
     Kite/Wind Surf Hydrofoil Board Simulator
     =================================
 
+![example screenshot 1](my-LW-foil-and-ML70-15mph-forces.png)
+
 This software tool computes forces on a recreational wind-powered hydrofoiling watercraft.  The watercraft is typically a small board with the rider standing on top of it. The board that is lifted in the air by a hydrofoil attached to the bottom of the board. The hydrofoil has 4 main parts: vertical strut secured to the bottom for the board that pierces the water surface, the lifting wing, a smaller, stabilizing wing, and a narrow, tube-like fuselage connecting the wings and the mast. 
 
 The tool can aid in hydrofoil design and can be used to evaluate existing hydrofoils. Various performance goals, such as "what is the speed of minimal drag?" can be evaluated and solved. The results are presented in numeric, graphical, tabular formats. The author used this tool extensively and with great success in the design of DIY carbon windsurf hydrofoil built in 2017, 
