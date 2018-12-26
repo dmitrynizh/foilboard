@@ -41,13 +41,13 @@ Running the Tool
 No build is required to run the tool. Follow these steps:
 
 1. unzip foilboard.zip into a convenient directory
-2. open a shell tool and cd to that directory
-2. run the simulator from command line this way:
+2. open a command shell tool and cd to that directory
+2. start it with
 
-    java -jar foilboard.jar <file-name>
+    java -jar foilboard.jar file-name.html
 
-where <file-name>  is file providing hydrofoil parameters such as any of the *.html files 
-unziiped. Example:
+where file-name.html is a file providing hydrofoil parameters such as
+any of the *.html files unziiped. Example:
 
     java -jar hydrofoil-sim.jar liquid-force-happy-foil.html
 
