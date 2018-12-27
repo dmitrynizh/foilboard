@@ -1,6 +1,7 @@
+
 ## Guide To GUI Panels
 
-![4 panels](docs/my-LW-foil-and-ML70-15mph-forces.png)
+![4 panels](my-LW-foil-and-ML70-15mph-forces.png)
 
 ### Top Left Panel
 
@@ -24,7 +25,10 @@ Has the following tabs: **Flight Shape Size ChoosePlot Options**
 
 #### Flight Tab
 
-Contains two sections. The top section contains flight control inputs. The bottom section is Velocity Prediction Module (aka "VPP").
+
+![Bottom Left Panel Flight Tab](panel-bl.png)
+
+The tab contains two sections. The top section contains flight control inputs. The bottom section is Velocity Prediction Module (aka "VPP").
 
 The top section allows to enter craft speed, altitude of the board above water, load (defined as rider weight plus craft weight minus kite/sail uplifting force) and craft pitch.
 All these can be altered using either a text input box or a slider bar. When any of the sliders move, rider position changes automatically as required to balance the forces in the left-right, up-down plane.  
@@ -38,3 +42,4 @@ The VPP module of the tool evaluates various performance goals, such as "what is
 "Find Lowest TakeOff speed" goal seeks the speed required for the craft to transition from displacement travel (slow travel where the board is partly immersed in the water) into flight. The constraints specify the minimal lift required and maximum permissible drag. The lift required can be seen as the weight of the craft+rider minus the upward lift of kite/sail. The maximum permissible drag corresponds to maximum available forward pull from the propulsion element (kite, sail). These numbers must be different for kite-foiling and windfoiling! A kiter can greatly reduce the Lowest
 TakeOff speed by sending the kite in fast motion across and thus generating significant upward lift and forward drive; the sail of a windfoiler can not reduce the weight at takeoff noticeably, and the drive generated at takeoff is rather much smaller than that of a fast moving kite, even when the windfoiler pumps vigorously. 
 
+> Written with [StackEdit](https://stackedit.io/).
