@@ -79,15 +79,16 @@ where  CHORD  and SPAN are numeric values in meters,  THICKNESS and CAMBER are i
 
 FOIL can be the name of an airfoil profile the tool recognizes, or the name of a file defining airfoil profile geometry.  Currently, the following airfoils names can be specified as FOIL field:
 
-Aquila_9.3%
-NACA_4_Series
-NACA_64-814
-NACA_63-412
-Moth_Bladerider_V1
-SD7084
-SD8040
+    Aquila_9.3%
+    NACA_4_Series
+    NACA_64-814
+    NACA_63-412
+    Moth_Bladerider_V1
+    SD7084
+    SD8040
 
-Out of these,  NACA_4_Series is the most versatile, defining a [NACA 4 series](http://airfoiltools.com/airfoil/naca4digit) foil with specified CHORD  THICKNESS  and CAMBER. Other airfoils from the list  are popular hydrofoiling craft profiles and define fixed CHORD  THICKNESS  and CAMBER.  
+The list cab be printed out with parameter  LIST_FOILS.
+Out of these,  NACA_4_Series is the most versatile, defining a [NACA 4 series](http://airfoiltools.com/airfoil/naca4digit) foil with specified  THICKNESS  and CAMBER and camber position at 40%.  Other airfoils from the list  are popular hydrofoiling craft profiles and define fixed CHORD  THICKNESS  and CAMBER.  
 
 If the FOIL filed is not recognized as one of above, it is treated as file name.  Two formats of such files are supported - numeric and graphical/drawing. Examples of these from the distribution include
 
