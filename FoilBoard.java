@@ -1,7 +1,5 @@
-// !!! DO NOT EDIT !!! source: d:/swingjs-myenv/src/test/FoilBoard.java 
-
-/*
-* 
+/*-----------------------------------------------------------------------------
+*
 *   Kite/WindSurf Hydrofoil Simulator. 
 *
 *------------------------------------------------------------------------------ 
@@ -334,7 +332,7 @@ static public class Point3D {
   } // Part
 
 
-  boolean runAsApplication = false;
+  boolean runAsApplication = false; // main() sets this to true
   static Properties props;
   static JFrame frame;
   /** 
@@ -379,27 +377,26 @@ static public class Point3D {
     }
         
     frame = new JFrame();
-    final FoilBoard  applet = new FoilBoard();
-    applet.runAsApplication = true;
-    frame.getContentPane().add(applet);
+    final FoilBoard  foilboard = new FoilBoard();
+    foilboard.runAsApplication = true; // not as  Applet
+    frame.getContentPane().add(foilboard);
     frame.addWindowListener(new java.awt.event.WindowAdapter() {
         public void windowClosing(java.awt.event.WindowEvent we) {
-          applet.stop();
-          applet.destroy();
+          foilboard.stop();
+          foilboard.destroy();
           System.exit(0);
         }
       });
     frame.pack();
     frame.setSize(Integer.parseInt(getProperty("WIDTH", "1000")), Integer.parseInt(getProperty("HEIGHT", "700")));
-    applet.init();
+    foilboard.init();
 
-    // applet.out.plot.loadPlot();
-    // applet.con.recomp_all_parts();
-    // applet.vpp.steady_flight_at_given_speed(5, 0);
+    // foilboard.out.plot.loadPlot();
+    // foilboard.con.recomp_all_parts();
+    // foilboard.vpp.steady_flight_at_given_speed(5, 0);
 
-    applet.start();
+    foilboard.start();
     frame.setVisible(true);
-
   }
 
   boolean on_cg_plotting = false;
@@ -515,7 +512,7 @@ static public class Point3D {
   }
 
   void setFoil (String name) {
-    if (current_part == stab) new Exception(("-- setFoil stab name: " + name)).printStackTrace(System.out);
+    // if (current_part == stab) new Exception(("-- setFoil stab name: " + name)).printStackTrace(System.out);
     current_part.foil = (Foil)foils.get(name);
   }
 
@@ -750,8 +747,8 @@ static public class Point3D {
 
     @Override
     void adjust_foil_shape_in_tab () {
-      // current_part.thickness = thickness;
-      // current_part.camber = camber;
+      current_part.thickness = thickness;
+      current_part.camber = camber;
       // current_part.camber/25 = current_part.camber / 25.0;
       in.shp.set_camber_and_thickness_controls(false);
     }
@@ -787,7 +784,6 @@ static public class Point3D {
     }
 
   }
-
 
   Foil foil_arr[] = {
     new NACA4Foil("NACA 4 Series", "\n NACA 4 Series Foil"),
@@ -964,14 +960,18 @@ static public class Point3D {
                   // NACA 64_814 with TE gap = 0.5%
                   new double[]{-0.436, -0.495, -0.549, -0.585, -0.585, -0.521, -0.415, -0.271, -0.097, 0.112, 0.353, 0.596, 0.835, 1.073, 1.302, 1.494, 1.644, 1.715, 1.408, 1.315, 1.167, 1.003, 0.843, 0.702, 0.584},
                   new double[]{0.31324, 0.2687, 0.21301, 0.17075, 0.13549, 0.1072, 0.08288, 0.06413, 0.05002, 0.01114, 0.00998, 0.00805, 0.00833, 0.00811, 0.00777, 0.021, 0.02575, 0.03206, 0.08869, 0.11247, 0.14528, 0.18438, 0.23803, 0.29672, 0.34426},
-                  null),
+                  null)
                   
     // FoilSim foils
-    new Foil("Joukowski","\n Joukowski Foil"),
-    new Foil("Ellipse", "\n Elliptical Foil"),
-    new Foil("Flat Plate", "\n Plate"),
-    new RoundFoil("Rotating Cylinder", "\n Rotating Cylinder"),
-    new RoundFoil("Spinning Ball","\n Spinning Ball")
+    // these foils - Joukowski, Ellipse, Flat - 
+    // work Ok but to slow for swipe-plots. See use_foilsim_foils
+    //, new Foil("Joukowski","\n Joukowski Foil")
+    //, new Foil("Ellipse", "\n Elliptical Foil")
+    //, new Foil("Flat Plate", "\n Plate")
+    // these come together with the Ball tab and not very useful for 
+    // Hydrofoil sim by default. See flag use_cylinder_shapes
+    // , new RoundFoil("Rotating Cylinder", "\n Rotating Cylinder")
+    //, new RoundFoil("Spinning Ball","\n Spinning Ball")
   };
 
   Foil  FOIL_JOUKOWSKI     = (Foil)foils.get("Joukowski"),
@@ -980,6 +980,16 @@ static public class Point3D {
     FOIL_CYLINDER          = (Foil)foils.get("Rotating Cylinder"),
     FOIL_BALL              = (Foil)foils.get("Spinning Ball"),
     FOIL_NACA4             = (Foil)foils.get("NACA 4 Series");
+
+
+  // need to grow foil_arr
+  void addFoil(Foil foil) {
+    Foil[] arr = new Foil[foil_arr.length+1];
+    int ai = 0;
+    for (; ai < foil_arr.length; ai++) arr[ai] = foil_arr[ai];
+    arr[ai] = foil;
+    foil_arr = arr;
+  }
   
   static String dateString () {
     Date date = new Date();
@@ -1212,6 +1222,8 @@ static public class Point3D {
     return val;
   }
 
+  boolean use_cylinder_shapes = false; // Cylinders not useful for Hydrofoil
+  boolean use_foilsim_foils = false; // these foils make swipe plots too slow
   boolean foil_is_cylinder_or_ball (Foil foil) {
     return foil  == FOIL_CYLINDER || foil == FOIL_BALL;
   }
@@ -1260,7 +1272,7 @@ static public class Point3D {
        * 
        *    var dummy = 0;
        */
-      { // only in Java...
+      { // only in Java, not in JavaScript
         if (new File(name).exists()) {
           // create from file
           Import imp = new Import(name);
@@ -1275,18 +1287,14 @@ static public class Point3D {
           p.foil.geometry = imp.getGeometry();
           p.foil.camber_line = imp.getCamberLine();
               
-              int count  = imp.points_count();
-              System.out.println("-- count: " + count);
-              p.foil.points_x = new double[count];
-              p.foil.points_y = new double[count];
-              imp.getPoints(p.foil.points_x, p.foil.points_y);
+          int count  = imp.points_count();
+          System.out.println("-- count: " + count);
+          p.foil.points_x = new double[count];
+          p.foil.points_y = new double[count];
+          imp.getPoints(p.foil.points_x, p.foil.points_y);
 
-          // need to grow foil_arr
-          Foil[] arr = new Foil[foil_arr.length+1];
-          int ai = 0;
-          for (; ai < foil_arr.length; ai++) arr[ai] = foil_arr[ai];
-          arr[ai] = p.foil;
-          foil_arr = arr;
+          // need to ad p.foil to foil_arr
+          addFoil(p.foil);
         }
       }
 
@@ -1299,18 +1307,33 @@ static public class Point3D {
     // if (p_name.equals("Stab")) System.out.println("-- stab foil: " + p.foil);
     
     String[] chord_spec = params[i++].split("[:;]"); // possible chord value separators 
-     
+
+    // span value
     p.span = Double.parseDouble(params[i++]);
 
-    p.thickness = Double.parseDouble(params[i++]);
-    if (p.thickness < 0.1) // user entered thickness in meters, convert to %
-      p.thickness = 100* p.thickness / p.chord;
+    // thickness value. optional, default is 12
+    String thickness = params.length > i ? params[i++] : "12";
+    int pst_pos = thickness.indexOf("%");
+    if (pst_pos > -1)
+      p.thickness = Double.parseDouble(thickness.substring(0, pst_pos));
+    else {
+      p.thickness = Double.parseDouble(thickness);
+      if (p.thickness < 0.5) // user entered thickness in meters, convert to %
+        p.thickness = 100* p.thickness / p.chord;
+    }
 
-    p.camber = Double.parseDouble(params[i++]);
-    if (Math.abs(p.camber) < 0.1) // user likely entererd camber in meters, convert to %
-      p.camber = 100* p.camber / p.chord;
+    // camber value. optional, default is 0
+    thickness = params.length > i ? params[i++] : "0";
+    pst_pos = thickness.indexOf("%");
+    if (pst_pos > -1)
+      p.camber = Double.parseDouble(thickness.substring(0, pst_pos));
+    else {
+      p.camber = Double.parseDouble(thickness);
+      if (Math.abs(p.camber) < 0.1) // user likely entererd camber in meters, convert to %
+        p.camber = 100* p.camber / p.chord;
+    }
 
-    p.aoa = Double.parseDouble(params[i++]);
+    p.aoa = Double.parseDouble(params.length > i ? params[i++] : "0");
 
     // X axis position is LE position and is optional
     if (params.length > i)
@@ -1468,7 +1491,19 @@ static public class Point3D {
   }
 
   String getParamOrProp (String name, String dflt) {
-    String val = runAsApplication ? null : getParameter(name); // applet way
+    String val = runAsApplication ? null 
+      : getParameter(name); // runAsApplication == false means this is applet
+    if (val == null) val = getProperty(name, dflt);
+    return val;
+  }
+
+  String getParamOrPropAliased (String name, String alias, String dflt) {
+    String val = null; 
+    if (!runAsApplication) { // runAsApplication == false means this is applet
+      val = getParameter(name); 
+      if (val == null) val = getParameter(alias);
+    }
+    if (val == null) val = getProperty(name, null);
     if (val == null) val = getProperty(name, dflt);
     return val;
   }
@@ -1484,13 +1519,16 @@ static public class Point3D {
     // typical kiter's values note 2: some of these were originally
     // constants hence uppercased, but then became initialized from
     // props...
-    craft_type      = getParamOrProp("TYPE","WIND").toUpperCase().startsWith("WIND") ? WINDFOIL : KITEFOIL;
-    BOARD_THICKNESS = Double.parseDouble(getParamOrProp("BH","0.1"));
-    BOARD_LENGTH    = Double.parseDouble(getParamOrProp("BL","2.35"));
-    BOARD_WEIGHT    = Double.parseDouble(getParamOrProp("BW","65"));
-    RIG_WEIGHT      = Double.parseDouble(getParamOrProp("RW","100"));
-    rider_weight    = Double.parseDouble(getParamOrProp("RSL","750")) -
+    craft_type      = getParamOrPropAliased("TYPE","CRAFT_TYPE","WIND").toUpperCase().startsWith("WIND") ? WINDFOIL : KITEFOIL;
+    BOARD_THICKNESS = Double.parseDouble(getParamOrPropAliased("BH",  "BOARD_THICKNESS", craft_type == WINDFOIL ? "0.1" : "0.06"));
+    BOARD_LENGTH    = Double.parseDouble(getParamOrPropAliased("BL",  "BOARD_LENGTH", craft_type == WINDFOIL ? "2.35" : "1.25"));
+    BOARD_WEIGHT    = Double.parseDouble(getParamOrPropAliased("BW",  "BOARD_WEIGHT", craft_type == WINDFOIL ? "65" : "35"));
+    RIG_WEIGHT      = Double.parseDouble(getParamOrPropAliased("RW",  "RIG_WEIGHT", craft_type == WINDFOIL ? "100" : "0"));
+    rider_weight    = Double.parseDouble(getParamOrPropAliased("RSL", "TOTAL_WEIGHT", "735")) -
       BOARD_WEIGHT - RIG_WEIGHT - FOIL_WEIGHT;
+
+    use_cylinder_shapes = Boolean.parseBoolean(getParamOrPropAliased("CYLS", "USE_CYLINDER_SHAPES", "false"));
+    use_foilsim_foils   = Boolean.parseBoolean(getParamOrPropAliased("FSIMFOILS", "USE_FOILSIM_FOILS", "false"));
 
     // parse fuse first so that default xpos are known...
     parseParameters(fuse, "Fuse", "NACA_4_Series 0.55 0.02 4 0 -1.9");
@@ -1510,6 +1548,19 @@ static public class Point3D {
     if (year_etc == null)  year_etc = getParameter("Year", "V1");
     year_etc.trim();
     t_foil_name = (make_name + " " + model_name + " " + year_etc).trim();
+
+    // Meed to show FoilSim foils?
+    if (use_foilsim_foils) {
+      addFoil(new Foil("Joukowski","\n Joukowski Foil"));
+      addFoil(new Foil("Ellipse", "\n Elliptical Foil"));
+      addFoil(new Foil("Flat Plate", "\n Plate"));
+    }
+
+    // adjust pre-loaded foils
+    if (use_cylinder_shapes) {
+      addFoil(new RoundFoil("Rotating Cylinder", "\n Rotating Cylinder"));
+      addFoil(new RoundFoil("Spinning Ball","\n Spinning Ball"));
+    }
 
     offImg1 = createImage(this.size().width,
                           this.size().height);
@@ -1599,6 +1650,8 @@ static public class Point3D {
     //debug   in.setSelectedIndex(1);
     //debug }
 
+    if (getParamOrProp("LIST_FOILS", null) != null)
+      for(Object key: foils.keySet()) System.out.println(("    "+key).replace(" ", "_"));
   }
  
   public Insets insets () {
@@ -5549,11 +5602,14 @@ static public class Point3D {
       addTab(grf, "Choose Plot", "Select Plot Panel");
       addTab(anl, "Options", "Settings Panel");
 
-      // not really useful for Hydrofoiling board...
-      addTab(env, "Env", "Environment Panel");
+      // not very useful for Hydrofoiling board...
+      if (use_cylinder_shapes)
+        addTab(cylShape, "Ball", "cylinder-or-ball-shape-panel");
 
-      // not really useful for Hydrofoiling board...
-      addTab(cylShape, "Ball", "cylinder-or-ball-shape-panel");
+      // not really useful for Hydrofoiling board... for now, include
+      // only if cylinders or Foilsim foils are included
+      if (use_cylinder_shapes || use_foilsim_foils)
+        addTab(env, "Env", "Environment Panel");
 
       // can be used to attach aux logic here..
       this.addChangeListener(new javax.swing.event.ChangeListener() {
@@ -5708,10 +5764,10 @@ static public class Point3D {
         JTextField box1, box2;
         Button button;
         Panel constraints, pair;
-        NameBoxNameBoxButton(Flight ft, 
-                             String text1, String prop1, String dflt1, 
-                             String text2, String prop2, String dflt2, 
-                             String button_text, ActionListener action) { 
+        NameBoxNameBoxButton (Flight ft, 
+                              String text1, String prop1, String dflt1, 
+                              String text2, String prop2, String dflt2, 
+                              String button_text, ActionListener action) { 
           name1 = new Name(" @ " + text1);
           box1 = new JTextField(getParamOrProp(prop1, dflt1), 5);
 
@@ -5915,7 +5971,9 @@ static public class Point3D {
 
         // row 4
         rows++;
-        load_ctrl = new NameBoxBar(this, "Load N", "CRL", "735", load_min, load_max);
+        load_ctrl = new NameBoxBar(this, "Load N", "CRL", 
+                                   craft_type == WINDFOIL ? "735" : "650", 
+                                   load_min, load_max);
         load = Double.parseDouble(load_ctrl.box.getText());
         load_ctrl.bar.addAdjustmentListener(new AdjustmentListener() {
             public void adjustmentValueChanged(AdjustmentEvent evt) {
@@ -6104,7 +6162,7 @@ static public class Point3D {
         rows++;
         NameBoxNameBoxButton cruise = 
           new NameBoxNameBoxButton(this, 
-                                   "Lift >", "CRL", "735",
+                                   "Lift >", "CRL", craft_type == WINDFOIL ? "735" : "650",
                                    "Speed >=", 
                                    "CRS", "5",
                                    "Find Speed of lesser Drag",
@@ -6792,6 +6850,7 @@ static public class Point3D {
         long loadPanel_time = System.currentTimeMillis();
         on_load = true;
 
+        // System.out.println("-- loadPanel current_part: " + current_part);
         current_part.foil.adjust_foil_shape_in_tab();
         
         // these trigger events, do first
@@ -7009,13 +7068,14 @@ static public class Point3D {
           }
           shape_choice.setBackground(Color.white);
           shape_choice.setForeground(Color.blue);
-          shape_choice.setSelectedIndex(FOIL_JOUKOWSKI.id);
+          // shape_choice.setSelectedIndex(FOIL_JOUKOWSKI.id);
+          shape_choice.setSelectedIndex(foil_arr[0].id);
 
           shape_choice.addActionListener(new ActionListener() {
               public void actionPerformed(ActionEvent e) {
                 int id = shape_choice.getSelectedIndex();
                 String foil = (String)shape_choice.getItemAt(id);
-                //debug System.out.println("-- shape_choice ActionEvent  id: " + id + " foil: " + foil);
+                // System.out.println("-- shape_choice ActionEvent  id: " + id + " foil: " + foil);
                 setFoil(foil);
                 in.update_state();
               }});
@@ -7060,7 +7120,7 @@ static public class Point3D {
               if (current_part == strut && imp.camber_pst != 0)
                 imp.fixSymmetry("Mast"); // most import data leads to slight assymetric shape
                 
-              foil = new Tab25Foil(imp.getName(), "Imorted foil " + imp.getName(), "\n\n Geometry: \n" + imp.getGeometryAsText() + "\n\n Table: \n" + imp.descr,
+              foil = new Tab25Foil(imp.getName(), "Imported foil " + imp.getName(), "\n\n Geometry: \n" + imp.getGeometryAsText() + "\n\n Table: \n" + imp.descr,
                                    imp.thickness_pst, imp.camber_pst, 
                                    imp.Cl, imp.Cd,
                                    null);
@@ -7778,7 +7838,8 @@ static public class Point3D {
           
           shape_choice.setBackground(Color.white);
           shape_choice.setForeground(Color.blue);
-          shape_choice.setSelectedIndex(FOIL_JOUKOWSKI.id);
+          // shape_choice.setSelectedIndex(FOIL_JOUKOWSKI.id);
+          shape_choice.setSelectedIndex(foil_arr[0].id);
 
           shape_choice.addActionListener(new ActionListener() {
               public void actionPerformed(ActionEvent e) {
