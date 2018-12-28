@@ -121,20 +121,36 @@ If the FOIL filed is not recognized as one of above, it is treated as file name.
 
 When CHORD is a number, the shape of the part is rectangular plan-form. For complex geometry, use expanded format for CHORD as follows. 
 
-Expanded CHORD is a semicolon-separated list of chord specs. For any part except the Mast the shape is assumed symmetrical, and the format describes the shape of a half: the 1st spec is for the root chord (center of the wing) and the last one is for the tip. For the mast, the 1st soec is for th bottom end. Each chord spec can be either L or L/X or L/X/Z, where L is chord length,  X is longitudinal relative offset from the prev chord, Z is same for vertical direction. All values are in meters.  Example of an expanded wing chord spec:
+Expanded CHORD is a semicolon-separated list of chord specs. For any part except the Mast the shape is assumed symmetrical, and the format describes the shape of a half: the 1st spec is for the root chord (center of the wing) and the last one is for the tip. For the mast, the 1st spec is for the bottom end. Each chord spec can be either L or L/X or L/X/Z, where L is chord length,  X is longitudinal relative offset from the prev chord, Z is same for vertical direction. All values are in meters.  
+
+Example of an expanded wing chord spec:
 
     0.135/0;0.125/-0.02;0.115/-0.02;0.085/0.004;0.055/0.006
 
-Expanded mast chord spec:
+Example of an expanded mast chord spec:
 
     0.107/0;0.11/-0.0015;0.113/-0.0015;0.116/-0.0015;0.12/-0.0025
 
-Entering these by hand is a daunting task, automation should be used to convert a 3D model data into this format,  Scripts exist for .obj and .mqo files (TBD). 
+Entering these by hand is a daunting task, automation should be used to convert a 3D model data into this format,  Scripts exist for .obj and .mqo files (TBD).
 
 SPAN is a numeric values in meters,  THICKNESS and CAMBER are in meters or in %, ANGLE is in degrees.  POS is an optional field specifying distance of the part from the tip of the fuselage in meters.
 
 ### Airfoil Representation
 Internally, each airfoil known to the program is represented as a collection of arrays holding the Cl and Cd coefficients for given airfoil at predefined angles of attack. 
-15-element arrays are for angles of attack from -28 to 28 degrees, step 4.  25 element arrays are for  for angles of attack from -24 to 24 step 2.  The values are cubic-interpolated to get Cl and Cd fast at given AoA. The interpolator is based on Paul Breeuwsma coefficients. This results in what are generally referred to as Catmull-Rom splines. For NACA 4 series, tables exist for various values of thickness and camber, and are interpolated. The coefficients for the predefined airfoils were obtained from [Martin Hepperle JavaFoil](https://www.mh-aerotools.de/airfoils/javafoil.htm) tool. 
+15-element arrays are for angles of attack from -28 to 28 degrees, step 4.  25 element arrays are for  for angles of attack from -24 to 24 step 2.  The values are cubic-interpolated to get Cl and Cd fast at given AoA. The interpolator is based on [Paul Breeuwsma coefficients](https://www.paulinternet.nl/?page=bicubic). This results in what are generally referred to as Catmull-Rom splines. For NACA 4 series, tables are provided for various values of thickness and camber, and are interpolated. The coefficients for the predefined airfoils were obtained from [Martin Hepperle JavaFoil](https://www.mh-aerotools.de/airfoils/javafoil.htm) tool with airfoil DAT files imported from  [Airfoil Tools](http://airfoiltools.com/).
+
+#### JavaFoil App
+
+When working in FoilBoard extensions, or simply evaluating prospective foils, use of Airfoil Tools website and Martin Hepperle JavaFoil tool is essential. Because running JavaFoil online as applet is difficult these days, Martin Hepperle jars needed to run JavaFoil  standalone - javafoil,jar and mhclasses.jar  - are included in foilboard.zip.  Note that these are covered separately by 
+Martin Hepperle copyright/distribution notices which are different from MIT license. In particular, for-profit use of  javafoil,jar and mhclasses.jar is restricted:
+ 
+> javafoil,jar,  mhclasses.jar : © 1996-2018 Martin Hepperle. You may use the data given in this document for your personal use. If you use this document for a publication, you have to cite the source. A publication of a recompilation of the given material is not allowed, if the resulting product is sold for more than the production costs.
+
+Refer to https://www.mh-aerotools.de/airfoils/javafoil.htm for details.  
+
+To run JavaFoil after  foilboard.zip.was unzipped, do:
+
+    java -jar javafoil.jar MH.JavaFoil.JavaFoil
+
 
 > Written with [StackEdit](https://stackedit.io/).

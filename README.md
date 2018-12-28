@@ -69,20 +69,18 @@ open a command shell tool and type "java -version".   If available, it will prin
 
     java -jar foilboard.jar file-name.html
 
-where ```file-name.html``` is a file providing hydrofoil parameters such as
-any of the *.html files unzipped. Example:
+where ```file-name.html``` is an optional parameter -  file path 'defining' specific foil, such as
+any of the kite/\*.html or sail/\*.html files unzipped. Example:
 
-    java -jar hydrofoil-sim.jar liquid-force-happy-foil.html
+    java -jar hydrofoil-sim.jar kite/liquid-force-happy-foil.html
 
-currently (Dec 2017) the following foil config files are provided:
+Currently (Dec 2017), the following foil config files are provided
 
-Kiting:
+in folder **kite/**
 ````
-F4kitefoil2015.html
-F4kitefoil2015-pos-camb.html
-Foil.html
-MHL-lift-16.html
-MikesLab-foil-Sonnys.html
+f4-kitefoil-2015.html
+mhl-lift-16.html
+MikesLab-foil.html
 air-chair.html
 fone-freeride-600-ca-2016.html
 fone-freeride-800-hy-2016.html
@@ -91,12 +89,9 @@ liquid-force-happy-foil.html
 liquid-force-rocket-foil-prfiles-take2.html
 liquid-force-rocket-foil.html
 moses-fluente-2017.html
-slingshot-LW-windfoil-2017.html
 sroka-freeride.html
-Tony-two-race-fins-symm.html
-Tony-two-race-fins.html
 ````
-Windsurfing:
+in folder **sail/**
 ````
 F4windfoil-80cm.html
 F4windfoil.html
@@ -108,11 +103,12 @@ horue-vini-lw-canard-idea.html
 np-rs-flight-al.html
 np-rs-one-convertible.html
 np-rsx.html
+slingshot-LW-windfoil-2017.html
 ````
 
-Dmitry's foil and ideas/variants for the future:
+Ths folder also includes author's (Dmitry's) LW foil built in 2017, and also ideas/variants for the future:
 ````
-my-windfoil.htmln
+my-windfoil.html
 my-windfoil-canard1.html
 my-windfoil-canard2.html
 my-windfoil-canard3.html
@@ -137,16 +133,16 @@ Fuse: NACA_4_Series 0.88  0.02 4    0    0
 Mast: NACA_4_Series 0.12  1.0  12   0    0
 
 ````
-There is a long list of supported parameters, all of which are optional. Even the parameters descibing Wing, Stab, Fuse and Mast can be dropped, in which case the tool runs with default geometry.  
+There is a long list of supported parameters, all of which are optional. Even the parameters describing Wing, Stab, Fuse and Mast can be dropped, in which case the tool runs with default geometry.  
 Running the tool without parameter file is also possible - this:
 
     java -jar foilboard.jar
 
-runs with all parameters being defaults.  The parameters can also be specified on a command line:
+runs with all parameters being defaults.  The parameters can also be specified on a command line as -D options for java and must appear ahead of ``-jar foilboard.jar``:
 
-    java -jar foilboard.jar -DTYPE=KITEFOIL -DBL=1.1 -DBW=25
+    java -DTYPE=KITEFOIL -DBL=1.1 -DBW=25 -jar foilboard.jar 
 
-Notice the option  ```-DTYPE=KITEFOIL``` above.  The default is windfloil, and a sail will be rendered as propulsion. If you prefer kite, put TYPE: KITEFOIL in the parameter file or DTYPE=KITEFOIL on the command line. 
+Notice the option  ```-DTYPE=KITEFOIL``` above.  The default is windfoil, and a sail will be rendered as propulsion. If you prefer kite, put TYPE: KITEFOIL in the parameter file or DTYPE=KITEFOIL on the java command line as shown above. 
 
 For details about parameters, click here: [Guide To Parameters](docs/Parameters.md).
 
