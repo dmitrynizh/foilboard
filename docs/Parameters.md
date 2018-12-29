@@ -82,11 +82,12 @@ All parameters except 4 airfoil-shaped ones - Wing, Stab, Mast and Fuse - hold s
 | BL | BOARD_LENGTH | board length in m. Default: craft_type == WINDFOIL ? "2.35" : "1.25" |
 | BW | BOARD_WEIGHT | weight-force of the board, N. Default:  craft_type == WINDFOIL ? "65" : "35" |
 | RIG_WEIGHT | | weight-force of the sail rig (sail+mast_boom). Default: craft_type == WINDFOIL ? "100" : "0" |
-| TKL || Required takeoff lift. This corresponds to effective weight at takeoff. Default: 735N |
-| TKD || Required takeoff  drag. This corresponds to effective propulsion at takeoff. Default: 735N |
-| CRL || Required cruising lift. This corresponds to effective weight at cruise speed. Default: craft_type == WINDFOIL ? "735" : "650" |
-| RSL | TOTAL_WEIGHT | Total weight-force that defines required race lift. Default:  735N. |
-| RSD || Max possible race drag. This normally corresponds to counterweight the rider can provide. Default: 245N |
+| TKL || Required takeoff lift, N. This corresponds to effective weight at takeoff. Default: craft_type == WINDFOIL ? 735 : 600 |
+| TKD || Required takeoff  drag, N. This corresponds to effective propulsion at takeoff. Default: craft_type == WINDFOIL ? 85 : 120 |
+| CRL || Required cruising lift, N. This corresponds to effective weight at cruise speed. Default: craft_type == WINDFOIL ? "735" : "650" |
+| RSL | TOTAL_WEIGHT | Total weight-force that defines required race lift, N. Default:  735. |
+| RSD || Max possible race drag, N. This normally corresponds to counterweight the rider can provide. Default: 245 |
+| LIST_FOILS ||Print out the list of built-in airfoils|
 
 
 
@@ -111,7 +112,7 @@ The list of the airfoils the tool recognizes is constantly growing. What's curre
     SD7084
     SD8040
 
-Out of these,  NACA_4_Series is the most versatile, defining a [NACA 4 series](http://airfoiltools.com/airfoil/naca4digit) foil with specified  THICKNESS  and CAMBER and camber position at 40%.  Other airfoils from the list  are popular hydrofoiling craft profiles and define fixed CHORD  THICKNESS  and CAMBER.  
+Out of these,  NACA_4_Series is the most versatile, defining a [NACA 4 series](http://airfoiltools.com/airfoil/naca4digit) foil with specified  THICKNESS  and CAMBER and camber position at 40%.  Other airfoils from the list  are popular hydrofoiling craft profiles and define fixed THICKNESS  and CAMBER.  
 
 If the FOIL filed is not recognized as one of above, it is treated as file name.  Two formats of such files are supported - numeric and graphical/drawing. Examples of these from the distribution include
 
@@ -133,7 +134,7 @@ Example of an expanded mast chord spec:
 
 Entering these by hand is a daunting task, automation should be used to convert a 3D model data into this format,  Scripts exist for .obj and .mqo files (TBD).
 
-SPAN is a numeric values in meters,  THICKNESS and CAMBER are in meters or in %, ANGLE is in degrees.  POS is an optional field specifying distance of the part from the tip of the fuselage in meters.
+SPAN is a numeric value in meters,  THICKNESS and CAMBER are in meters or in %, ANGLE is in degrees.  POS is an optional field specifying distance of the part from the tip of the fuselage in meters.
 
 ### Airfoil Representation
 Internally, each airfoil known to the program is represented as a collection of arrays holding the Cl and Cd coefficients for given airfoil at predefined angles of attack. 
@@ -141,14 +142,14 @@ Internally, each airfoil known to the program is represented as a collection of 
 
 #### JavaFoil App
 
-When working in FoilBoard extensions, or simply evaluating prospective foils, use of Airfoil Tools website and Martin Hepperle JavaFoil tool is essential. Because running JavaFoil online as applet is difficult these days, Martin Hepperle jars needed to run JavaFoil  standalone - javafoil,jar and mhclasses.jar  - are included in foilboard.zip.  Note that these are covered separately by 
-Martin Hepperle copyright/distribution notices which are different from MIT license. In particular, for-profit use of  javafoil,jar and mhclasses.jar is restricted:
+When working on FoilBoard extensions, or simply evaluating prospective foils, use of Airfoil Tools website and Martin Hepperle JavaFoil tool is essential. Because running JavaFoil online as applet is difficult these days, Martin Hepperle jars needed to run JavaFoil  standalone - javafoil.jar and mhclasses.jar  - are included in foilboard.zip.  Note that these are covered separately by 
+Martin Hepperle copyright/distribution notices which are different from MIT license of FoilBoard. In particular, for-profit use of  javafoil.jar and mhclasses.jar is restricted by Martin:
  
-> javafoil,jar,  mhclasses.jar : © 1996-2018 Martin Hepperle. You may use the data given in this document for your personal use. If you use this document for a publication, you have to cite the source. A publication of a recompilation of the given material is not allowed, if the resulting product is sold for more than the production costs.
+> javafoil.jar,  mhclasses.jar : © 1996-2018 Martin Hepperle. You may use the data given in this document for your personal use. If you use this document for a publication, you have to cite the source. A publication of a recompilation of the given material is not allowed, if the resulting product is sold for more than the production costs.
 
 Refer to https://www.mh-aerotools.de/airfoils/javafoil.htm for details.  
 
-To run JavaFoil after  foilboard.zip.was unzipped, do:
+To run JavaFoil after  foilboard.zip was unzipped, do:
 
     java -jar javafoil.jar MH.JavaFoil.JavaFoil
 

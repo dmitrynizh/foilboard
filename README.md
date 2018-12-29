@@ -7,20 +7,16 @@
 
 This software tool computes forces on a recreational wind-powered hydrofoiling watercraft.  The watercraft is typically a small board with the rider standing on top of it. The board that is lifted in the air by a hydrofoil attached to the bottom of the board. The hydrofoil has 4 main parts: vertical strut secured to the bottom for the board that pierces the water surface, the lifting wing, a smaller, stabilizing wing, and a narrow, tube-like fuselage connecting the wings and the mast. 
 
-The tool can be used to evaluate existing hydrofoils and can aid in hydrofoil design.  The author used this tool extensively and with great success in the design of DIY carbon windsurf hydrofoil built in 2017, 
-
-https://1drv.ms/f/s!AhpYSQuCj3vrjHeKi4Bvpnp_r7kB 
-
-which came out exactly as conceived, in part thanks to this tool's accurate predictions.
+The tool can be used to evaluate existing hydrofoils and can aid in hydrofoil design.  The author used this tool extensively and with great success in the design of [DIY carbon windsurf hydrofoil](https://1drv.ms/f/s!AhpYSQuCj3vrjHeKi4Bvpnp_r7kB) built in 2017
+which came out exactly as conceived, in part thanks to this tool's accurate predictions. Lots of efforts went into development and testing of analytical models. That said, because this software is hobby-facilitating tool created in spare time to aid in weekend DIY hobby activities (hydrofoil construction), the quality of code, coding style and UI are not top-notch; time was very limited for perfecting all that. Bugs certainly do exist, UI may look crude, and certain fragments of code may be kludgey. 
 
 The tool computes hydrodynamic forces on all parts of the hydrofoil, finds the position of equilibrium for the rider, plots various parameters and predicts various steady conditions - minimal takeoff speed, cruising sweet-spot (speed of minimal drag), and maximum speed. Various performance goals, such as "what is the speed of minimal drag?" can be evaluated and solved.  The results are presented in numeric, graphical, tabular formats and change instantly reacting to GUI inputs.  
 
 The forward driving force that propels the craft is generated either by a kite held by the rider and not connected to the board (the "Kite-Foiling" configuration) or a windsurfing sail with a wishbone boom held by the rider. The sail is normally connected to the board by a flexible joint ("Wind-Foiling" configuration).  
 
-##### Side Note
+##### Side Note: Foiler's Jargon
 
-> **Foiler's Jargon** Some of the jargon used by the kitesurfing and
-windsurfing communities may be confusing to an outsider - thus, the activity of hydrofoil board riding is called "foiling" for short, and "foil" typically refers to the 4-part hydrofoil unit attached to the board. The vertical strut of the hydrofoil unit is usually called "mast", not to be confused with the windsurfing sail mast. "Kite-foiling" may be confused by some with kite-boarding on a foil-kite, but is reserved for kite hydrofoiling. More, "Wind-foiling" is a term that one might apply to both kite- and sail- board foiling, but typically refers strictly to the sailing variation. Finally, foiling now includes many other variations: SUP foiling with a paddle, wave/surf-foiling, lake/pump foiling, downwind foiling (with wind, but no sail or kite), tow foiling, wake foiling, e-Foiling (foilboard with electric motor propulsion). Ignoring the sail/kitebar rendering, this tool can be used to evaluate the foils used in each of these sports as well.
+> Some of the jargon used by the kitesurfing and windsurfing communities may be confusing to an outsider - thus, the activity of hydrofoil board riding is called "foiling" for short, and "foil" typically refers to the 4-part hydrofoil unit attached to the board. The vertical strut of the hydrofoil unit is usually called "mast", not to be confused with the windsurfing sail mast. "Kite-foiling" may be confused by some with kite-boarding on a foil-kite, but is reserved for kite hydrofoiling. More, "Wind-foiling" is a term that one might apply to both kite- and sail- board foiling, but typically refers strictly to the sailing variation. Finally, foiling now includes many other variations: SUP foiling with a paddle, wave/surf-foiling, lake/pump foiling, downwind foiling (with wind, but no sail or kite), tow foiling, wake foiling, e-Foiling (foilboard with electric motor propulsion). Ignoring the sail/kitebar rendering, this tool can be used to evaluate the foils used in each of these sports as well.
 
 Broadly, there are two sets of input parameters: 
 
