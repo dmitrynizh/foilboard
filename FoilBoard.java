@@ -349,12 +349,16 @@ static public class Point3D {
   public static void main (String argv[]) {
     if (argv.length > 0) { // read params as props from file
       String params_file = argv[0];
+      File file = new File(params_file);
+      String path  = file.getPath();
+      int path_last_sep_idx = path.lastIndexOf(File.separator);
+      String dirpath = path_last_sep_idx > -1 ? path.substring(0, path_last_sep_idx+1) : "";
+
       if (params_file.endsWith(".html") || params_file.endsWith(".htm")) { // apllet html file
         try {
-          File fXmlFile = new File(params_file);
           javax.xml.parsers.DocumentBuilderFactory dbFactory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
           javax.xml.parsers.DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
-          org.w3c.dom.Document doc = dBuilder.parse(fXmlFile);
+          org.w3c.dom.Document doc = dBuilder.parse(file);
           doc.getDocumentElement().normalize();
           org.w3c.dom.NodeList nList = doc.getElementsByTagName("PARAM");
           props = new Properties();
@@ -371,9 +375,11 @@ static public class Point3D {
           System.out.println("-- e: " + e);
         }
         
-      } else // java props syntax 
-        try { (props = new Properties()).load(FoilBoard.class.getClassLoader().getResourceAsStream(argv[0])); } 
+      } else { // java props syntax 
+        try { (props = new Properties()).load(FoilBoard.class.getClassLoader().getResourceAsStream(params_file)); } 
         catch (Exception ex) { ex.printStackTrace(); }
+      }
+      props.setProperty("__def_file_dirpath",  dirpath);
     }
         
     frame = new JFrame();
@@ -1273,9 +1279,11 @@ static public class Point3D {
        *    var dummy = 0;
        */
       { // only in Java, not in JavaScript
-        if (new File(name).exists()) {
+        String path = getParamOrProp("__def_file_dirpath", "") + name;
+        System.out.println("-- path: " + path);
+        if (new File(path).exists()) {
           // create from file
-          Import imp = new Import(name);
+          Import imp = new Import(path);
           imp.analyze();
           if (p == strut && imp.camber_pst != 0)
             imp.fixSymmetry("Mast"); // most import data leads to slight assymetric shape
@@ -1633,7 +1641,6 @@ static public class Point3D {
      loadOutPanel();
     vpp.steady_flight_at_given_speed(5, 0);
     out.plot.loadPlot();
-
 
     //debug System.out.println("-- FOIL_JOUKOWSKI: " + FOIL_JOUKOWSKI);
     //debug System.out.println("-- FOIL_ELLIPTICAL: " + FOIL_ELLIPTICAL);
@@ -5839,6 +5846,7 @@ static public class Point3D {
           tf_race_max_drag.setText(make_force_info_in_display_units((double)constr_race_max_drag, false));
 
           set_to_units = display_units;
+
         }
         
         on_load = true;
@@ -5858,6 +5866,8 @@ static public class Point3D {
         //load_ctrl.box.setText(make_force_info_in_display_units(vpp.steady_flight_at_given_speed___load, false));
 
         // todo: other knobs
+
+        out.plot.loadPlot();
       }
 
       // later: bind it to others sliders (load?)
@@ -6397,6 +6407,7 @@ static public class Point3D {
         add(rightPanel);
       }
 
+      // Env.loadPanel
       @Override
       public void loadPanel () {
         // so far...
@@ -6806,9 +6817,9 @@ static public class Point3D {
       LeftPanel leftPanel;
       RightPanel rightPanel;
 
-      Button b_symm, b_high_cam, b_neg_cam;
-      Button inb1,inb2;
-      Button inb3,inb4;
+      Button symm_foil_bt, flat_bottom_bt, neg_camb_bt;
+      Button hi_camb_bt, flat_plate_bt;
+      Button ellipse_bt, curve_plate_bt;
       Button[] old_style_buttons;
       JScrollBar sb_ci_eff;
 
@@ -6824,8 +6835,8 @@ static public class Point3D {
         add(rightPanel);
 
         old_style_buttons = new Button[] {
-          b_symm, b_high_cam, b_neg_cam,
-          inb1,inb2, inb3,inb4
+          symm_foil_bt, flat_bottom_bt, neg_camb_bt,
+          hi_camb_bt,flat_plate_bt, ellipse_bt,curve_plate_bt
         };
       }
 
@@ -6956,36 +6967,36 @@ static public class Point3D {
 
           add(l = new JLabel("Quick Shapes:", JLabel.RIGHT)); l.setForeground(color_very_dark);
 
-          add(b_symm = new Button ("Symmetric"));
-          b_symm.setBackground(Color.white);
-          b_symm.setForeground(Color.blue);
-          b_symm.addActionListener(new ActionListener() {
+          add(symm_foil_bt = new Button ("Symmetric"));
+          symm_foil_bt.setBackground(Color.white);
+          symm_foil_bt.setForeground(Color.blue);
+          symm_foil_bt.addActionListener(new ActionListener() {
               @Override
               public void actionPerformed(ActionEvent e) {
                 for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
-                b_symm.setBackground(Color.yellow);
+                symm_foil_bt.setBackground(Color.yellow);
                 current_part.camber = 0.0;
                 current_part.thickness = 12;
                 buttons_action_epilogue();
               }});
 
-          add(b_high_cam = new_button("Flat Bottom"));
-          b_high_cam.addActionListener(new ActionListener() {
+          add(flat_bottom_bt = new_button("Flat Bottom"));
+          flat_bottom_bt.addActionListener(new ActionListener() {
               @Override
               public void actionPerformed(ActionEvent e) {
                 for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
-                b_high_cam.setBackground(Color.yellow);
+                flat_bottom_bt.setBackground(Color.yellow);
                 current_part.camber = 5.0;
                 current_part.thickness = 12;
                 buttons_action_epilogue();
               }});
 
-          add(b_neg_cam = new_button("Neg. Camber"));
-          b_neg_cam.addActionListener(new ActionListener() {
+          add(neg_camb_bt = new_button("Neg. Camber"));
+          neg_camb_bt.addActionListener(new ActionListener() {
               @Override
               public void actionPerformed(ActionEvent e) {
                 for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
-                b_neg_cam.setBackground(Color.yellow);
+                neg_camb_bt.setBackground(Color.yellow);
                 current_part.camber = -5.0;
                 current_part.thickness = 12;
                 buttons_action_epilogue();
@@ -7005,7 +7016,8 @@ static public class Point3D {
           rightPanel.s2.setValue(i2);
 
           //ttshch rightPanel.shape_choice.setSelectedIndex(FOIL_NACA4.id);
-          // in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_JOUKOWSKI.id);
+          if (use_cylinder_shapes)
+            in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_JOUKOWSKI.id);
           recompute();
         }
       }  // LeftPanel 
@@ -7132,7 +7144,8 @@ static public class Point3D {
               foil.points_y = new double[count];
               imp.getPoints(foil.points_x, foil.points_y);
               shape_choice.addItem(foil.descr);
-              in.cylShape.rightPanel.shape_choice.addItem(foil.descr);
+              if (use_cylinder_shapes)
+                in.cylShape.rightPanel.shape_choice.addItem(foil.descr);
             }
             in.shp.loadPanel();
           }});
@@ -7168,24 +7181,27 @@ static public class Point3D {
             app = target;
             setLayout(new GridLayout(1,2,2,10));
 
-            inb1 = new_button("High Camber");
-            inb2 = new_button("Flat Plate");
+            hi_camb_bt = new_button("High Camber");
+            flat_plate_bt = new_button("Flat Plate");
 
-            inb1.addActionListener(new ActionListener() {
+            hi_camb_bt.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
                   shape_choice.setSelectedIndex(FOIL_NACA4.id);
-                  in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_NACA4.id);
+                  if (use_cylinder_shapes)
+                    in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_NACA4.id);
 
                   for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
-                  inb1.setBackground(Color.yellow);
+                  hi_camb_bt.setBackground(Color.yellow);
 
                   current_part.camber = 15.0;
                   current_part.thickness = 12;
-                  if (current_part.foil.id >= FOIL_ELLIPTICAL.id) {
+
+                  if (use_foilsim_foils) {
                     setFoil(FOIL_JOUKOWSKI);
                     shape_choice.setSelectedIndex(FOIL_JOUKOWSKI.id);
-                    in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_JOUKOWSKI.id);
+                    if (use_cylinder_shapes)
+                      in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_JOUKOWSKI.id);
                   }
 
                   leftPanel.f_camber.setText(String.valueOf(current_part.camber));
@@ -7201,20 +7217,24 @@ static public class Point3D {
 
                 }});
 
-            inb2.addActionListener(new ActionListener() {
+            flat_plate_bt.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
                   shape_choice.setSelectedIndex(FOIL_NACA4.id);
-                  in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_NACA4.id);
+                  if (use_cylinder_shapes)
+                    in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_NACA4.id);
 
                   for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
-                  inb2.setBackground(Color.yellow);
+                  flat_plate_bt.setBackground(Color.yellow);
 
-                  setFoil(FOIL_FLAT_PLATE);
+                  Foil f = use_foilsim_foils ? FOIL_FLAT_PLATE : FOIL_NACA4;
+                  setFoil(f);
                   current_part.camber = 0.0;
                   current_part.thickness = 1.0;
-                  shape_choice.setSelectedIndex(FOIL_FLAT_PLATE.id);
-                  in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_FLAT_PLATE.id);
+
+                  shape_choice.setSelectedIndex(f.id);
+                  if (use_cylinder_shapes)
+                    in.cylShape.rightPanel.shape_choice.setSelectedIndex(f.id);
 
                   leftPanel.f_camber.setText(String.valueOf(current_part.camber));
                   leftPanel.f_thickness.setText(String.valueOf(current_part.thickness));
@@ -7229,8 +7249,8 @@ static public class Point3D {
 
                 }});
 
-            add(inb1);
-            add(inb2);
+            add(hi_camb_bt);
+            add(flat_plate_bt);
           }
 
           public boolean action (Event evt, Object arg) {
@@ -7248,13 +7268,12 @@ static public class Point3D {
             app = target;
             setLayout(new GridLayout(1,2,2,10));
 
-            inb3 = new_button("Ellipse");
-            inb4 = new_button("Curve Plate");
-            inb3.addActionListener(new ActionListener() {
+            ellipse_bt = new_button("Ellipse");
+            ellipse_bt.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
                   for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
-                  inb3.setBackground(Color.yellow);
+                  ellipse_bt.setBackground(Color.yellow);
                   setFoil(FOIL_ELLIPTICAL);
                   current_part.camber = 0.0;
                   current_part.thickness = 12.5;
@@ -7271,17 +7290,21 @@ static public class Point3D {
                   recompute();
                 }});
 
-            inb4.addActionListener(new ActionListener() {
+            curve_plate_bt = new_button("Curve Plate");
+            curve_plate_bt.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
                   for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
-                  inb4.setBackground(Color.yellow);
-                  setFoil(FOIL_FLAT_PLATE);
+                  curve_plate_bt.setBackground(Color.yellow);
+                  Foil f = use_foilsim_foils ? FOIL_FLAT_PLATE : FOIL_NACA4;
+                  setFoil(f);
                   //current_part.aoa = 5.0;
                   current_part.camber = 5.0;
                   current_part.thickness = 1.0;
-                  shape_choice.setSelectedIndex(FOIL_FLAT_PLATE.id);
-                  in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_FLAT_PLATE.id);
+
+                  shape_choice.setSelectedIndex(f.id);
+                  if (use_cylinder_shapes)
+                    in.cylShape.rightPanel.shape_choice.setSelectedIndex(f.id);
 
                   int i1 = (int) (((current_part.camber - ca_min)/(ca_max-ca_min))*1000.);
                   int i2 = (int) (((current_part.thickness - thk_min)/(thk_max-thk_min))*1000.);
@@ -7291,8 +7314,9 @@ static public class Point3D {
                   recompute();
                 }});
 
-            add(inb3);
-            add(inb4);
+            if (use_foilsim_foils)
+              add(ellipse_bt);
+            add(curve_plate_bt);
           }
 
           public boolean action (Event evt, Object arg) {
@@ -7329,6 +7353,7 @@ static public class Point3D {
         if (DEBUG_SPEED_SUPPR) return;
         // System.out.println("-- Size.loadPanel enter");
         if (on_loadPanel) return;
+        // System.out.println("-- Size.loadPanel continue - not on_loadPanel");
         try {
           on_loadPanel = true;
           // System.out.println("-- Size.loadPanel doit");
@@ -7363,7 +7388,8 @@ static public class Point3D {
           int pos = (int) (((current_part.chord - chrd_min)/(chrd_max-chrd_min))*1000.);
           rightPanel.chord_SB.setValue(pos);
           rightPanel.span_SB.setValue((int) (((current_part.span - span_min)/(span_max-span_min))*1000.));
-          rightPanel.area_SB.setValue((int) (((current_part.area - ar_min)/(ar_max-ar_min))*1000.));
+          if (false) // temporarily disabing area_SB because if cross-editing event collisions..
+            rightPanel.area_SB.setValue((int) (((current_part.area - ar_min)/(ar_max-ar_min))*1000.));
 
           leftPanel.f1.setText(make_size_info_in_display_units(current_part.chord, false));
           leftPanel.f2.setText(make_size_info_in_display_units(current_part.span, false));
@@ -7411,7 +7437,7 @@ static public class Point3D {
                 rightPanel.chord_SB.setValue((int) (((current_part.chord - chrd_min)/(chrd_max-chrd_min))*1000.));
                 
                 computeFlowAndRegenPlot();
-                // size.loadPanel();
+                size.loadPanel();
               }});
 
           l2 = new JLabel("Span-ft", JLabel.CENTER);
@@ -7492,7 +7518,12 @@ static public class Point3D {
           add(new JLabel(" ", JLabel.CENTER));
           add(chord_SB);
           add(span_SB);
-          add(area_SB);
+          // temporarily disabing area_SB because if cross-editing event collisions..
+          if (false)
+            add(area_SB); 
+          else
+            add(new JLabel(" ", JLabel.CENTER));
+
           add(new JLabel(" ", JLabel.CENTER));
         }
 
@@ -7898,13 +7929,23 @@ static public class Point3D {
         JRadioButton cb = new JRadioButton(caption, plot_type == type_id);
         add(cb); 
         cbg.add(cb);
-        cb.addItemListener(new ItemListener() { public void itemStateChanged(ItemEvent e) {             
-          //System.out.println("-- cb itemStateChanged e: " + e);
-          plot_type = type_id;
-          plot_y_val = y_id;
-          out.setSelectedIndex(0);
-          out.plot.loadPlot();
-        }});
+        if (true) // actions - seems better because pressing selected one works
+          cb.addActionListener(new ActionListener() {
+              @Override
+              public void actionPerformed(ActionEvent e) {
+                plot_type = type_id;
+                plot_y_val = y_id;
+                out.setSelectedIndex(0);
+                out.plot.loadPlot();
+              }});
+        else // item changed
+          cb.addItemListener(new ItemListener() { public void itemStateChanged(ItemEvent e) {             
+            //System.out.println("-- cb itemStateChanged e: " + e);
+            plot_type = type_id;
+            plot_y_val = y_id;
+            out.setSelectedIndex(0);
+            out.plot.loadPlot();
+          }});
         return cb;
       }
 
@@ -7931,7 +7972,9 @@ static public class Point3D {
       }
 
       @Override
-      public void loadPanel () { }
+      public void loadPanel () { 
+        out.plot.loadPlot();
+      }
 
       // old stuff
       //
@@ -8226,6 +8269,8 @@ static public class Point3D {
       // controled by a few flag varaibles
       @Override
       public void loadPanel () {
+        out.plot.loadPlot();
+
         // Q: should do setState on the checkboxes?
         // A: only if flags were changed programatically without doing that,,,,
 
@@ -9989,8 +10034,9 @@ static public class Point3D {
         }
       }
 
-
+      // Plot.loadPlot
       public void loadPlot () {
+        // new Exception("Plot.loadPlot").printStackTrace(System.out);
         double rad,ang,xc,yc,lftref,clref,drgref,cdref;
         double del,spd,awng,ppl,tpl,hpl,angl;
         int index,ic;
