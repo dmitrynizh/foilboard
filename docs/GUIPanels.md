@@ -1,4 +1,3 @@
-
 ## Guide To GUI Panels
 
 ![4 panels](my-LW-foil-and-ML70-15mph-forces.png)
@@ -19,10 +18,10 @@ Has a Display sub-menu adding streamlines (moving or frozen), or airfoil geometr
 
 Displays side view of the entire water-craft in flight, including the rider and the propulsion unit. The cyan-colored area is water, the deep blue colored area is air. The rider, depending on the configuration, is displayed either with a kite bar and lines, or with windsurfing sail, boom and mast. The position of the rider reflects the inputs - the tool computes the center of gravity location needed to stabilize the craft at given flight mode (speed, altitude), and moves the rider alone the board automatically. The vertical Zoom slider control on the left controls rendering scale. The Forces slider controls the scale of forces arrows. The Display menu toggles force arrow labels on/off. Here are a few snapshots:
 
-![edge-view-1](edge-view-kite-far.png)
-![edge-view-2](edge-view-kite-close.png)
-![edge-view-3](edge-view-sail-far.png)
-![edge-view-4](edge-view-sail-close.png)
+![forces-view-1](forces-view-kite-far.png)
+![forces-view-2](forces-view-kite-close.png)
+![forces-view-3](forces-view-sail-far.png)
+![forces-view-4](forces-view-sail-close.png)
 
 #### 3D Mesh View
 
