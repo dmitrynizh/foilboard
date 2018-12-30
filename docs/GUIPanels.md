@@ -1,3 +1,4 @@
+
 ## Guide To GUI Panels
 
 ![4 panels](my-LW-foil-and-ML70-15mph-forces.png)
@@ -33,9 +34,9 @@ Displays a 3D rendering of the hydrofoil unit as 3d mesh.  The board is not rend
 ### Bottom Left Panel
 
 Has the following tabs: **Flight Shape Size ChoosePlot Options**
+Many tabs have "parameter rows" - a group of a Label, Input textbox and a Slider bar with the text box and slider bar linked internally. Each parameter has a min and max limits, and out-of bounds inputs are autocorrected. 
 
 #### Flight Tab
-
 
 ![Bottom Left Panel Flight Tab](panel-bl.png)
 
@@ -52,5 +53,48 @@ The VPP module of the tool evaluates various performance goals, such as "what is
 
 "Find Lowest TakeOff speed" goal seeks the speed required for the craft to transition from displacement travel (slow travel where the board is partly immersed in the water) into flight. The constraints specify the minimal lift required and maximum permissible drag. The lift required can be seen as the weight of the craft+rider minus the upward lift of kite/sail. The maximum permissible drag corresponds to maximum available forward pull from the propulsion element (kite, sail). These numbers must be different for kite-foiling and windfoiling! A kiter can greatly reduce the Lowest
 TakeOff speed by sending the kite in fast motion across and thus generating significant upward lift and forward drive; the sail of a windfoiler can not reduce the weight at takeoff noticeably, and the drive generated at takeoff is rather much smaller than that of a fast moving kite, even when the windfoiler pumps vigorously. 
+
+
+### Shape Tab
+
+![Shape Tab](panel-bl-tab-shape.png)
+
+Airfoil profile parameters of the currently selected Part (yellow rectangle on the Results Panel). On the top, a drop-down selector displays the name of the airfoil of the part - whatever was specified in the config file or was previously selected - and allows to alter it at any time.  By default the list of shapes includes NACA 4 Series and several fixed shapes such as Aquill9.3% and NACA 63-412. When FoilSimIII shapes are enabled with parameter USE_FOILSIM_FOILS set to true, the list also includes Joukowski, Ellipse and Flat Plate. These work OK in FoilBoard, but because these are 'analytical' foils, computation of Cl and Cd for them takes time and various plots may run slow. This can be optimized with some caching added,  but doing so was low priority because the emphasize was on foils used in real hydrofoils. 
+
+The button "Import from File" does exactly what the name says -  allows to import a new airfoil from a file defining airfoil profile geometry.  
+
+Below that button there are several rows of controls allowing to alter the shape.  For fixed-profile airfoils such as Aquilla shown on the image above, Camber and Thickness parameters are locked. 
+Below the  parameter controls there are several buttons that help to quickly set a certain common shape. 
+All such shapes are supported by NACA 4 family. For instance,  pressing "Flat Bottom" sets Shape to NACA 4 Series, Camber to 2.5 and Thickness  to 9. "Flat Plate" sets Camber to 0 and Thickness to 1. 
+When FoilSimIII shapes are enabled, some of these buttons select FoilSim 'analytical' foils.
+
+### Size Tab
+
+
+![Size Tab](panel-bl-tab-size.png)
+
+Only two parameter inputs with sliders are here: Chord and Span. The values are displayed according to the Units selection on the Results Panel, Si is the default. The Area input box allows to scale Chord and Span to given Area size. For parts with complex geometry Chord is  *Mean Chord* value. Aspect Rat is the value of aspect ration which is  Span/Chord. 
+
+### Chose Plot Tab
+
+![panel-bl-tab-choose](panel-bl-tab-choose.png)
+
+This input tab  defines what plot is displayed on the right.  Below are screenshots of some of the selections, with commentary.
+
+![panel-bl-tab-choose-whole-eq](panel-bl-tab-choose-whole-eq.png)
+This shows equilibrium conditions at various speeds, with Rider Gravity Center (CG) position, total drag, board pitch and total Lift/Drag ratio shown. For trained eye these parameters tell a lot about hydrofoil craft performance. The vertical red line corresponds to takeoff speed.  
+
+![panel-bl-tab-choose-whole-drag](panel-bl-tab-choose-whole-drag.png)
+Drag of various Foil parts including Junction Drag for Wins-to-fuse connection and Spray Drag of the Mast at various board velocities. 
+Typically, each foil has a sweet-spot where total drag is the  lowest.  Such velocity of minimal drag is higher than takeoff speed.  Normally, drag of Wing, Fuse and Stab contribute to that, each having a dip as shown. The 2nd Solver from the Flight tan finds this speed of minimal drag. 
+
+![panel-bl-tab-choose-cl-cd-polar](panel-bl-tab-choose-cl-cd-polar.png)
+Polar Plot for AoA in the range from -20 to 20. In addition to classic Cl/Cd plot for infinite geometry (aka *2D*,  aka *Profile*), a line for Aspect-ratio-corrected Cl vs  Profile Cd, and a line for that versus Induced drag corrected Cd are also shown. The later is what  defines foil part's actual performance. 
+
+![panel-bl-tab-choose-drag](panel-bl-tab-choose-drag.png)
+Part's total drag with various components of that plotted separately. Spray drag is computed only for the Mast part. 
+
+
+
 
 > Written with [StackEdit](https://stackedit.io/).
