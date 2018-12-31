@@ -191,6 +191,7 @@ import javax.swing.JComboBox;
 import javax.swing.JCheckBox;
 import javax.swing.JPanel;
 import javax.swing.JScrollBar;
+/*test*/import javax.swing.JSlider;
 import javax.swing.JLabel;
 import javax.swing.JTextField;
 import javax.swing.JTextArea;
@@ -429,7 +430,7 @@ static public class Point3D {
       System.out.println("warning: unimplemented loadPanel() in " + this);
     }
     // prvent reentering loadPanel...
-    // two way rto do it. new way is by returning from loadPanel:
+    // two ways to do it. new way is by returning from loadPanel:
     // if (on_loadPanel) return; on_loadPanel = true; <code>; on_loadPanel = false;
     // old way is with checks in each adjustmentlistener
     protected boolean on_loadPanel;
@@ -970,7 +971,7 @@ static public class Point3D {
                   
     // FoilSim foils
     // these foils - Joukowski, Ellipse, Flat - 
-    // work Ok but to slow for swipe-plots. See use_foilsim_foils
+    // work Ok but too slow for swipe-plots. See use_foilsim_foils
     //, new Foil("Joukowski","\n Joukowski Foil")
     //, new Foil("Ellipse", "\n Elliptical Foil")
     //, new Foil("Flat Plate", "\n Plate")
@@ -5874,7 +5875,7 @@ static public class Point3D {
       void find_steady_conditions () {
         // System.out.println("-- find_steady_conditions: " + can_do_gui_updates);
         // double min_lift = parse_force_constraint(tf_tkoff_min_lift, "TKL", "735");
-        double max_drag = parse_force_constraint(tf_tkoff_max_drag, "TKD", "85");
+        double max_drag = parse_force_constraint(tf_tkoff_max_drag, "TKD", craft_pitch == WINDFOIL ? "85" : "120");
         boolean saved_flag = can_do_gui_updates;
         can_do_gui_updates = false;
         vpp.steady_flight_at_given_speed(5, 0);
@@ -6133,8 +6134,8 @@ static public class Point3D {
         rows++;
         NameBoxNameBoxButton takeoff = 
           new NameBoxNameBoxButton(this, 
-                                   "Lift >", "TKL", "735", 
-                                   "Drag <", "TKD", "85",
+                                   "Lift >", "TKL", craft_type == WINDFOIL ? "735" : "600", 
+                                   "Drag <", "TKD", craft_type == WINDFOIL ? "85" : "120",
                                    "Find Lowest TakeOff speed",
                                    new ActionListener() {
                                      @Override
@@ -6976,7 +6977,7 @@ static public class Point3D {
                 for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
                 symm_foil_bt.setBackground(Color.yellow);
                 current_part.camber = 0.0;
-                current_part.thickness = 12;
+                current_part.thickness = 9; // was 12 - too much for hydro 
                 buttons_action_epilogue();
               }});
 
@@ -6986,8 +6987,8 @@ static public class Point3D {
               public void actionPerformed(ActionEvent e) {
                 for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
                 flat_bottom_bt.setBackground(Color.yellow);
-                current_part.camber = 5.0;
-                current_part.thickness = 12;
+                current_part.camber = 2.5; // was 5 - too much for hydro 
+                current_part.thickness = 9; // was 12 - too much for hydro 
                 buttons_action_epilogue();
               }});
 
@@ -6997,8 +6998,8 @@ static public class Point3D {
               public void actionPerformed(ActionEvent e) {
                 for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
                 neg_camb_bt.setBackground(Color.yellow);
-                current_part.camber = -5.0;
-                current_part.thickness = 12;
+                current_part.camber = -4.0; // was 5 - too much for hydro 
+                current_part.thickness = 9; // was 12 - too much for hydro 
                 buttons_action_epilogue();
               }});
         }
@@ -7194,8 +7195,8 @@ static public class Point3D {
                   for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
                   hi_camb_bt.setBackground(Color.yellow);
 
-                  current_part.camber = 15.0;
-                  current_part.thickness = 12;
+                  current_part.camber = 11.0; // was 15 - too much for hydro 
+                  current_part.thickness = 9; // was 12 - to much for hydro
 
                   if (use_foilsim_foils) {
                     setFoil(FOIL_JOUKOWSKI);
@@ -7965,7 +7966,9 @@ static public class Point3D {
         add("Drag Components vs Travel Speed", PLOT_TYPE_CURR_PART_VS_SPEED);
         add("Cl vs Angle", PLOT_TYPE_ANGLE, PLOT_OUT_CL);
         add("Cd vs Angle", PLOT_TYPE_ANGLE, PLOT_OUT_CD);
-        add("Cm vs Angle", PLOT_TYPE_ANGLE, PLOT_OUT_CM);
+        add("Lift vs Angle", PLOT_TYPE_ANGLE, PLOT_OUT_LIFT);
+        add("Drag vs Angle", PLOT_TYPE_ANGLE, PLOT_OUT_DRAG);
+        // not supported yet! add("Cm vs Angle", PLOT_TYPE_ANGLE, PLOT_OUT_CM);
         add("Fluid Pressure Variation alone Chord", PLOT_TYPE_PRESSURE);
         add("Fluid Velocity Variation alone Chord", PLOT_TYPE_VELOCITY);
  
@@ -10180,7 +10183,7 @@ static public class Point3D {
           plot_trace_count = (plot_y_val == PLOT_OUT_DRAG) ? 3 : 1;
           axis_x_label_width = 2;  axis_y_label_width = 3;
           begx=-20.0; endx=20.0; ntikx=5;
-          labx = String.valueOf("Angle ");
+          labx = String.valueOf("Angle");
           labxu = String.valueOf("degrees");
           del = 40.0 / (npt-1);
           for (ic=1; ic <=npt; ++ic) {
@@ -10200,14 +10203,14 @@ static public class Point3D {
               if (plot_y_val == PLOT_OUT_LIFT) 
                 ploty[0][ic] = lftref * clpl/clref;
               else 
-                ploty[0][ic] = 100.*clpl;
+                ploty[0][ic] = clpl;
             }
             else {
               plotx[0][ic] = angl;
               if (plot_y_val == PLOT_OUT_DRAG)
                 ploty[0][ic] = drgref * cdpl/cdref;
               else 
-                ploty[0][ic] = 100.*cdpl;
+                ploty[0][ic] = cdpl;
             }
           }
           ntiky = 5;
@@ -10221,8 +10224,8 @@ static public class Point3D {
             break;
           case PLOT_OUT_CL:
             laby = String.valueOf("Cl");
-            labyu = String.valueOf("x 100 ");
-            ploty[1][0] = 100.*current_part.cl;
+            labyu = String.valueOf("");
+            ploty[1][0] = current_part.cl;
             break;
           case PLOT_OUT_DRAG:
             laby = String.valueOf("Drag");
@@ -10296,7 +10299,7 @@ static public class Point3D {
               break;
             case PLOT_OUT_CD:
               laby = String.valueOf("Cd");
-              ploty[1][0] = 100.*current_part.cd;
+              ploty[1][0] = current_part.cd;
               ploty[0][npt] = ploty[0][npt-1] = ploty[0][npt-2]=ploty[0][npt-3]=ploty[0][npt-4];
               break;
             default:
@@ -10329,14 +10332,14 @@ static public class Point3D {
                 if (plot_y_val == PLOT_OUT_LIFT)
                   ploty[0][ic] = lftref * clpl/clref;
                 else 
-                  ploty[0][ic] = 100.*clpl;
+                  ploty[0][ic] = clpl;
               }
               else {
                 plotx[0][ic] = camd;
                 if (plot_y_val == PLOT_OUT_DRAG)
                   ploty[0][ic] = drgref * cdpl/cdref;
                 else
-                  ploty[0][ic] = 100.*cdpl;
+                  ploty[0][ic] = cdpl;
               }
             }
             ntiky = 5;
@@ -10787,6 +10790,32 @@ static public class Point3D {
         // determine y - range, aux comp
         switch (plot_type) {
         case PLOT_TYPE_ANGLE: 
+          switch (plot_y_val) {
+          case PLOT_OUT_CL:
+            if (current_part == wing) {
+              begy = -1.5;
+              endy = 1.5;
+            } else if (current_part == fuse) {
+              begy = -0.2;
+              endy = 0.2;
+            } else {
+              begy = -1.2;
+              endy = 1.2;
+            }
+            break;
+          case PLOT_OUT_CD:
+            begy = 0;
+            endy = 0.3;
+            break;
+          default: // need to find min and max
+            begy = 1e9;
+            endy = -1e9;
+            for (index =1; index <= npt; ++ index) {
+              if (ploty[0][index] > endy) endy = ploty[0][index];
+              if (ploty[0][index] < begy) begy = ploty[0][index];
+            }
+          }
+          break;
         case PLOT_TYPE_THICKNESS: 
         case PLOT_TYPE_CAMBER: {  // determine y - range zero in middle
          if (plot_y_val == PLOT_OUT_LIFT || plot_y_val == PLOT_OUT_CL) {
@@ -10938,7 +10967,7 @@ static public class Point3D {
 
         case PLOT_TYPE_PRESSURE:
         case PLOT_TYPE_VELOCITY: {    // determine y - range
-          if (should_rescale_p) {
+          if (true /*always rescale should_rescale_p*/) {
             begy = ploty[0][1];
             endy = ploty[0][1];
             for (index = 1; index <= POINTS_COUNT_HALF; ++ index) {
