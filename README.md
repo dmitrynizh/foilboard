@@ -8,7 +8,9 @@
 This software tool computes forces on a recreational wind-powered hydrofoiling watercraft.  The watercraft is typically a small board with the rider standing on top of it. The board that is lifted in the air by a hydrofoil attached to the bottom of the board. The hydrofoil has 4 main parts: vertical strut secured to the bottom for the board that pierces the water surface, the lifting wing, a smaller, stabilizing wing, and a narrow, tube-like fuselage connecting the wings and the mast. 
 
 The tool can be used to evaluate existing hydrofoils and can aid in hydrofoil design.  The author used this tool extensively and with great success in the design of [DIY carbon windsurf hydrofoil](https://1drv.ms/f/s!AhpYSQuCj3vrjHeKi4Bvpnp_r7kB) built in 2017
-which came out exactly as conceived, in part thanks to this tool's accurate predictions. Lots of efforts went into development and testing of analytical models. That said, because this software is hobby-facilitating tool created in spare time to aid in weekend DIY hobby activities (hydrofoil construction), the quality of code, coding style and UI are not top-notch; time was very limited for perfecting all that. Bugs certainly do exist, UI may look crude, and certain fragments of code may be kludgey. 
+which came out exactly as conceived, in part thanks to this tool's accurate predictions. 
+
+Lots of efforts went into development and testing of analytical models. That said, because this software is hobby-facilitating tool created in spare time to aid in weekend DIY hobby activities (hydrofoil construction), the quality of code, coding style and UI are not top-notch; time was very limited for perfecting all that. Bugs certainly do exist, UI may look crude, and certain fragments of code may be kludgey. 
 
 The tool computes hydrodynamic forces on all parts of the hydrofoil, finds the position of equilibrium for the rider, plots various parameters and predicts various steady conditions - minimal takeoff speed, cruising sweet-spot (speed of minimal drag), and maximum speed. Various performance goals, such as "what is the speed of minimal drag?" can be evaluated and solved.  The results are presented in numeric, graphical, tabular formats and change instantly reacting to GUI inputs.  
 
@@ -89,8 +91,8 @@ sroka-freeride.html
 ````
 in folder **sail/**
 ````
-F4windfoil-80cm.html
-F4windfoil.html
+f4-windfoil-80cm.html
+f4-windfoil.html
 horue-vini-2016-cruising.html
 horue-vini-2016-lw-pos-stab-camber.html
 horue-vini-2016-lw.html
