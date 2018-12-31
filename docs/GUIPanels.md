@@ -125,13 +125,13 @@ This is multi-tabbed panel with the tabs Summary and Plot being the most useful 
 
 Summary displays a table with concise description of foil parts - span, chord, area, airfoil used, etc - and a table with teh resukts of VPP evaluation. When evaluation for some of the solvers was not yet done, question marks are displayed as shown above. Otherwise the rows provide the results:
 
-![Summary with goals](panel-br-summary-1.png)
+![Summary with goals](panel-br-summary-2.png)
 
 #### Data Tab
 
 This is an expansion of the results shown on the Summary tab.  Here is one example of the content:
 
-
+````
 Hydrofoil: DmitryNizh LightWind  WindFoil V1 2017
      Date: Sun Dec 30 19:20:29 PST 2018
 
@@ -176,7 +176,6 @@ Hydrofoil: DmitryNizh LightWind  WindFoil V1 2017
  Angle of attack = -1.559 degrees ,
  Position LE at 0.0 cm aft fuse LE
 
-
 Tail Volume: 1.379
 
 
@@ -185,6 +184,7 @@ Tail Volume: 1.379
  Speed = 17.9Kts, or 33.2 km/hr ,
   Lift = 737.8
   Drag  = 230.5
+
 
 This foil has been evaluated for minimum possible 
 takeoff speed.
@@ -216,6 +216,7 @@ and total hydrodynamic drag not exceeding
 it can maintain sustained flight speed of at least 
 17.9 kt or 20.6 mph or 33.2 km/h or 9.2 m/s
 Lift is located Above mast.
+````
 
 #### Plot Tab
 
