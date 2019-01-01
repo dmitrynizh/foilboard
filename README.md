@@ -70,7 +70,7 @@ open a command shell tool and type "java -version".   If available, it will prin
 where ```file-name.html``` is an optional parameter -  file path 'defining' specific foil, such as
 any of the kite/\*.html or sail/\*.html files unzipped. Example:
 
-    java -jar hydrofoil-sim.jar kite/liquid-force-happy-foil.html
+    java -jar foilboard.jar kite/liquid-force-happy-foil.html
 
 Currently (Dec 2017), the following foil config files are provided
 
@@ -129,8 +129,8 @@ Wing: NACA_4_Series 0.10  1.0  12  3.34  0
 Stab: NACA_4_Series 0.075 0.66 12 -3.34 -1
 Fuse: NACA_4_Series 0.88  0.02 4    0    0
 Mast: NACA_4_Series 0.12  1.0  12   0    0
-
 ````
+
 There is a long list of supported parameters, all of which are optional. Even the parameters describing Wing, Stab, Fuse and Mast can be dropped, in which case the tool runs with default geometry.  
 Running the tool without parameter file is also possible - this:
 
@@ -138,7 +138,7 @@ Running the tool without parameter file is also possible - this:
 
 runs with all parameters being defaults.  The parameters can also be specified on a command line as -D options for java and must appear ahead of ``-jar foilboard.jar``:
 
-    java -DTYPE=KITEFOIL -DBL=1.1 -DBW=25 -jar foilboard.jar 
+    java -DTYPE=KITEFOIL -DBL=1.1 -DBW=27 -jar foilboard.jar 
 
 Notice the option  ```-DTYPE=KITEFOIL``` above.  The default is windfoil, and a sail will be rendered as propulsion. If you prefer kite, put TYPE: KITEFOIL in the parameter file or DTYPE=KITEFOIL on the java command line as shown above. 
 

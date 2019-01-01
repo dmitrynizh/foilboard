@@ -1530,24 +1530,35 @@ static public class Point3D {
     // props...
     craft_type      = getParamOrPropAliased("TYPE","CRAFT_TYPE","WIND").toUpperCase().startsWith("WIND") ? WINDFOIL : KITEFOIL;
     BOARD_THICKNESS = Double.parseDouble(getParamOrPropAliased("BH",  "BOARD_THICKNESS", craft_type == WINDFOIL ? "0.1" : "0.06"));
-    BOARD_LENGTH    = Double.parseDouble(getParamOrPropAliased("BL",  "BOARD_LENGTH", craft_type == WINDFOIL ? "2.35" : "1.25"));
-    BOARD_WEIGHT    = Double.parseDouble(getParamOrPropAliased("BW",  "BOARD_WEIGHT", craft_type == WINDFOIL ? "65" : "35"));
-    RIG_WEIGHT      = Double.parseDouble(getParamOrPropAliased("RW",  "RIG_WEIGHT", craft_type == WINDFOIL ? "100" : "0"));
+    BOARD_LENGTH    = Double.parseDouble(getParamOrPropAliased("BL",  "BOARD_LENGTH", craft_type == WINDFOIL ? "2.3" : "1.25"));
+    // Board weight force in Newtons
+    BOARD_WEIGHT    = Double.parseDouble(getParamOrPropAliased("BW",  "BOARD_WEIGHT", craft_type == WINDFOIL ? "80" : "39"));
+    RIG_WEIGHT      = Double.parseDouble(getParamOrPropAliased("RW",  "RIG_WEIGHT", craft_type == WINDFOIL ? "130" : "0"));
     rider_weight    = Double.parseDouble(getParamOrPropAliased("RSL", "TOTAL_WEIGHT", "735")) -
       BOARD_WEIGHT - RIG_WEIGHT - FOIL_WEIGHT;
 
     use_cylinder_shapes = Boolean.parseBoolean(getParamOrPropAliased("CYLS", "USE_CYLINDER_SHAPES", "false"));
     use_foilsim_foils   = Boolean.parseBoolean(getParamOrPropAliased("FSIMFOILS", "USE_FOILSIM_FOILS", "false"));
 
-    // parse fuse first so that default xpos are known...
-    parseParameters(fuse, "Fuse", "NACA_4_Series 0.55 0.02 4 0 -1.9");
-    // now the rest
-    parseParameters(wing, "Wing", "NACA_4_Series 0.09 0.54 12 3.34 0");
-    parseParameters(stab, "Stab", "NACA_4_Series 0.061 0.315 12 -3.34 0");
+
+    // Parse parameters. Parse Fuse first so that default xpos for 
+    // other foisl parts can be computed, then the rest of them.
+    parseParameters(fuse, "Fuse", 
+                    craft_type == WINDFOIL 
+                    ? "NACA_4_Series 0.80 0.02 4 0 -1"
+                    : "NACA_4_Series 0.55 0.02 4 0 -1");
+    parseParameters(wing, "Wing", craft_type == WINDFOIL
+                    ? "NACA_4_Series 0.170;0.160;0.150;0.135;0.110;0.045 0.75 12 3.34 0"
+                    : "NACA_4_Series 0.09 0.54 12 3.34 0");
+    parseParameters(stab, "Stab", craft_type == WINDFOIL
+                    ? "NACA_4_Series 0.07 0.45 12 -3 0"
+                    : "NACA_4_Series 0.061 0.315 12 -3.34 0");
     if (getParamOrProp("Strut", null) != null)
       parseParameters(strut, "Strut", null);
     else 
-      parseParameters(strut, "Mast", "NACA_4_Series 0.12 1.04 12 0 0");
+      parseParameters(strut, "Mast", craft_type == WINDFOIL 
+                      ? "NACA_4_Series 0.125 0.85 12 0 0 0.33"
+                      : "NACA_4_Series 0.12 1.04 12 0 0");
     
     mast_xpos = strut.xpos + strut.xoff_tip; // mast xpos at board bottom's level!
 
@@ -6880,7 +6891,7 @@ static public class Point3D {
         on_load = false;
 
         //tt 
-        System.out.println("-- Shape loadPanel_time, ms: " + (System.currentTimeMillis()-loadPanel_time)); //System.exit(0);
+        // System.out.println("-- Shape loadPanel_time, ms: " + (System.currentTimeMillis()-loadPanel_time)); //System.exit(0);
 
       }
 

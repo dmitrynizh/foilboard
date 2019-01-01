@@ -44,9 +44,13 @@ The next row is Lift to Drag (L/D) Ratio. The last row of per-part data is Reyno
 The remaining 3 rows are *not*  per-part, instead these are aggregations: Total Lift, Total Drag, Total L/D, Power required to move the craft under current conditions.  The Units drop-down selector allows to chose Metric Scientific, Imperial, Metric kg/kmh, Naval, Imperial ft unit systems. The units are:
 
 **Imperial**: pounds (Lbs), miles per hour (mph), Inches (in), Horsepower HP
+
 **Metric Scientific**: Newtons (N), meters per sec (m/s), meters (m), Watts (W)
+
 **Metric kg,kmh**: kilograms (kg), kilometers per hour (kmh), centimeters (cm), Watts (W)
+
 **Naval**: pounds (Lbs), Knots (kt), Inches (in), Horsepower HP
+
  **Imperial ft**: pounds (Lbs), miles per hour (mph), Feet (ft), Horsepower HP
 
 CG to Mast LE  describes the position of Rider center of gravity (CG) in relation tot the leading edge of the Mast at its junction with the Board.  Normal, comfortable riding is when CG is a few inches in front of ("fore") Mast LE. 
@@ -107,7 +111,7 @@ This shows equilibrium conditions at various speeds, with Rider Gravity Center (
 
 ![panel-bl-tab-choose-whole-drag](panel-bl-tab-choose-whole-drag.png)
 Drag of various Foil parts including Junction Drag for Wings-to-fuse connection and Spray Drag of the Mast at various board velocities. 
-Typically, each foil has a sweet-spot where total drag is the  lowest.  Such velocity of minimal drag is higher than takeoff speed.  Normally, drag of Wing, Fuse and Stab contribute to that, each having a dip as shown. The 2nd Solver from the Flight tan finds this speed of minimal drag. 
+Typically, each foil has a sweet-spot where total drag is the  lowest.  Such velocity of minimal drag is higher than takeoff speed.  Normally, drag of Wing, Fuse and Stab contribute to that, each having a dip as shown. The 2nd Solver from the Flight tab finds this speed of minimal drag. 
 
 ![panel-bl-tab-choose-cl-cd-polar](panel-bl-tab-choose-cl-cd-polar.png)
 Polar Plot for AoA in the range from -20 to 20. In addition to classic Cl/Cd plot for infinite geometry (aka *2D*,  aka *Profile*), a line for Aspect-ratio-corrected Cl vs  Profile Cd, and a line for that versus Induced drag corrected Cd are also shown. The later is what  defines foil part's actual performance. 
