@@ -21,9 +21,11 @@
  -->
   <PARAM NAME="Wing"  VALUE="NACA_4_Series 0.175;0.160;0.150;0.135;0.110;0.045 0.70 12 3.34 0"/>
     <!-- positive stab camber and negative aoa seem better  -->
-    <!-- -2, -3 and -4 all seem result in the same take off speed. -4 offers betterstability  -->
-  <PARAM NAME="Stab"  VALUE="NACA_4_Series 0.07 0.44 12 3.34 -4"/>
-  <PARAM NAME="Mast"  VALUE="NACA_4_Series 0.125 0.85 12 0 0"/>
+    <!-- -2, -3 and -4 all seem result in the same take off speed. -4 offers betterstability:
+  <PARAM NAME="Stab"  VALUE="NACA_4_Series 0.07 0.44 12 2.0 -4"/> 
+    however, real one is likelyinverted  -->
+  <PARAM NAME="Stab"  VALUE="NACA_4_Series 0.07 0.44 12 -3 0"/>
+  <PARAM NAME="Mast"  VALUE="NACA_4_Series 0.125 0.85 12 0 0 0.31"/>
   <PARAM NAME="Fuse"  VALUE="NACA_4_Series 0.75 0.02 4 0 0.0"/>
 </APPLET></P>
 </BODY>
