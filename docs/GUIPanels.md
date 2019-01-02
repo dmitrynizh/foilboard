@@ -98,7 +98,9 @@ When FoilSimIII shapes are enabled, some of these buttons select FoilSim 'analyt
 
 ![Size Tab](panel-bl-tab-size.png)
 
-Only two parameter inputs with sliders are here: Chord and Span. The values are displayed according to the Units selection on the Results Panel, Si is the default. The Area input box allows to scale Chord and Span to given Area size. For parts with complex geometry Chord is  *Mean Chord* value. Aspect Rat is the value of aspect ration which is  Span/Chord. 
+This tab provides 3 inputs with sliders - Chord, Span and Xpos, and one with text input box only - Area. The values are displayed according to the Units selection on the Results Panel, Metric Scientific is the default. Xpos is longitudinal offset of the leading edge of the root chord of the current part from the nose of fuselage. The Area input box allows to scale Chord and Span to given Area size. For parts with complex geometry Chord is  *Mean Aerodynamic Chord*, and the caption is "MAC". 
+Users are allowed to alter the value  of MAC chord, however,  once it is done, the chord is no longer MAC, and the part loses its multi-segment geometry, which is replaced by a rectangle of chord span x chord size. 
+ Aspect Rat is in output field (black background means output field) and the value of it is the part's  aspect ratio which is  Span/Chord which is also Span^2/Area. 
 
 ### Choose Plot Tab
 
@@ -227,5 +229,6 @@ Lift is located Above mast.
 This shows the plot selected on the left, see screenshots in the "Choose Plot Tab" section above. 
 
 
+See also: [Guide To Parameters](docs/Parameters.md).
 
 > Written with [StackEdit](https://stackedit.io/).

@@ -209,23 +209,23 @@ import java.io.File;
 
 public class FoilBoard extends JApplet {
 
-// really, a struct
-static public class Point2D {
-  double x, y;
-  Point2D (double x, double y) {
-    this.x = x;
-    this.y = y;
+  // really, a struct
+  static public class Point2D {
+    double x, y;
+    Point2D (double x, double y) {
+      this.x = x;
+      this.y = y;
+    }
   }
-}
-// really, a struct
-static public class Point3D {
-  double x, y, z; // length, span, heigth. tail is + from nose, left is -, right is +.
-  Point3D (double x, double y, double z) {
-    this.x = x;
-    this.y = y;
-    this.z = z;
+  // really, a struct
+  static public class Point3D {
+    double x, y, z; // length, span, heigth. tail is + from nose, left is -, right is +.
+    Point3D (double x, double y, double z) {
+      this.x = x;
+      this.y = y;
+      this.z = z;
+    }
   }
-}
 
   class Part {
     /**/ String name; Foil foil; double xpos; double chord; double span; double thickness; double camber; double aoa;
@@ -247,6 +247,7 @@ static public class Point3D {
       spanfac = (int)(2.0*fact*aspect_rat*.3535);
     }
 
+    String[] chord_spec;
     // chord x-offset for complex geometry
     double chord_xoffs;
     double chord_zoffs;
@@ -330,6 +331,14 @@ static public class Point3D {
     // NO-OP now!!!
     void save_state () { }
 
+    public String toDefString () {
+      String def = foil.descr.replace(" ", "_") + " " +
+        (chord_spec.length == 1 ? chord : stringArrJoin(chord_spec, ";")) + " " + 
+        span + " " + thickness + " " + camber + " " + aoa + " " + xpos;
+      // System.out.println("-- part def: " + def);
+      return def;
+    }
+
   } // Part
 
 
@@ -409,6 +418,14 @@ static public class Point3D {
   boolean on_cg_plotting = false;
 
   static boolean inited = false;
+
+  static String stringArrJoin(String[] arr, String separator) {
+    if (null == arr || 0 == arr.length) return "";
+    StringBuilder sb = new StringBuilder(256);
+    sb.append(arr[0]);
+    for (int i = 1; i < arr.length; i++) sb.append(separator).append(arr[i]);
+    return sb.toString();
+  }
   
   class Panel extends JPanel {
 
@@ -1316,6 +1333,7 @@ static public class Point3D {
     // if (p_name.equals("Stab")) System.out.println("-- stab foil: " + p.foil);
     
     String[] chord_spec = params[i++].split("[:;]"); // possible chord value separators 
+    p.chord_spec = chord_spec;
 
     // span value
     p.span = Double.parseDouble(params[i++]);
@@ -1354,7 +1372,7 @@ static public class Point3D {
         p.xpos = 0.3 * fuse.chord;
     }
 
-    if (chord_spec.length == 1) {
+    if (chord_spec.length == 1) { // simple rectangular shape
       p.chord = Double.parseDouble(chord_spec[0]);
       // *very* simple mesh
       if (p == strut) {
@@ -1410,9 +1428,9 @@ static public class Point3D {
       
       int segment_count = chord_spec.length -1;
       // compute MAC value. this is silly straightfoward
-      // also approxinate NAC xpos... 
+      // also approxinate MAC xpos... 
       // the idea is that mac_xpos*MAC*segment_count(segment_width = SUM each segement xpos * area...
-      // which because idth is the same becomes
+      // which because width is the same for ech segement becomes
       // mac_xpos*MAC*segment_count = SUM each segement xpos * median chord
       double MAC = 0, segment_moments = 0;
       for (int ci = 0; ci < segment_count; ci++) {
@@ -7345,6 +7363,8 @@ static public class Point3D {
       LeftPanel leftPanel;
       RightPanel rightPanel;
 
+      double xpos_min = -1, xpos_max = 1; // in meters
+
       Size (FoilBoard target) {
 
         app = target;
@@ -7355,6 +7375,13 @@ static public class Point3D {
 
         add(leftPanel);
         add(rightPanel);
+      }
+
+      JLabel addJLabel (String text, Color fg, int align) {
+        JLabel lb = new JLabel(text, align);
+        if (fg != null) lb.setForeground(fg);
+        add(lb);
+        return lb;
       }
 
       int set_to_units = IMPERIAL;
@@ -7368,101 +7395,125 @@ static public class Point3D {
         // System.out.println("-- Size.loadPanel continue - not on_loadPanel");
         try {
           on_loadPanel = true;
-          // System.out.println("-- Size.loadPanel doit");
-          if (set_to_units != display_units) {
+          leftPanel.part_name.setText(current_part.name);
+          if (true) { // because of MAC/Chord can not use (set_to_units != display_units) here
             set_to_units = display_units;
+            String chord_prefix  = current_part.chord_spec.length == 1 ? "Chord" : "MAC";
             switch (display_units) {
             case IMPERIAL: 
             case NAVAL: 
-              leftPanel.l1.setText("Chord in");
-              leftPanel.l2.setText("Span in");
-              leftPanel.l3.setText("Area sq in");
+              leftPanel.size_lbl.setText(chord_prefix + " in");
+              leftPanel.span_lbl.setText("Span in");
+              leftPanel.xpos_lbl.setText("Xpos in");
+              leftPanel.area_lbl.setText("Area sq in");
               break;
             case METRIC:
-              leftPanel.l1.setText("Chord m");
-              leftPanel.l2.setText("Span m");
-              leftPanel.l3.setText("Area sq m");
+              leftPanel.size_lbl.setText(chord_prefix + " m");
+              leftPanel.span_lbl.setText("Span m");
+              leftPanel.xpos_lbl.setText("Xpos m");
+              leftPanel.area_lbl.setText("Area sq m");
               break;
             case METRIC_2:
-              leftPanel.l1.setText("Chord cm");
-              leftPanel.l2.setText("Span cm");
-              leftPanel.l3.setText("Area-sq cm");
+              leftPanel.size_lbl.setText(chord_prefix + " cm");
+              leftPanel.span_lbl.setText("Span cm");
+              leftPanel.xpos_lbl.setText("Xpos cm");
+              leftPanel.area_lbl.setText("Area-sq cm");
               break;
             case IMPERIAL_FEET: 
-              leftPanel.l1.setText("Chord ft");
-              leftPanel.l2.setText("Span ft");
-              leftPanel.l3.setText("Area sq ft");
+              leftPanel.size_lbl.setText(chord_prefix + " ft");
+              leftPanel.span_lbl.setText("Span ft");
+              leftPanel.xpos_lbl.setText("Xpos ft");
+              leftPanel.area_lbl.setText("Area sq ft");
               break;
             }
+          }
+
+          // assume xpos of fuse shoudl be always 0
+          {
+            leftPanel.xpos_tf.setEnabled(current_part != fuse);
+            rightPanel.xpos_SB.setEnabled(current_part != fuse);
           }
 
           // these cause events, so do them first.
           int pos = (int) (((current_part.chord - chrd_min)/(chrd_max-chrd_min))*1000.);
           rightPanel.chord_SB.setValue(pos);
           rightPanel.span_SB.setValue((int) (((current_part.span - span_min)/(span_max-span_min))*1000.));
+          rightPanel.xpos_SB.setValue((int) (((current_part.xpos - xpos_min)/(xpos_max-xpos_min))*1000.));
           if (false) // temporarily disabing area_SB because if cross-editing event collisions..
             rightPanel.area_SB.setValue((int) (((current_part.area - ar_min)/(ar_max-ar_min))*1000.));
 
-          leftPanel.f1.setText(make_size_info_in_display_units(current_part.chord, false));
-          leftPanel.f2.setText(make_size_info_in_display_units(current_part.span, false));
-          leftPanel.f3.setText(make_area_info_in_display_units(current_part.area, false));
+          leftPanel.size_tf.setText(make_size_info_in_display_units(current_part.chord, false));
+          leftPanel.span_tf.setText(make_size_info_in_display_units(current_part.span, false));
+          leftPanel.xpos_tf.setText(make_size_info_in_display_units(current_part.xpos, false));
+          leftPanel.area_tf.setText(make_area_info_in_display_units(current_part.area, false));
           
-          leftPanel.o4.setText(""+filter1or3(current_part.aspect_rat));
+          leftPanel.aspect_tf.setText(""+filter1or3(current_part.aspect_rat));
         } catch (Throwable t) { on_loadPanel = false; throw t;} 
         on_loadPanel = false;
       }
 
       class LeftPanel extends Panel {
         FoilBoard app;
-        JTextField f1,f2,f3,o4;
-        JLabel l1,l2,l3,l4;
-        JLabel l01,l02;
+        JTextField size_tf, span_tf, xpos_tf, area_tf, aspect_tf;
+        JLabel part_name, size_lbl, span_lbl, xpos_lbl, area_lbl;
     
         LeftPanel (FoilBoard target) {
    
           app = target;
-          setLayout(new GridLayout(5,2,2,10));
+          setLayout(new GridLayout(6,2,2,10));
 
-          l01 = new JLabel("Wing", JLabel.RIGHT);
-          l01.setForeground(Color.blue);
-          l02 = new JLabel("Size", JLabel.LEFT);
-          l02.setForeground(Color.blue);
+          part_name = addJLabel("---", Color.blue, JLabel.RIGHT);
 
-          l1 = new JLabel("Chord-ft", JLabel.CENTER);
-          f1 = new JTextField("5.0",5);
-          f1.addActionListener(new ActionListener() {
+          size_lbl = new JLabel("Chord-ft", JLabel.CENTER);
+
+          size_tf = new JTextField("5.0",5);
+          size_tf.addActionListener(new ActionListener() {
               @Override
               public void actionPerformed(ActionEvent e) {
-                Double V1 = Double.valueOf(f1.getText());
-                System.out.println("-chord - ActionEvent: " + e);
+                Double V1 = Double.valueOf(size_tf.getText());
+                //debug System.out.println("-chord - ActionEvent: " + e);
                 double chord = V1.doubleValue();
                 chord = limit(chrd_min,
                               size_input_in_display_units_to_m(chord, display_units),
                               chrd_max);
+                if (current_part.chord == chord) return;
                 current_part.chord = chord;
+                if (current_part.chord_spec.length > 1) { // part loses its multisegemnted shape!
+                  // prb, need alert here.. 
+                  System.out.println("WARNING: part " + current_part.name + " loses its multisegemnted shape " +
+                                     "now chord=" + chord);                  
+                }
+                current_part.chord_spec = new String[] {""+chord};
+                
+                parseParamData(current_part, current_part.name, current_part.toDefString());
+
                 current_part.area = current_part.span * chord;
 
                 current_part.aspect_rat = current_part.span/chord;
                 current_part.spanfac = (int)(2.0*fact*current_part.aspect_rat*.3535);
 
+                // no need - loadPanel does it...
                 // sync up slider, this fires up event
-                rightPanel.chord_SB.setValue((int) (((current_part.chord - chrd_min)/(chrd_max-chrd_min))*1000.));
+                // rightPanel.chord_SB.setValue((int) (((current_part.chord - chrd_min)/(chrd_max-chrd_min))*1000.));
                 
                 computeFlowAndRegenPlot();
                 size.loadPanel();
               }});
 
-          l2 = new JLabel("Span-ft", JLabel.CENTER);
-          f2 = new JTextField("20.0",5);
-          f2.addActionListener(new ActionListener() {
+          span_lbl = new JLabel("Span-ft", JLabel.CENTER);
+          span_tf = new JTextField("20.0",5);
+          span_tf.addActionListener(new ActionListener() {
               @Override
               public void actionPerformed(ActionEvent e) {
-                Double V2 = Double.valueOf(f2.getText());
+                Double V2 = Double.valueOf(span_tf.getText());
                 double span = V2.doubleValue();
                 span = limit(span_min, 
                              size_input_in_display_units_to_m(span, display_units),
                              span_max);
+                if (current_part.span == span) return;
                 current_part.span = span;
+                parseParamData(current_part, current_part.name, current_part.toDefString());
+
                 current_part.area = span * current_part.chord;
                 current_part.aspect_rat = span*span/current_part.area;
 
@@ -7471,12 +7522,34 @@ static public class Point3D {
                 size.loadPanel();
               }});
 
-          l3 = new JLabel("Area-sq ft", JLabel.CENTER);
-          f3 = new JTextField("100.0",5);
-          f3.addActionListener(new ActionListener() {
+          xpos_lbl = new JLabel("Xpos-ft", JLabel.CENTER);
+          xpos_tf = new JTextField("20.0",5);
+          xpos_tf.addActionListener(new ActionListener() {
               @Override
               public void actionPerformed(ActionEvent e) {
-                Double V3 = Double.valueOf(f3.getText());
+                Double V2 = Double.valueOf(xpos_tf.getText());
+                double xpos = V2.doubleValue();
+                xpos = limit(xpos_min, 
+                             size_input_in_display_units_to_m(xpos, display_units),
+                             xpos_max);
+                
+                if (current_part.xpos == xpos) return;
+                current_part.xpos = xpos;
+                parseParamData(current_part, current_part.name, current_part.toDefString());
+
+                current_part.area = xpos * current_part.chord;
+
+                computeFlowAndRegenPlot();
+                size.loadPanel();
+              }});
+
+
+          area_lbl = new JLabel("Area-sq ft", JLabel.CENTER);
+          area_tf = new JTextField("100.0",5);
+          area_tf.addActionListener(new ActionListener() {
+              @Override
+              public void actionPerformed(ActionEvent e) {
+                Double V3 = Double.valueOf(area_tf.getText());
                 double area = V3.doubleValue();
                 area = size_input_in_display_units_to_m(area, display_units);
                 area = limit(ar_min, area, ar_max);
@@ -7490,25 +7563,27 @@ static public class Point3D {
                 size.loadPanel();
               }});
 
-          l4 = new JLabel("Aspect Rat", JLabel.CENTER);
-          o4 = new JTextField("0.0",5); // todo? make not editable?
-          o4.setBackground(color_very_dark);
-          o4.setForeground(Color.yellow);
+          aspect_tf = new JTextField("0.0",5); // todo? make not editable?
+          aspect_tf.setBackground(color_very_dark);
+          aspect_tf.setForeground(Color.yellow);
 
-          add(l01);
-          add(l02);
+          add(part_name);
+          add(addJLabel("Size", Color.blue, JLabel.LEFT));
 
-          add(l1);
-          add(f1);
+          add(size_lbl);
+          add(size_tf);
 
-          add(l2);
-          add(f2);
+          add(span_lbl);
+          add(span_tf);
 
-          add(l3);
-          add(f3);
+          add(xpos_lbl);
+          add(xpos_tf);
 
-          add(l4);
-          add(o4);
+          add(area_lbl);
+          add(area_tf);
+
+          add(new JLabel("Aspect Rat", JLabel.CENTER));
+          add(aspect_tf);
         }
 
       }  // LeftPanel 
@@ -7517,19 +7592,22 @@ static public class Point3D {
         FoilBoard app;
         ChordSB chord_SB;
         SpanSB span_SB;
+        XPosSB xpos_SB;
         AreaSB area_SB;
 
         RightPanel (FoilBoard target) {
           app = target;
-          setLayout(new GridLayout(5,1,2,10));
+          setLayout(new GridLayout(6,1,2,10));
 
           chord_SB = new ChordSB(app);
           span_SB = new SpanSB(app);
+          xpos_SB = new XPosSB(app);
           area_SB = new AreaSB(app);
 
           add(new JLabel(" ", JLabel.CENTER));
           add(chord_SB);
           add(span_SB);
+          add(xpos_SB);
           // temporarily disabing area_SB because if cross-editing event collisions..
           if (false)
             add(area_SB); 
@@ -7556,12 +7634,25 @@ static public class Point3D {
             addAdjustmentListener(new AdjustmentListener() {
                 public void adjustmentValueChanged(AdjustmentEvent evt) {
                   if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
-                  if (on_loadPanel) return;
+                  if (app.in.size.on_loadPanel) return;
                   int i = getValue();
                   //tt System.out.println("-- Chord AdjustmentEvent: i=" + i);
-                  current_part.chord  = i * (chrd_max - chrd_min)/ 1000. + chrd_min;
+                  double chord  = i * (chrd_max - chrd_min)/ 1000. + chrd_min;
+                  if (current_part.chord == chord) return;
+                  //debug new Exception("warn!!!! " + current_part.chord +"!=" +  chord).printStackTrace(System.out);
+                  
+                  current_part.chord = chord;
+                  // the following logc is similat to wgat is in chord_tf listener
+                  if (current_part.chord_spec.length > 1) { // part loses its multisegemnted shape!
+                    // prb, need alert here.. 
+                    System.out.println("WARNING: part " + current_part.name + " loses its multisegemnted shape " +
+                                       "now chord=" + chord);                  
+                  }
+                  current_part.chord_spec = new String[] {""+chord};
+                  parseParamData(current_part, current_part.name, current_part.toDefString());
+
                   // rounded up text box value
-                  //// leftPanel.f1.setText(make_size_info_in_display_units(current_part.chord, false));
+                  //// leftPanel.size_tf.setText(make_size_info_in_display_units(current_part.chord, false));
                   
                   // recalc area, move slider, update text
                   current_part.area = current_part.span * current_part.chord;
@@ -7601,14 +7692,14 @@ static public class Point3D {
             addAdjustmentListener(new AdjustmentListener() {
                 public void adjustmentValueChanged(AdjustmentEvent evt) {
                   if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
-                  if (on_loadPanel) return;
+                  if (app.in.size.on_loadPanel) return;
                   int i = getValue();
-                  current_part.span  = i * (span_max - span_min)/ 1000. + span_min;
-                  //// leftPanel.f2.setText(make_size_info_in_display_units(current_part.span, false));
+                  double span  = i * (span_max - span_min)/ 1000. + span_min;
+                  if (current_part.span == span) return;
+                  current_part.span = span;
+                  parseParamData(current_part, current_part.name, current_part.toDefString());
 
-                  // recalc area, move slider, update text
                   current_part.area = current_part.span * current_part.chord;
-                  //// rightPanel.area_SB.setValue((int) (((current_part.area - ar_min)/(ar_max-ar_min))*1000.));
 
                   current_part.aspect_rat = current_part.span*current_part.span/current_part.area;
                   current_part.spanfac = (int)(2.0*fact*current_part.aspect_rat*.3535);
@@ -7625,6 +7716,43 @@ static public class Point3D {
               return false;
           }
         }  // SpanSB
+
+        class XPosSB extends JScrollBar {  // part's xpos slider
+          FoilBoard app;
+
+          @Override
+          public void setValue(int i) {
+            if (i == getValue()) return;
+            super.setValue(i);
+          }
+ 
+          XPosSB (FoilBoard target) {
+            super(JScrollBar.HORIZONTAL,
+                  (int) (((current_part.xpos - xpos_min)/(xpos_max-xpos_min))*1000.),
+                  10,0,1000);
+            app = target;
+
+            addAdjustmentListener(new AdjustmentListener() {
+                public void adjustmentValueChanged(AdjustmentEvent evt) {
+                  if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
+                  if (app.in.size.on_loadPanel) return;
+                  int i = getValue();
+                  double xpos  = i * (xpos_max - xpos_min)/ 1000. + xpos_min;
+                  if (current_part.xpos == xpos) return;
+                  current_part.xpos = xpos;
+                  parseParamData(current_part, current_part.name, current_part.toDefString());
+
+                  computeFlowAndRegenPlot();
+                  size.loadPanel();
+                }});
+
+          }
+
+          public boolean handleEvent (Event evt) {
+              System.out.println("-- handleEvent: obsolete");
+              return false;
+          }
+        }  // XPosSB
 
         class AreaSB extends JScrollBar {  // area slider
           FoilBoard app;
@@ -7643,7 +7771,7 @@ static public class Point3D {
             addAdjustmentListener(new AdjustmentListener() {
                 public void adjustmentValueChanged(AdjustmentEvent evt) {
                   if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
-                  if (on_loadPanel) return;
+                  if (app.in.size.on_loadPanel) return;
                   int i = getValue();
                   double new_area = i * (ar_max - ar_min)/ 1000. + ar_min; 
                   double scale_k = new_area/current_part.area;
@@ -7659,7 +7787,7 @@ static public class Point3D {
                   //// rightPanel.span_SB.setValue((int) (((current_part.span - span_min)/(span_max-span_min))*1000.));
 
                   current_part.area = current_part.span * current_part.chord;
-                  //// leftPanel.f3.setText(make_area_info_in_display_units(current_part.area, false));
+                  //// leftPanel.area_tf.setText(make_area_info_in_display_units(current_part.area, false));
 
                   // old order
                   computeFlowAndRegenPlot();
@@ -9330,9 +9458,8 @@ static public class Point3D {
           }
           
 
-          // rider
+          // RIDER
           i = 0;
-
 
           // front foot
           to_screen_x_y(new Point3D(-0.1+strut.xpos - 0.7*con.cg_pos + 0.2*rider_center_x - 0.22,0,strut.span+BOARD_THICKNESS),x,y,i++,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
