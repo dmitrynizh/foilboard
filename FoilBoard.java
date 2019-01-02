@@ -7551,13 +7551,17 @@ public class FoilBoard extends JApplet {
               public void actionPerformed(ActionEvent e) {
                 Double V3 = Double.valueOf(area_tf.getText());
                 double area = V3.doubleValue();
-                area = size_input_in_display_units_to_m(area, display_units);
+                double conv_k = size_input_in_display_units_to_m(1, display_units);
+                area = conv_k * conv_k * area;
                 area = limit(ar_min, area, ar_max);
+                if (area == current_part.area) return;
                 double scale_k = area/current_part.area;
                 current_part.area = area;
                 // scale area preserving aspect ratio.
                 current_part.span *= Math.sqrt(scale_k);
                 current_part.chord *= Math.sqrt(scale_k);
+                current_part.chord_spec = new String[] {""+ current_part.chord};
+                parseParamData(current_part, current_part.name, current_part.toDefString());
 
                 computeFlowAndRegenPlot();
                 size.loadPanel();
@@ -7777,17 +7781,13 @@ public class FoilBoard extends JApplet {
                   double scale_k = new_area/current_part.area;
                   current_part.area = new_area;
 
-                  // scale sizes preserving aspect
-                  // this moves all 3 sliders (and resets all 3 boxes)
-
+                  // scale sizes preserving aspect. 
                   current_part.chord  *= Math.sqrt(scale_k);
-                  //// rightPanel.chord_SB.setValue((int) (((current_part.chord - chrd_min)/(chrd_max-chrd_min))*1000.));
-
+                  current_part.chord_spec = new String[] {""+ current_part.chord};
                   current_part.span  *= Math.sqrt(scale_k);
-                  //// rightPanel.span_SB.setValue((int) (((current_part.span - span_min)/(span_max-span_min))*1000.));
+                  parseParamData(current_part, current_part.name, current_part.toDefString());
 
-                  current_part.area = current_part.span * current_part.chord;
-                  //// leftPanel.area_tf.setText(make_area_info_in_display_units(current_part.area, false));
+                  // current_part.area = current_part.span * current_part.chord;
 
                   // old order
                   computeFlowAndRegenPlot();
