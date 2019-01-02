@@ -1080,7 +1080,6 @@ public class FoilBoard extends JApplet {
   static double FOIL_WEIGHT = 20; // N, weight of typical semi-submerged foil (dry weight - floatation)
   static double MAST_LE_TO_TRANSOM = 0.3;
   static double WS_MASTBASE_MAST_LE = 1.04; // 1.04 is typical rig mast base from strut LE distance...
-  static double mast_xpos; // mast xpos at board bottom's level!
 
   static double rider_weight;
 
@@ -1555,6 +1554,8 @@ public class FoilBoard extends JApplet {
     rider_weight    = Double.parseDouble(getParamOrPropAliased("RSL", "TOTAL_WEIGHT", "735")) -
       BOARD_WEIGHT - RIG_WEIGHT - FOIL_WEIGHT;
 
+    MAST_LE_TO_TRANSOM = Double.parseDouble(getParamOrPropAliased("MAST_LE2TRANS",  "MAST_LE_TO_TRANSOM_DISTANCE", ""+MAST_LE_TO_TRANSOM));
+    WS_MASTBASE_MAST_LE = Double.parseDouble(getParamOrPropAliased("WSMAST2MASTLE",  "WS_MASTBASE_TO_MAST_LE_DISTANCE", ""+WS_MASTBASE_MAST_LE));
     use_cylinder_shapes = Boolean.parseBoolean(getParamOrPropAliased("CYLS", "USE_CYLINDER_SHAPES", "false"));
     use_foilsim_foils   = Boolean.parseBoolean(getParamOrPropAliased("FSIMFOILS", "USE_FOILSIM_FOILS", "false"));
 
@@ -1577,8 +1578,6 @@ public class FoilBoard extends JApplet {
       parseParameters(strut, "Mast", craft_type == WINDFOIL 
                       ? "NACA_4_Series 0.125 0.85 12 0 0 0.33"
                       : "NACA_4_Series 0.12 1.04 12 0 0");
-    
-    mast_xpos = strut.xpos + strut.xoff_tip; // mast xpos at board bottom's level!
 
     make_name  = getParameter("Make", "Make:N/A").trim();
     model_name = getParameter("Model", "Model:Test").trim();
@@ -4791,8 +4790,10 @@ public class FoilBoard extends JApplet {
     // the pitch at max (and lift not enough) keep going increasing the speed
     // if flying than pivot ( step = step * -0.5 ) and in that direction 
     // pivot when nto flying. finish when step is + and small enough
-    void find_min_takeoff_v (double min_lift, double max_drag) {
+    void find_min_takeoff_v (double min_lift, double max_drag, boolean mk_report) {
       double saved_speed = velocity;
+      System.out.println("-- min_lift: " + min_lift + " max_drag: " + max_drag);
+
       // guess a reasonable starting speed to iterate
       // by setting pitch to 10 and finding speed at enough lift,
       double init_speed = 10;
@@ -4815,8 +4816,8 @@ public class FoilBoard extends JApplet {
       }
 
       if (total_drag() > max_drag) 
-        System.out.println(min_takeoff_speed_info = "Falure! Decrease load or increse drag");
-      else {
+        System.out.println(min_takeoff_speed_info = "Failure! Decrease load or increse drag");
+      else if (mk_report) {
         make_min_takeoff_speed_info(min_lift, max_drag, velocity); 
         System.out.println("\nDone!\n----------------\n" + min_takeoff_speed_info);
       }
@@ -6175,7 +6176,7 @@ public class FoilBoard extends JApplet {
                                        alt = alt_min;
                                        loadPanel();
                                        can_do_gui_updates = false;
-                                       vpp.find_min_takeoff_v(min_lift, max_drag);
+                                       vpp.find_min_takeoff_v(min_lift, max_drag, true);
                                        can_do_gui_updates = true;
                                        con.recomp_all_parts();
                                        loadPanel();
@@ -6216,7 +6217,7 @@ public class FoilBoard extends JApplet {
                                        can_do_gui_updates = false;
                                        alt = 80;
                                        strut.aoa = 0;
-                                       vpp.find_min_takeoff_v(min_lift, (double)constr_tkoff_max_drag); // find starting point
+                                       vpp.find_min_takeoff_v(min_lift, (double)constr_tkoff_max_drag, false); // find starting point
                                        vpp.easy_ride(min_lift); // for old: min_takeoff_speed > 0 ? min_takeoff_speed : constr_cruise_starting_speed);
                                        con.recomp_all_parts();
                                        vpp.set_mast_aoa_for_given_drag(total_drag()); // (wing.drag+stab.drag);
@@ -7477,15 +7478,32 @@ public class FoilBoard extends JApplet {
                               size_input_in_display_units_to_m(chord, display_units),
                               chrd_max);
                 if (current_part.chord == chord) return;
-                current_part.chord = chord;
-                if (current_part.chord_spec.length > 1) { // part loses its multisegemnted shape!
-                  // prb, need alert here.. 
-                  System.out.println("WARNING: part " + current_part.name + " loses its multisegemnted shape " +
-                                     "now chord=" + chord);                  
+                // current_part.chord = chord;
+                // if (current_part.chord_spec.length > 1) { // part loses its multisegemnted shape!
+                //   // prb, need alert here.. 
+                //   System.out.println("WARNING: part " + current_part.name + " loses its multisegemnted shape " +
+                //                      "now chord=" + chord);                  
+                // }
+                // current_part.chord_spec = new String[] {""+chord};
+                // parseParamData(current_part, current_part.name, current_part.toDefString());
+
+                // update mesh... 
+                {
+                  double scale = chord/current_part.chord;
+                  Point3D[] le  = current_part.mesh_LE;
+                  Point3D[] te  = current_part.mesh_TE;
+                  double xpos = current_part.xpos;
+                  for (int i = 0; i < le.length; i++) {
+                    // new le-te = scale*(le-te)
+                    double old_xoffset =  le[i].x - xpos;
+                    double old_chord = te[i].x - le[i].x;
+                    double new_xoffset = scale * old_xoffset;
+                    double new_chord = scale * old_chord;
+                    le[i].x = new_xoffset + xpos;
+                    te[i].x = le[i].x + new_chord;
+                  }
                 }
-                current_part.chord_spec = new String[] {""+chord};
-                
-                parseParamData(current_part, current_part.name, current_part.toDefString());
+                current_part.chord = chord;
 
                 current_part.area = current_part.span * chord;
 
@@ -7534,10 +7552,20 @@ public class FoilBoard extends JApplet {
                              xpos_max);
                 
                 if (current_part.xpos == xpos) return;
-                current_part.xpos = xpos;
-                parseParamData(current_part, current_part.name, current_part.toDefString());
+                // current_part.xpos = xpos;
+                // parseParamData(current_part, current_part.name, current_part.toDefString());
 
-                current_part.area = xpos * current_part.chord;
+                // update mesh... 
+                {
+                  double delta = xpos - current_part.xpos;
+                  Point3D[] le  = current_part.mesh_LE;
+                  Point3D[] te  = current_part.mesh_TE;
+                  for (int i = 0; i < le.length; i++) {
+                    le[i].x = le[i].x + delta;
+                    te[i].x = te[i].x + delta;
+                  }
+                }
+                current_part.xpos = xpos;
 
                 computeFlowAndRegenPlot();
                 size.loadPanel();
@@ -7639,21 +7667,40 @@ public class FoilBoard extends JApplet {
                 public void adjustmentValueChanged(AdjustmentEvent evt) {
                   if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
                   if (app.in.size.on_loadPanel) return;
-                  int i = getValue();
-                  //tt System.out.println("-- Chord AdjustmentEvent: i=" + i);
-                  double chord  = i * (chrd_max - chrd_min)/ 1000. + chrd_min;
+                  double chord  = getValue() * (chrd_max - chrd_min)/ 1000. + chrd_min;
                   if (current_part.chord == chord) return;
                   //debug new Exception("warn!!!! " + current_part.chord +"!=" +  chord).printStackTrace(System.out);
+                
+                  // current_part.chord = chord;
                   
-                  current_part.chord = chord;
                   // the following logc is similat to wgat is in chord_tf listener
-                  if (current_part.chord_spec.length > 1) { // part loses its multisegemnted shape!
-                    // prb, need alert here.. 
-                    System.out.println("WARNING: part " + current_part.name + " loses its multisegemnted shape " +
-                                       "now chord=" + chord);                  
+
+                  // if (current_part.chord_spec.length > 1) { // part loses its multisegemnted shape!
+                  //   // prb, need alert here.. 
+                  //   System.out.println("WARNING: part " + current_part.name + " loses its multisegemnted shape " +
+                  //                      "now chord=" + chord);                  
+                  // }
+                  // current_part.chord_spec = new String[] {""+chord};
+                  // parseParamData(current_part, current_part.name, current_part.toDefString());
+
+                // update mesh... 
+                {
+                  double scale = chord/current_part.chord;
+                  Point3D[] le  = current_part.mesh_LE;
+                  Point3D[] te  = current_part.mesh_TE;
+                  double xpos = current_part.xpos;
+                  for (int i = 0; i < le.length; i++) {
+                    // new le-te = scale*(le-te)
+                    double old_xoffset =  le[i].x - xpos;
+                    double old_chord = te[i].x - le[i].x;
+                    double new_xoffset = scale * old_xoffset;
+                    double new_chord = scale * old_chord;
+                    le[i].x = new_xoffset + xpos;
+                    te[i].x = le[i].x + new_chord;
                   }
-                  current_part.chord_spec = new String[] {""+chord};
-                  parseParamData(current_part, current_part.name, current_part.toDefString());
+                }
+                current_part.chord = chord;
+
 
                   // rounded up text box value
                   //// leftPanel.size_tf.setText(make_size_info_in_display_units(current_part.chord, false));
@@ -7740,11 +7787,21 @@ public class FoilBoard extends JApplet {
                 public void adjustmentValueChanged(AdjustmentEvent evt) {
                   if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
                   if (app.in.size.on_loadPanel) return;
-                  int i = getValue();
-                  double xpos  = i * (xpos_max - xpos_min)/ 1000. + xpos_min;
+                  double xpos  = getValue() * (xpos_max - xpos_min)/ 1000. + xpos_min;
                   if (current_part.xpos == xpos) return;
-                  current_part.xpos = xpos;
-                  parseParamData(current_part, current_part.name, current_part.toDefString());
+                  //current_part.xpos = xpos;
+                  // parseParamData(current_part, current_part.name, current_part.toDefString());
+                // update mesh... 
+                {
+                  double delta = xpos - current_part.xpos;
+                  Point3D[] le  = current_part.mesh_LE;
+                  Point3D[] te  = current_part.mesh_TE;
+                  for (int i = 0; i < le.length; i++) {
+                    le[i].x = le[i].x + delta;
+                    te[i].x = te[i].x + delta;
+                  }
+                }
+                current_part.xpos = xpos;
 
                   computeFlowAndRegenPlot();
                   size.loadPanel();
@@ -8969,7 +9026,10 @@ public class FoilBoard extends JApplet {
         int x[] = new int[8];
         int y[] = new int[8];
 
-        off1Gg.setColor(Color.white);
+        if (current_part == p)
+          off1Gg.setColor(Color.yellow);
+        else
+          off1Gg.setColor(Color.white);
 
         Point3D[] le0 = p.mesh_LE;
         Point3D[] te0 = p.mesh_TE;
@@ -9182,6 +9242,9 @@ public class FoilBoard extends JApplet {
           // board profile
           //x[0] = screen_off_x+toInt(scalex*(offx + - 0.9));
           //y[0] = screen_off_y+toInt(scaley*(offy + strut.span));
+
+          double mast_xpos =  // mast xpos at board bottom's level!
+            strut.xpos + strut.xoff_tip; // mast xpos at board bottom's level!
 
           to_screen_x_y(new Point3D(-BOARD_LENGTH+mast_xpos+MAST_LE_TO_TRANSOM+0.3,0,strut.span),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
           //x[1] = screen_off_x+toInt(scalex*(offx + -1.2));
