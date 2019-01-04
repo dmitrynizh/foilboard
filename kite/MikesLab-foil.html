@@ -23,9 +23,11 @@
     Each chord spec  can be either L or L/X or L/X/Z, where L is chord length, 
     X is longitudinal relative offset from the prev chord, Z is same for vertical direction
  -->
-  <PARAM NAME="Wing"  VALUE="NACA_4_Series 0.115;0.107;0.093;0.067;0.02 0.63 9 4 1.0"/>
+  <!-- Decalage angle = 2.4 grad reported by SonnS, so WingAoA - StabAoA = 2.4, and 
+       WingAoA is optimized for Fuse traveling horisontally at top speed... -->
+  <PARAM NAME="Wing"  VALUE="NACA_4_Series 0.115;0.107;0.093;0.067;0.02 0.63 11 3  -1.5"/>
   <!-- stab: with cutout correction -->
-  <PARAM NAME="Stab"  VALUE="NACA_4_Series 0.060;0.059;0.052;0.035;0.01 0.4 8 -1.5 -0.5"/>
+  <PARAM NAME="Stab"  VALUE="NACA_4_Series 0.060;0.059;0.052;0.035;0.01 0.4  11 0  -3.9"/>
   <PARAM NAME="Mast"  VALUE="NACA_4_Series 0.12 0.95 11 0 0"/>
   <PARAM NAME="Fuse"  VALUE="NACA_4_Series 0.65 0.02 3 0 1.0"/>
 </APPLET></P>
