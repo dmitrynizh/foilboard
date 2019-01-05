@@ -271,15 +271,26 @@ public class FoilBoard extends JApplet {
     double 
     cl, cd, cm, cd_profile, cd_aux;
     
-    double[] t_Cd, t_Cl; // when this.foil, this.camber or this.thickness change, recompute!
+    double[] t_Cd, t_Cl, t_Cm; // when this.foil, this.camber or this.thickness change, recompute!
 
     double area; // sq m
 
     // aspect ratio and span factor
     double aspect_rat; int spanfac;
 
+    boolean use_cm = true;
+
     String foil_descr () {
       return this.foil.getDescr(thickness, camber);
+    }
+
+    double compute_cm (double effaoa) {
+      double _cm = 0;
+      if (!use_cm) return _cm;
+      _cm = foil.getCmoment(effaoa);
+      // AR correction, per javafoil user guide etc
+      _cm *= aspect_rat/(aspect_rat+4);
+      return _cm;
     }
 
     void print (String header, JTextArea out) {
@@ -343,6 +354,8 @@ public class FoilBoard extends JApplet {
 
 
   boolean runAsApplication = false; // main() sets this to true
+  boolean fix_symmetry_problem = true; // legacy
+
   static Properties props;
   static JFrame frame;
   /** 
@@ -571,14 +584,20 @@ public class FoilBoard extends JApplet {
       return solver.compute_Cl_Kutta(effaoa);
     }
 
-    // we now side effect into current_part, so that various drag factors are stored
-    double get_Cd (double cldin, double effaoa, double thickness, double camber) {
-      current_part.cd_profile = getCdragIdeal(cldin, effaoa, thickness, camber);
+    // may side effect into current_part, when save_p is true, so that various drag factors are stored
+    double get_Cd (double cldin, double effaoa, double thickness, double camber, boolean save_p) {
+      double cd_profile = getCdragIdeal(cldin, effaoa, thickness, camber);
       // (1) Reynolds Correction, multipicative
-      current_part.cd_profile = adjust_dragco(current_part.cd_profile, cldin, thickness);
+      cd_profile = adjust_dragco(cd_profile, cldin, thickness);
       // (2) AR/induced drag correction, additive
-      current_part.cd_aux = getCdragAux(cldin, thickness);
-      return current_part.cd = current_part.cd_profile + current_part.cd_aux;
+      double cd_aux = getCdragAux(cldin, thickness);
+      double cd = cd_profile + cd_aux;
+      if (save_p) {
+        current_part.cd_profile = cd_profile;
+        current_part.cd_aux = cd_aux;
+        current_part.cd = cd;
+      }
+      return cd;
     }
 
     double getCdragIdeal (double cldin, double effaoa, double thickness, double camber) {
@@ -697,6 +716,12 @@ public class FoilBoard extends JApplet {
     double getCdragIdeal (double cldin, double effaoa, double thickness, double camber) {
       // todo: why cache like above does not work?
       return solver.ci15_from_javafoil_data(solver.t_drag_NACA4, effaoa, thickness, camber);
+    }
+
+    double getCmoment (double effaoa) {
+      if (current_part.t_Cm == null)
+        current_part.t_Cm = solver.compute_t_Cm(solver.t_mmnt_NACA4, current_part.thickness, current_part.camber);
+      return solver.ci15(current_part.t_Cm, effaoa);
     }
 
     @Override
@@ -819,8 +844,8 @@ public class FoilBoard extends JApplet {
                   // Name = AQUILA 9.3% smoothed
                   // Mach = 0; Re = 300000; T.U. = 1.0; T.L. = 1.0
                   // Surface Finis    // h = 0; Stall model = 0; Transition model = 1; Aspect Ratio = 0; ground effect = 0
-                  //       Cl      //     Cd       Cm 0.25 T.U.    T.L.    S.U.    S.L.    L/D     A.C.    C.P.
-                  // [ ]   [-]     //     [-]      [-]     [-]     [-]     [-]     [-]     [-]     [-]     [-]
+                  //       Cl         //      Cd       Cm 0.25 T.U.    T.L.    S.U.    S.L.    L/D     A.C.    C.P.
+                  // [ ]   [-]        //      [-]      [-]     [-]     [-]     [-]     [-]     [-]     [-]     [-]
                   // -28.0    -0.1    // 25   0.39381 -0.021  0.893   0.006   0.931   0.015   -0.317  0.278   0.082
                   // -24.0    -0.1    // 63   0.29085 -0.020  0.887   0.007   0.931   0.014   -0.561  0.272   0.128
                   // -20.0    -0.2    // 16   0.21866 -0.019  0.881   0.006   0.933   0.011   -0.989  0.259   0.162
@@ -839,7 +864,7 @@ public class FoilBoard extends JApplet {
                   //                  // 
                   new double[]{-0.1 ,-0.1 ,-0.2 ,-0.2 ,-0.3 ,-0.2 ,-0.0 ,0.40 ,0.86 ,1.29 ,1.38 ,1.00 ,0.68 ,0.44 ,0.29 },
                   new double[]{0.39381, 0.29085, 0.21866, 0.16381, 0.09896, 0.06640, 0.03735, 0.00847, 0.00661, 0.01596, 0.03889, 0.14560, 0.24856, 0.33959, 0.48325 },
-                  null),
+                  new double[]{-0.021, -0.020, -0.019, -0.019, -0.019, -0.019, -0.020, -0.060, -0.066, -0.071, -0.072, -0.027, -0.029, -0.036, -0.041}),
     new Tab15Foil("NACA 63-412", "\n NACA 63-412 Foil",
                   "\n\n Tabulated Foil. Get geometry from this link:" +
                   "\n  http://airfoiltools.com/airfoil/details?airfoil=n63412-il",
@@ -867,7 +892,7 @@ public class FoilBoard extends JApplet {
 
                   new double[]{-0.246, -0.341, -0.474, -0.614, -0.641, -0.425, -0.087, 0.386 , 0.856 , 0.981 , 1.087 , 0.989 , 0.708 , 0.480 , 0.329     },
                   new double[]{0.48435, 0.38844, 0.25074, 0.14833, 0.08843, 0.05258, 0.01062, 0.00814, 0.01400, 0.05228, 0.08887, 0.15306, 0.22957, 0.34907, 0.46304  },
-                  null),
+                  new double[]{-0.015, -0.016, -0.018, -0.021, -0.022, -0.025, -0.071, -0.079, -0.087, -0.033, -0.036, -0.038, -0.043, -0.048, -0.052}),
     new Tab15Foil("Moth Bladerider V1", "\n Bladerider, modded NACA 63-412 with flap",
                   "\n\n Tabulated Foil." +
                   "\nAttempt to model Bladerider foil of International Moth Hydrofoiling Dinghy." +
@@ -907,7 +932,7 @@ public class FoilBoard extends JApplet {
 
                   new double[]{-0.264, -0.364, -0.493, -0.599, -0.542, -0.255, 0.148 , 0.625 , 1.086 , 1.124 , 1.165 , 0.974 , 0.676 , 0.456 , 0.314   },
                   new double[]{0.45319, 0.37355, 0.22506, 0.14758, 0.09361, 0.06026, 0.01756, 0.01845, 0.02570, 0.06436, 0.10404, 0.17417, 0.24795, 0.37413, 0.51586  },
-                  null),
+                  new double[]{-0.024, -0.026, -0.030, -0.033, -0.035, -0.040, -0.110, -0.119, -0.128, -0.048, -0.051, -0.053, -0.057, -0.065, -0.068}),
     new Tab15Foil("SD7084", "\n Selig/Donovan 9.6% low Reynolds number foil",
                   "\n\n Tabulated Foil. Get geometry from this link:" +
                   "\n  http://airfoiltools.com/airfoil/details?airfoil=sd7084-il",
@@ -934,7 +959,7 @@ public class FoilBoard extends JApplet {
                   // 28.0    0.189   0.38724 -0.037  0.001   0.991   0.018   0.996   0.488   0.197   0.444
                   new double[]{-0.134, -0.192, -0.285, -0.421, -0.548, -0.475, -0.214, 0.251, 0.717, 1.111, 1.068, 0.706, 0.452, 0.286, 0.189},
                   new double[]{0.38042, 0.27887, 0.20817, 0.16472, 0.09257, 0.05259, 0.00829, 0.00531, 0.00687, 0.01504, 0.03960, 0.13343, 0.20179, 0.29604, 0.38724},
-                  null),
+                  new double[]{-0.012, -0.012, -0.012, -0.012, -0.011, -0.013, -0.038, -0.043, -0.047, -0.052, -0.051, -0.025, -0.028, -0.031, -0.037}),
     new Tab25Foil("SD8040", "\n Selig/Donovan 10% low Reynolds number foil",
                   "\n\n Tabulated Foil. Get geometry from this link:" +
                   "\n http://airfoiltools.com/airfoil/details?airfoil=sd8040-il",
@@ -973,7 +998,7 @@ public class FoilBoard extends JApplet {
 
                   new double[]{-0.285, -0.329, -0.380, -0.435, -0.488, -0.530, -0.543, -0.510, -0.423, -0.285, -0.139, 0.094, 0.331, 0.565, 0.797, 1.016, 1.208, 1.347, 1.391, 1.246, 1.153, 1.040, 0.909, 0.778, 0.659},
                   new double[]{0.31478, 0.26102, 0.22511, 0.18655, 0.17173, 0.13065, 0.09601, 0.07197, 0.05525, 0.04206, 0.00857, 0.00694, 0.00658, 0.00724, 0.00897, 0.01362, 0.01785, 0.02344, 0.03665, 0.09541, 0.13607, 0.17206, 0.21938, 0.27645, 0.33062},
-                  null),
+                  new double[]{-0.021, -0.020, -0.020, -0.019, -0.019, -0.018, -0.018, -0.019, -0.020, -0.024, -0.056, -0.058, -0.059, -0.061, -0.063, -0.065, -0.066, -0.067, -0.066, -0.050, -0.039, -0.036, -0.036, -0.035, -0.034}),
 
     new Tab25Foil("NACA 64-814", "\n NACA 64-814 with trailing gap 0.5%",
                   "\n\n Tabulated Foil. Get geometry from this link:" +
@@ -1730,10 +1755,9 @@ public class FoilBoard extends JApplet {
       current_part.cl = solver.get_Cl(effaoa);
       solver.genFlow(effaoa);
     } 
+
     
-    current_part.cm = current_part.foil.getCmoment(effaoa);
-    // AR correction, per javafoil user guide etc
-    current_part.cm *= current_part.aspect_rat/(current_part.aspect_rat+4);
+    current_part.cm = current_part.compute_cm(effaoa);
 
     // test: is this the same value getCl_plot gives?
     // if (false) {
@@ -1751,16 +1775,13 @@ public class FoilBoard extends JApplet {
     if (can_do_gui_updates)
       solver.getProbe();
 
-    double thkd = current_part.thickness;
     double camd = current_part.camber;
-
     double alfd = effaoa; // effective_aoa();
     //   attempt to fix symmetry problem
-    if (camd < 0.0) alfd = - alfd;
+    if (fix_symmetry_problem && camd < 0.0) alfd = - alfd;
     
     // this saved current_part's cd, cd_profile and cd_aux
-    solver.get_Cd(current_part.cl, alfd, thkd, camd); 
- 
+    solver.get_Cd(alfd); 
   }
 
   void computeFlowAndRegenPlot () {
@@ -2093,12 +2114,13 @@ public class FoilBoard extends JApplet {
       return "";
   }
 
-  String make_min_takeoff_speed_info(double min_lift, double max_drag, double speed) {
+  String make_min_takeoff_speed_info (double min_lift, double max_drag, double speed) {
     min_takeoff_speed = speed;
     in.flt.tf_cruise_starting_speed.setText(""+filter0(min_takeoff_speed));
     min_takeoff_lift  = min_lift;
     min_takeoff_drag  = max_drag;
-    min_takeoff_cg =  con.outCGPosition.getText();
+    min_takeoff_cg =  // can't use the box - was not set yet con.outCGPosition.getText();
+      niceCGPositionInfo(con.cg_pos_board_level);
     return min_takeoff_speed_info = 
       "This foil has been evaluated for minimum possible \n" + 
       "takeoff speed.\n" +
@@ -2114,11 +2136,12 @@ public class FoilBoard extends JApplet {
       ;
   }
 
-  String make_cruising_info(double min_lift, double min_drag, double speed) {
+  String make_cruising_info (double min_lift, double min_drag, double speed) {
     cruising_speed = speed;
     cruising_lift  = min_lift;
     cruising_drag  = min_drag;
-    cruising_cg =  con.outCGPosition.getText();
+    cruising_cg =  // can't use the box - was not set yet con.outCGPosition.getText();
+      niceCGPositionInfo(con.cg_pos_board_level);
     return cruising_info = 
       "This foil has been evaluated for minimum possible \n" + 
       "drag during cruising at speeds >= takeoff speed.\n" +
@@ -2134,11 +2157,12 @@ public class FoilBoard extends JApplet {
       ;
   }
 
-  String make_max_speed_info(double min_lift, double max_drag, double speed) {
+  String make_max_speed_info (double min_lift, double max_drag, double speed) {
     max_speed_speed = speed;
     max_speed_lift  = min_lift;
     max_speed_drag  = max_drag;
-    max_speed_cg = con.outCGPosition.getText();
+    max_speed_cg = // can't use the box - was not set yet con.outCGPosition.getText();
+      niceCGPositionInfo(con.cg_pos_board_level);
     return max_speed_info = 
       "This foil has been evaluated for maximum possible \n" 
       + "sustained, controllable flight speed.\n" +
@@ -2176,6 +2200,26 @@ public class FoilBoard extends JApplet {
     if (can_do_gui_updates)
       out.viewer.find_it();
     return;
+  }
+
+  String niceCGPositionInfo (double pos) {
+    if (pos >= 0.01) { // 1cm or more fore
+      // con.lbl_cg_pos.setText("CG to Mast");
+      if (display_units == METRIC || display_units == METRIC_2)
+        return pprint(filter0(    100*Math.abs(pos/*-wing.xpos*/))) + " cm fore";
+      else
+        return pprint(filter0(39.3701*Math.abs(pos/*-wing.xpos*/))) + " in fore";
+    } else if (pos > - 0.01) { // above mast LE
+      // con.lbl_cg_pos.setText("CG above Mast");
+      return "Above";
+      // return "" + filter0(100*pos/fuse.chord) + " % aft";
+    } else {
+      // con.lbl_cg_pos.setText("CG to Mast");
+      if (display_units == METRIC || display_units == METRIC_2)
+        return pprint(filter0(    100*Math.abs(pos/*-wing.xpos*/))) + " cm aft";
+      else
+        return pprint(filter0(39.3701*Math.abs(pos/*-wing.xpos+strut.chord*/))) + " in aft";
+    }
   }
 
   void updateTotals () {
@@ -2227,23 +2271,7 @@ public class FoilBoard extends JApplet {
       con.outPower.setText(make_power_info_in_display_units(drag, velocity, true));
       con.outTotalLDRatio.setText(""+filter1(lift/drag));
 
-      if (cg_position >= 0.01) { // 1cm or more fore
-        // con.lbl_cg_pos.setText("CG to Mast");
-        if (display_units == METRIC || display_units == METRIC_2)
-          con.outCGPosition.setText(pprint(filter0(    100*Math.abs(cg_position/*-wing.xpos*/))) + " cm fore");
-        else
-          con.outCGPosition.setText(pprint(filter0(39.3701*Math.abs(cg_position/*-wing.xpos*/))) + " in fore");
-      } else if (cg_position > - 0.01) { // above mast LE
-        // con.lbl_cg_pos.setText("CG above Mast");
-        con.outCGPosition.setText("Above");
-        // con.outCGPosition.setText("" + filter0(100*cg_position/fuse.chord) + " % aft");
-      } else {
-        // con.lbl_cg_pos.setText("CG to Mast");
-        if (display_units == METRIC || display_units == METRIC_2)
-          con.outCGPosition.setText(pprint(filter0(    100*Math.abs(cg_position/*-wing.xpos*/))) + " cm aft");
-        else
-          con.outCGPosition.setText(pprint(filter0(39.3701*Math.abs(cg_position/*-wing.xpos+strut.chord*/))) + " in aft");
-      }
+      con.outCGPosition.setText(niceCGPositionInfo(cg_position));      
     }
   }
 
@@ -2276,7 +2304,8 @@ public class FoilBoard extends JApplet {
         
       double force_k = q0_SI * eff_area_k * current_part.area;
       current_part.lift = current_part.cl * force_k;
-      current_part.moment = current_part.cm * force_k * current_part.chord; // according to Gudmundsson, "General Aviation..", App C1
+      // according to Gudmundsson, "General Aviation..", App C1, p.61
+      current_part.moment = current_part.cm * force_k * current_part.chord; 
     }
     else { // cylinder and ball
 
@@ -3311,6 +3340,8 @@ public class FoilBoard extends JApplet {
 
     double[] t_drag_NACA4_0005 = {0.41708, 0.31201, 0.22381, 0.23465, 0.12617, 0.06937, 0.03531, 0.00661, 0.03531, 0.06937, 0.12617, 0.23465, 0.22381, 0.31201, 0.41708};
 
+    double[] t_mmnt_NACA4_0005 = {0.007, 0.007, 0.006, 0.004, 0.003, 0.002, 0.001, -0.000, -0.001, -0.002, -0.003, -0.004, -0.006, -0.007, -0.007};
+
     // Name = NACA 5405
     // Mach = 0; Re = 300000; T.U. = 1.0; T.L. = 1.0
     // Surface Finish = 0; Stall model = 0; Transition model = 1; Aspect Ratio = 0; ground effect = 0
@@ -3337,6 +3368,8 @@ public class FoilBoard extends JApplet {
 
     double[] t_drag_NACA4_0505 = { 0.37907, 0.28615, 0.20679, 0.21957, 0.12871, 0.06818, 0.03873, 0.00810, 0.01528, 0.06111, 0.11562, 0.21581, 0.22715, 0.31187, 0.42785};
 
+    double[] t_mmnt_NACA4_0505 = {-0.047, -0.047, -0.045, -0.044, -0.041, -0.038, -0.043, -0.122, -0.126, -0.037, -0.045, -0.051, -0.058, -0.063, -0.066 };
+
     // Name = NACA 10405
     // Mach = 0; Re = 300000; T.U. = 1.0; T.L. = 1.0
     // Surface Finish = 0; Stall model = 0; Transition model = 1; Aspect Ratio = 0; ground effect = 0
@@ -3362,6 +3395,7 @@ public class FoilBoard extends JApplet {
 
     double[] t_drag_NACA4_1005 = { 0.36031, 0.26584, 0.37840, 0.21784, 0.12650, 0.06993, 0.04199, 0.01390, 0.02178, 0.05662, 0.10739, 0.19528, 0.34912, 0.30416, 0.42323};
 
+    double[] t_mmnt_NACA4_1005 = {-0.096, -0.093, -0.091, -0.088, -0.085, -0.079, -0.076, -0.241, -0.247, -0.074, -0.078, -0.093, -0.104, -0.118, -0.126 };
 
     // Name = NACA 15405
     // Mach = 0; Re = 300000; T.U. = 1.0; T.L. = 1.0
@@ -3387,6 +3421,7 @@ public class FoilBoard extends JApplet {
 
     double[] t_drag_NACA4_1505 = { 0.32283, 0.24936, 0.31099, 0.19555, 0.12269, 0.07011, 0.04890, 0.04196, 0.02201, 0.05406, 0.09799, 0.16991, 0.29952, 0.29247, 0.38894};
 
+    double[] t_mmnt_NACA4_1505 = {-0.134, -0.131, -0.128, -0.124, -0.123, -0.118, -0.104, -0.147, -0.362, -0.100, -0.101, -0.126, -0.143, -0.164, -0.185};
     // Name = NACA 20405
     // Mach = 0; Re = 300000; T.U. = 1.0; T.L. = 1.0
     // Surface Finish = 0; Stall model = 0; Transition model = 1; Aspect Ratio = 0; ground effect = 0
@@ -3410,8 +3445,10 @@ public class FoilBoard extends JApplet {
 
     double[] t_lift_NACA4_2005 = {-0.008, -0.007, -0.001, 0.024 , 0.119 , 0.468 , 1.259 , 1.803 , 2.145 , 2.320 , 1.427 , 0.621 , 0.282 , 0.145 , 0.083     };
 
-
     double[] t_drag_NACA4_2005 = {0.57582, 0.40338, 0.26903, 0.17489, 0.11192, 0.07128, 0.05833, 0.04912, 0.03163, 0.05230, 0.09462, 0.15797, 0.25769, 0.40268, 0.37534};
+
+
+    double[] t_mmnt_NACA4_2005 = {-0.160, -0.154, -0.155, -0.156, -0.154, -0.152, -0.134, -0.184, -0.205, -0.071, -0.108, -0.154, -0.178, -0.199, -0.226};
 
     // Name = NACA 0010
     // Mach = 0; Re = 300000; T.U. = 1.0; T.L. = 1.0
@@ -3439,6 +3476,8 @@ public class FoilBoard extends JApplet {
 
     double[] t_drag_NACA4_0010 = {0.58589, 0.39243, 0.24464, 0.15129, 0.09026, 0.01804, 0.01248, 0.00939, 0.01243, 0.01805, 0.09026, 0.15130, 0.24464, 0.39243, 0.58589};
 
+    double[] t_mmnt_NACA4_0010 = {0.011, 0.010, 0.008, 0.007, 0.005, 0.009, 0.005, -0.000, -0.005, -0.009, -0.005, -0.007, -0.008, -0.010, -0.011};
+
     // Name = NACA 5410
     // Mach = 0; Re = 300000; T.U. = 1.0; T.L. = 1.0
     // Surface Finish = 0; Stall model = 0; Transition model = 1; Aspect Ratio = 0; ground effect = 0
@@ -3463,8 +3502,9 @@ public class FoilBoard extends JApplet {
     double[] t_lift_NACA4_0510 = {-0.225, -0.302, -0.403, -0.493, -0.469, -0.230, 0.159 , 0.635 , 1.103 , 1.474 , 1.325 , 1.202 , 0.891 , 0.603 , 0.409     };
 
 
-
     double[] t_drag_NACA4_0510 = {0.57593, 0.43337, 0.26078, 0.16004, 0.09461, 0.05678, 0.01223, 0.01243, 0.01368, 0.02429, 0.08785, 0.14406, 0.23484, 0.36941, 0.55037};
+
+    double[] t_mmnt_NACA4_0510 = {-0.043, -0.041, -0.042, -0.041, -0.044, -0.049, -0.119, -0.124, -0.130, -0.135, -0.065, -0.053, -0.053, -0.055, -0.063 };
 
     // Name = NACA10410
     // Mach = 0; Re = 300000; T.U. = 1.0; T.L. = 1.0
@@ -3491,6 +3531,8 @@ public class FoilBoard extends JApplet {
 
     double[] t_drag_NACA4_1010 = {0.55779, 0.42638, 0.27471, 0.17306, 0.09841, 0.05836, 0.03798, 0.01607, 0.01798, 0.02261, 0.04955, 0.13978, 0.22691, 0.34279, 0.50645};
 
+    double[] t_mmnt_NACA4_1010 = {-0.092, -0.089, -0.084, -0.088, -0.087, -0.095, -0.117, -0.244, -0.252, -0.260, -0.263, -0.091, -0.084, -0.088, -0.105};
+
     // Name = NACA 15410
     // Mach = 0; Re = 300000; T.U. = 1.0; T.L. = 1.0
     // Surface Finish = 0; Stall model = 0; Transition model = 1; Aspect Ratio = 0; ground effect = 0
@@ -3514,9 +3556,9 @@ public class FoilBoard extends JApplet {
 
     double[] t_lift_NACA4_1510 = {-0.104, -0.114, -0.104, -0.027, 0.202 , 0.620 , 1.079 , 1.513 , 2.235 , 2.634 , 2.681 , 2.008 , 1.410 , 0.905 , 0.580     };
 
-
-
     double[] t_drag_NACA4_1510 = {0.56368, 0.38568, 0.26987, 0.17805, 0.10790, 0.06455, 0.04598, 0.03854, 0.02495, 0.03055, 0.06598, 0.13522, 0.21574, 0.33285, 0.51209};
+
+    double[] t_mmnt_NACA4_1510 = {-0.136, -0.129, -0.125, -0.118, -0.131, -0.136, -0.150, -0.240, -0.368, -0.380, -0.386, -0.111, -0.081, -0.091, -0.115};
 
     // Name = NACA 20410
     // Mach = 0; Re = 300000; T.U. = 1.0; T.L. = 1.0
@@ -3534,16 +3576,16 @@ public class FoilBoard extends JApplet {
     // 4.0      2.706   0.03367 -0.361  0.402   0.083   0.865   0.251   80.377  0.459   0.384
     // 8.0      3.077   0.04065 -0.495  0.384   0.183   0.828   0.999   75.687  0.542   0.411
     // 12.0     3.202   0.08594 -0.506  -0.001  0.997   0.732   0.997   37.261       0.408
-    // 16.0     2.347   0.13276      -0.002  0.998   -0.000  0.998   17.682        
-    // 20.0     1.618   0.21740      -0.002  0.998   -0.001  0.998   7.441         
-    // 24.0     1.018   0.32675      -0.001  0.998   -0.001  0.998   3.114         
-    // 28.0     0.640   0.47934      -0.001  0.998   -0.002  0.998   1.336         
+    // 16.0     2.347   0.13276 -0.600  -0.002  0.998   -0.000  0.998   17.682        
+    // 20.0     1.618   0.21740 -0.600  -0.002  0.998   -0.001  0.998   7.441         
+    // 24.0     1.018   0.32675 -0.600  -0.001  0.998   -0.001  0.998   3.114         
+    // 28.0     0.640   0.47934 -0.600  -0.001  0.998   -0.002  0.998   1.336         
     
     double[] t_lift_NACA4_2010 = {-0.064, -0.054, -0.008, 0.128 , 0.448 , 0.978 , 1.521 , 1.903 , 2.706 , 3.077 , 3.202 , 2.347 , 1.618 , 1.018 , 0.640     };
 
-
     double[] t_drag_NACA4_2010 = {0.50315, 0.36072, 0.25522, 0.18811, 0.11397, 0.06955, 0.05437, 0.05042, 0.03367, 0.04065, 0.08594, 0.13276, 0.21740, 0.32675, 0.47934};
-    
+
+    double[] t_mmnt_NACA4_2010 = {-0.170, -0.163, -0.159, -0.150, -0.148, -0.174, -0.185, -0.250, -0.361, -0.495, -0.506, -0.600, -0.600, -0.600, -0.600}    ;
 
     // Name = NACA 0015
     // Mach = 0; Re = 300000; T.U. = 1.0; T.L. = 1.0
@@ -3568,9 +3610,9 @@ public class FoilBoard extends JApplet {
 
     double[] t_lift_NACA4_0015 = {-0.909, -1.075, -1.207, -1.247, -1.230, -0.942, -0.490, 0.000 , 0.490 , 0.942 , 1.230 , 1.247 , 1.207 , 1.075 , 0.909     };
 
-
-
     double[] t_drag_NACA4_0015 = {0.37476, 0.27558, 0.18765, 0.11477, 0.03657, 0.01998, 0.01435, 0.01263, 0.01434, 0.01998, 0.03657, 0.11477, 0.18765, 0.27559, 0.37476};
+
+    double[] t_mmnt_NACA4_0015 = {0.021, 0.020, 0.019, 0.019, 0.020, 0.014, 0.007, -0.000, -0.007, -0.014, -0.020, -0.019, -0.019, -0.020, -0.021};
 
     // Name = NACA 5415
     // Mach = 0; Re = 300000; T.U. = 1.0; T.L. = 1.0
@@ -3595,8 +3637,9 @@ public class FoilBoard extends JApplet {
 
     double[] t_lift_NACA4_0515 = {-0.691, -0.814, -0.857, -0.790, -0.584, -0.283, 0.176 , 0.669 , 1.147 , 1.583 , 1.872 , 1.913 , 1.706 , 1.374 , 1.114     };
 
-
     double[] t_drag_NACA4_0515 = {0.37662, 0.27866, 0.19629, 0.12841, 0.07936, 0.02303, 0.01448, 0.01257, 0.01587, 0.02096, 0.03973, 0.06716, 0.13226, 0.26459, 0.37281};
+
+    double[] t_mmnt_NACA4_0515 = {-0.040, -0.044, -0.047, -0.054, -0.063, -0.101, -0.118, -0.126, -0.134, -0.142, -0.146, -0.148, -0.142, -0.110, -0.100};
 
     // Name = NACA 10415
     // Mach = 0; Re = 300000; T.U. = 1.0; T.L. = 1.0
@@ -3621,8 +3664,9 @@ public class FoilBoard extends JApplet {
 
     double[] t_lift_NACA4_1015 = {-0.488, -0.539, -0.530, -0.398, -0.120, 0.256 , 0.704 , 1.315 , 1.764 , 2.195 , 2.496 , 2.488 , 2.241 , 1.841 , 1.368     };
 
-
     double[] t_drag_NACA4_1015 = {0.39183, 0.28429, 0.20067, 0.13467, 0.08682, 0.05511, 0.03087, 0.01847, 0.02077, 0.02592, 0.03499, 0.07778, 0.11730, 0.18043, 0.34584};
+
+    double[] t_mmnt_NACA4_1015 = {-0.092, -0.094, -0.097, -0.102, -0.114, -0.131, -0.183, -0.247, -0.257, -0.268, -0.278, -0.281, -0.285, -0.285, -0.232};
 
     // Name = NACA 15415
     // Mach = 0; Re = 300000; T.U. = 1.0; T.L. = 1.0
@@ -3647,8 +3691,9 @@ public class FoilBoard extends JApplet {
 
     double[] t_lift_NACA4_1515 = {-0.329, -0.323, -0.244, -0.040, 0.306 , 0.727 , 1.166 , 1.635 , 2.322 , 2.726 , 3.073 , 3.029 , 2.721 , 2.243 , 1.750     };
 
-
     double[] t_drag_NACA4_1515 = {0.40223, 0.29105, 0.20322, 0.13660, 0.09048, 0.06098, 0.04689, 0.03655, 0.02820, 0.03441, 0.04338, 0.09726, 0.13509, 0.18511, 0.25303};
+
+    double[] t_mmnt_NACA4_1515 = {-0.142, -0.142, -0.136, -0.141, -0.150, -0.168, -0.199, -0.276, -0.374, -0.390, -0.404, -0.412, -0.424, -0.435, -0.442};
 
     // Name = NACA 20415
     // Mach = 0; Re = 300000; T.U. = 1.0; T.L. = 1.0
@@ -3673,8 +3718,9 @@ public class FoilBoard extends JApplet {
 
     double[] t_lift_NACA4_2015 = {-0.204, -0.151, -0.011, 0.266 , 0.687 , 1.170 , 1.610 , 2.020 , 2.809 , 3.182 , 3.506 , 3.536 , 3.177 , 2.624 , 2.053     };
 
-
     double[] t_drag_NACA4_2015 = {0.41542, 0.29248, 0.21007, 0.14033, 0.09525, 0.06669, 0.05493, 0.05076, 0.03721, 0.04496, 0.05533, 0.12258, 0.16124, 0.21018, 0.26914};
+
+    double[] t_mmnt_NACA4_2015 = {-0.172, -0.175, -0.179, -0.181, -0.184, -0.199, -0.231, -0.298, -0.374, -0.507, -0.529, -0.543, -0.563, -0.583, -0.600};
 
     // Name = NACA 0020
     // Mach = 0; Re = 300000; T.U. = 1.0; T.L. = 1.0
@@ -3701,6 +3747,7 @@ public class FoilBoard extends JApplet {
 
     double[] t_drag_NACA4_0020 = {0.31137, 0.21713, 0.13342, 0.06898, 0.03465, 0.02160, 0.01676, 0.01576, 0.01676, 0.02160, 0.03465, 0.06898, 0.13342, 0.21713, 0.31137};
 
+    double[] t_mmnt_NACA4_0020 = {0.040, 0.039, 0.038, 0.035, 0.029, 0.021, 0.011, -0.000, -0.011, -0.021, -0.029, -0.035, -0.038, -0.039, -0.040};
 
     // Name = NACA 5420
     // Mach = 0; Re = 300000; T.U. = 1.0; T.L. = 1.0
@@ -3725,8 +3772,9 @@ public class FoilBoard extends JApplet {
 
     double[] t_lift_NACA4_0520 = {-1.172, -1.203, -1.140, -0.964, -0.674, -0.307, 0.193 , 0.704 , 1.190 , 1.645 , 2.007 , 2.207 , 2.249 , 2.126 , 1.864     };
 
-
     double[] t_drag_NACA4_0520 = {0.32119, 0.23686, 0.16504, 0.10403, 0.05455, 0.01755, 0.01673, 0.01727, 0.01858, 0.02406, 0.03759, 0.06538, 0.10615, 0.16852, 0.26323};
+
+    double[] t_mmnt_NACA4_0520 = {-0.046, -0.049, -0.053, -0.063, -0.077, -0.104, -0.116, -0.127, -0.138, -0.149, -0.158, -0.164, -0.168, -0.171, -0.168};
 
     // Name = NACA 10420
     // Mach = 0; Re = 300000; T.U. = 1.0; T.L. = 1.0
@@ -3751,8 +3799,9 @@ public class FoilBoard extends JApplet {
 
     double[] t_lift_NACA4_1020 = {-0.889, -0.860, -0.721, -0.470, -0.120, 0.298 , 0.875 , 1.381 , 1.832 , 2.269 , 2.641 , 2.841 , 2.817 , 2.639 , 2.299     };
 
-
     double[] t_drag_NACA4_1020 = {0.32829, 0.24399, 0.17311, 0.11761, 0.07725, 0.04607, 0.01875, 0.02113, 0.02459, 0.02947, 0.03927, 0.05832, 0.11372, 0.16530, 0.23083};
+
+    double[] t_mmnt_NACA4_1020 = {-0.108, -0.110, -0.117, -0.125, -0.136, -0.164, -0.237, -0.249, -0.262, -0.276, -0.290, -0.302, -0.308, -0.316, -0.323};
 
     // Name = NACA 15420
     // Mach = 0; Re = 300000; T.U. = 1.0; T.L. = 1.0
@@ -3777,9 +3826,9 @@ public class FoilBoard extends JApplet {
 
     double[] t_lift_NACA4_1520 = {-0.610, -0.529, -0.341, -0.031, 0.365 , 0.806 , 1.260 , 2.007 , 2.411 , 2.820 , 3.181 , 3.429 , 3.413 , 3.117 , 2.695     };
 
-
     double[] t_drag_NACA4_1520 = {0.33188, 0.24819, 0.17883, 0.12377, 0.08391, 0.05803, 0.04408, 0.02681, 0.03169, 0.03844, 0.04803, 0.06302, 0.08593, 0.18356, 0.24323};
 
+    double[] t_mmnt_NACA4_1520 = {-0.148, -0.150, -0.157, -0.169, -0.183, -0.201, -0.242, -0.363, -0.381, -0.400, -0.419, -0.437, -0.455, -0.464, -0.479};
 
     // Name = NACA 20420
     // Mach = 0; Re = 300000; T.U. = 1.0; T.L. = 1.0
@@ -3806,22 +3855,27 @@ public class FoilBoard extends JApplet {
 
     double[] t_drag_NACA4_2020 = {0.33708, 0.24958, 0.18194, 0.12932, 0.09027, 0.06551, 0.05543, 0.05160, 0.04079, 0.04952, 0.06034, 0.07538, 0.09570, 0.21309, 0.26953};
 
+    double[] t_mmnt_NACA4_2020 = {-0.193, -0.184, -0.186, -0.196, -0.212, -0.238, -0.267, -0.327, -0.393, -0.519, -0.546, -0.571, -0.595, -0.615, -0.639};
+
     double[][] t_lift_NACA4 = {
       t_lift_NACA4_0005, 
       t_lift_NACA4_0505, 
       t_lift_NACA4_1005, 
       t_lift_NACA4_1505, 
       t_lift_NACA4_2005, 
+
       t_lift_NACA4_0010,
       t_lift_NACA4_0510,
       t_lift_NACA4_1010,
       t_lift_NACA4_1510,
       t_lift_NACA4_2010,
+
       t_lift_NACA4_0015,
       t_lift_NACA4_0515,
       t_lift_NACA4_1015,
       t_lift_NACA4_1515,
       t_lift_NACA4_2015,
+
       t_lift_NACA4_0020,
       t_lift_NACA4_0520,
       t_lift_NACA4_1020,
@@ -3855,6 +3909,32 @@ public class FoilBoard extends JApplet {
       t_drag_NACA4_2020
     };
 
+
+    double[][] t_mmnt_NACA4 = {
+      t_mmnt_NACA4_0005, 
+      t_mmnt_NACA4_0505, 
+      t_mmnt_NACA4_1005, 
+      t_mmnt_NACA4_1505, 
+      t_mmnt_NACA4_2005, 
+
+      t_mmnt_NACA4_0010,
+      t_mmnt_NACA4_0510,
+      t_mmnt_NACA4_1010,
+      t_mmnt_NACA4_1510,
+      t_mmnt_NACA4_2010,
+
+      t_mmnt_NACA4_0015,
+      t_mmnt_NACA4_0515,
+      t_mmnt_NACA4_1015,
+      t_mmnt_NACA4_1515,
+      t_mmnt_NACA4_2015,
+
+      t_mmnt_NACA4_0020,
+      t_mmnt_NACA4_0520,
+      t_mmnt_NACA4_1020,
+      t_mmnt_NACA4_1520,
+      t_mmnt_NACA4_2020
+    };
 
     // NACA 6 series variants
     // use this to convert excel column of 25 values to array initializer:
@@ -4207,6 +4287,20 @@ public class FoilBoard extends JApplet {
       else 
         for (int aoa = -28, i = 0; aoa <= 28; aoa += 4, i++) 
           result[i] = -ci15_from_javafoil_data(t_lift, -aoa, thickness, camber);
+      return result;
+    }
+
+    // Compute 15-elt array of Cm values for given cm tables, thickness and camber.
+    // Can be used to load cache current_part.t_Cmm
+    // TDDO: combine with compute_t_Cl ???
+    double[] compute_t_Cm (double[][] t_mmnt, double thickness, double camber) {
+      double[] result = new double[15];
+      if (camber >= 0)
+        for (int aoa = -28, i = 0; aoa <= 28; aoa += 4, i++) 
+          result[i] = ci15_from_javafoil_data(t_mmnt, aoa, thickness, camber);
+      else 
+        for (int aoa = -28, i = 0; aoa <= 28; aoa += 4, i++) 
+          result[i] = -ci15_from_javafoil_data(t_mmnt, -aoa, thickness, camber);
       return result;
     }
 
@@ -4682,10 +4776,16 @@ public class FoilBoard extends JApplet {
         return dragco;
     }
 
+    // this variant of get_Cd side-effects into current_part
+    public double get_Cd (double effaoa) {
+      if (current_part.camber < 0) effaoa = -effaoa;
+      return current_part.foil.get_Cd(current_part.cl, effaoa, current_part.thickness, current_part.camber, true);
+    }
+
+    // this variant of get_Cd has no side-effects into current_part
     public double get_Cd (double cldin, double effaoa, double thickness, double camber) {
-      if (stall_model_type == STALL_MODEL_IDEAL_FLOW)
-        return 0;
-      return current_part.foil.get_Cd(cldin, effaoa, thickness, camber);
+      if (stall_model_type == STALL_MODEL_IDEAL_FLOW) return 0;
+      return current_part.foil.get_Cd(cldin, effaoa, thickness, camber, false);
     }
 
   } // end Solver
@@ -6873,7 +6973,7 @@ public class FoilBoard extends JApplet {
 
       // what needs be done in general when user altered current foil shape?
       void recompute () {
-        current_part.t_Cl = current_part.t_Cd = null;
+        current_part.t_Cl = current_part.t_Cd = current_part.t_Cm = null;
         computeFlowAndRegenPlot();
       }
 
@@ -7166,7 +7266,7 @@ public class FoilBoard extends JApplet {
               foil = new Tab25Foil(imp.getName(), "Imported foil " + imp.getName(), "\n\n Geometry: \n" + imp.getGeometryAsText() + "\n\n Table: \n" + imp.descr,
                                    imp.thickness_pst, imp.camber_pst, 
                                    imp.Cl, imp.Cd,
-                                   null);
+                                   imp.Cm);
               foil.geometry = imp.getGeometry();
               foil.camber_line = imp.getCamberLine();
 
@@ -8162,9 +8262,9 @@ public class FoilBoard extends JApplet {
         add("Drag Components vs Travel Speed", PLOT_TYPE_CURR_PART_VS_SPEED);
         add("Cl vs Angle", PLOT_TYPE_ANGLE, PLOT_OUT_CL);
         add("Cd vs Angle", PLOT_TYPE_ANGLE, PLOT_OUT_CD);
-        add("Lift vs Angle", PLOT_TYPE_ANGLE, PLOT_OUT_LIFT);
-        add("Drag vs Angle", PLOT_TYPE_ANGLE, PLOT_OUT_DRAG);
-        // not supported yet! add("Cm vs Angle", PLOT_TYPE_ANGLE, PLOT_OUT_CM);
+        add("Cm vs Angle", PLOT_TYPE_ANGLE, PLOT_OUT_CM);
+        //add("Lift vs Angle", PLOT_TYPE_ANGLE, PLOT_OUT_LIFT);
+        //add("Drag vs Angle", PLOT_TYPE_ANGLE, PLOT_OUT_DRAG);
         add("Fluid Pressure Variation alone Chord", PLOT_TYPE_PRESSURE);
         add("Fluid Velocity Variation alone Chord", PLOT_TYPE_VELOCITY);
  
@@ -8452,6 +8552,51 @@ public class FoilBoard extends JApplet {
           computeFlowAndRegenPlotAndAdjust();
           con.recomp_all_parts();
         }});
+
+        add(chb = new JCheckBox("Ignore Wing Cm", false));
+        chb.addItemListener(new ItemListener() {
+            public void itemStateChanged(ItemEvent e) {             
+              wing.use_cm  = e.getStateChange() != ItemEvent.SELECTED;
+              computeFlowAndRegenPlotAndAdjust();
+              con.recomp_all_parts();
+            }
+          });        
+
+        add(chb = new JCheckBox("Ignore Stab Cm", false));
+        chb.addItemListener(new ItemListener() {
+            public void itemStateChanged(ItemEvent e) {             
+              stab.use_cm  = e.getStateChange() != ItemEvent.SELECTED;
+              computeFlowAndRegenPlotAndAdjust();
+              con.recomp_all_parts();
+            }
+          });        
+
+        add(chb = new JCheckBox("Ignore Fuse Cm", false));
+        chb.addItemListener(new ItemListener() {
+            public void itemStateChanged(ItemEvent e) {             
+              fuse.use_cm  = e.getStateChange() != ItemEvent.SELECTED;
+              computeFlowAndRegenPlotAndAdjust();
+              con.recomp_all_parts();
+            }
+          });        
+
+        add(chb = new JCheckBox("Ignore Mast Cm", false));
+        chb.addItemListener(new ItemListener() {
+            public void itemStateChanged(ItemEvent e) {             
+              strut.use_cm  = e.getStateChange() != ItemEvent.SELECTED;
+              computeFlowAndRegenPlotAndAdjust();
+              con.recomp_all_parts();
+            }
+          });        
+
+        add(chb = new JCheckBox("Fix Symmetry probkem (legacy)", false));
+        chb.addItemListener(new ItemListener() {
+            public void itemStateChanged(ItemEvent e) {             
+             fix_symmetry_problem  = e.getStateChange() == ItemEvent.SELECTED;
+             computeFlowAndRegenPlotAndAdjust();
+             con.recomp_all_parts();
+            }
+          });
 
         add(chb = new JCheckBox("Trace VPP goal finding ", false));
         chb.addItemListener(new ItemListener() {
@@ -10245,7 +10390,6 @@ public class FoilBoard extends JApplet {
         double del,spd,awng,ppl,tpl,hpl,angl;
         int index,ic;
         double aoa_absolute = effective_aoa();
-        double alfd = aoa_absolute;
 
         Foil f = current_part.foil;
 
@@ -10254,10 +10398,12 @@ public class FoilBoard extends JApplet {
 
         lftref = clref * q0_SI * current_part.area;
         
+        double alfd = aoa_absolute;
         //   attempt to fix symmetry problem
-        if (current_part.camber < 0.0) alfd = - aoa_absolute;
+        if (fix_symmetry_problem && current_part.camber < 0.0) alfd = - aoa_absolute;
         //
-        cdref = solver.get_Cd(clref, alfd, current_part.thickness, current_part.camber);
+        cdref = // was: solver.get_Cd(clref, alfd, current_part.thickness, current_part.camber);
+          solver.get_Cd(alfd);
 
         drgref = cdref * q0_SI * current_part.area;
 
@@ -10387,6 +10533,8 @@ public class FoilBoard extends JApplet {
           labx = String.valueOf("Angle");
           labxu = String.valueOf("degrees");
           del = 40.0 / (npt-1);
+
+          // fill array of x/y pairs
           for (ic=1; ic <=npt; ++ic) {
             angl = -20.0 + (ic-1)*del;
             double clpl = getCl_plot(current_part.camber/25,current_part.thickness/25,angl);
@@ -10395,25 +10543,34 @@ public class FoilBoard extends JApplet {
             double camd = current_part.camber;
 
             //   attempt to fix symmetry problem
-            if (camd < 0.0) alfd = - angl;
+            if (fix_symmetry_problem && camd < 0.0) alfd = - angl;
             //
-            double cdpl = solver.get_Cd(clpl, alfd, thkd, camd);
 
-            if ( plot_y_val == PLOT_OUT_LIFT || plot_y_val == PLOT_OUT_CL) {
-              plotx[0][ic] = angl;
-              if (plot_y_val == PLOT_OUT_LIFT) 
-                ploty[0][ic] = lftref * clpl/clref;
-              else 
-                ploty[0][ic] = clpl;
-            }
-            else {
-              plotx[0][ic] = angl;
-              if (plot_y_val == PLOT_OUT_DRAG)
-                ploty[0][ic] = drgref * cdpl/cdref;
-              else 
-                ploty[0][ic] = cdpl;
+            double cdpl = solver.get_Cd(clpl, alfd, thkd, camd);
+            plotx[0][ic] = angl;
+
+            switch (plot_y_val) {
+            case PLOT_OUT_LIFT:
+              ploty[0][ic] = lftref * clpl/clref; 
+              break;
+            case PLOT_OUT_CL:
+              ploty[0][ic] = clpl; 
+              break;
+            case PLOT_OUT_DRAG: 
+              ploty[0][ic] = drgref * cdpl/cdref;
+              break;
+            case PLOT_OUT_CD:  
+              ploty[0][ic] = cdpl;
+              break;
+            case PLOT_OUT_CM:  
+              ploty[0][ic] = current_part.compute_cm(alfd); // incl AR correction
+              break;
+            default:;
+              System.out.println("missing PLOT_OUT_...: case");
             }
           }
+
+          // decorate
           ntiky = 5;
           plotx[1][0] = aoa_absolute;
           switch (plot_y_val) {
@@ -10436,8 +10593,13 @@ public class FoilBoard extends JApplet {
             break;
           case PLOT_OUT_CD:
             laby = String.valueOf("Cd");
-            labyu = String.valueOf("x 100 ");
-            ploty[1][0] = 100.*current_part.cd;
+            labyu = String.valueOf("");
+            ploty[1][0] = current_part.cd;
+            break;
+          case PLOT_OUT_CM:
+            laby = String.valueOf("Cm1");
+            labyu = String.valueOf("");
+            ploty[1][0] = current_part.cm;
             break;
           default:
           } 
@@ -10461,7 +10623,7 @@ public class FoilBoard extends JApplet {
               double thkd = thkpl*25.0;
               double camd = current_part.camber;
               //   attempt to fix symmetry problem
-              if (camd < 0.0) alfd = - aoa_absolute;
+              if (fix_symmetry_problem && camd < 0.0) alfd = - aoa_absolute;
               //
               double cdpl = solver.get_Cd(clpl, alfd, thkd, camd);
 
@@ -10470,14 +10632,14 @@ public class FoilBoard extends JApplet {
                 if (plot_y_val == PLOT_OUT_LIFT)
                   ploty[0][ic] = lftref * clpl/clref;
                 else 
-                  ploty[0][ic] = 100.*clpl;
+                  ploty[0][ic] = clpl;
               }
               else {
                 plotx[0][ic] = thkd;
                 if (plot_y_val == PLOT_OUT_DRAG)
                   ploty[0][ic] = drgref * cdpl/cdref;
                 else
-                  ploty[0][ic] = 100.*cdpl;
+                  ploty[0][ic] = cdpl;
               }
             }
             ntiky = 5;
@@ -10503,6 +10665,11 @@ public class FoilBoard extends JApplet {
               ploty[1][0] = current_part.cd;
               ploty[0][npt] = ploty[0][npt-1] = ploty[0][npt-2]=ploty[0][npt-3]=ploty[0][npt-4];
               break;
+            case PLOT_OUT_CM:
+              laby = String.valueOf("Cm2");
+              ploty[1][0] = current_part.cm;
+              //ploty[0][npt] = ploty[0][npt-1] = ploty[0][npt-2]=ploty[0][npt-3]=ploty[0][npt-4];
+              break;
             default:
             }
             break;
@@ -10524,7 +10691,7 @@ public class FoilBoard extends JApplet {
               double thkd = current_part.thickness;
               double camd = campl * 25.0;
               //   attempt to fix symmetry problem
-              if (camd < 0.0) alfd = - aoa_absolute;
+              if (fix_symmetry_problem && camd < 0.0) alfd = - aoa_absolute;
               //
               double cdpl = solver.get_Cd(clpl, alfd, thkd, camd);
 
@@ -10567,6 +10734,12 @@ public class FoilBoard extends JApplet {
               ploty[1][0] = current_part.cd;
               ploty[0][1] = ploty[0][2]= ploty[0][3];
               ploty[0][npt] = ploty[0][npt -1] = ploty[0][npt-2];
+              break;
+            case PLOT_OUT_CM:
+              laby = String.valueOf("Cm");
+              ploty[1][0] = current_part.cm;
+              //ploty[0][1] = ploty[0][2]= ploty[0][3];
+              //ploty[0][npt] = ploty[0][npt -1] = ploty[0][npt-2];
               break;
             default:
             }
@@ -10959,7 +11132,7 @@ public class FoilBoard extends JApplet {
               double thkd = current_part.thickness;
               double camd = current_part.camber;
               //   attempt to fix symmetry problem
-              if (camd < 0.0) alfd = - angl;
+              if (fix_symmetry_problem && camd < 0.0) alfd = - angl;
               //
               boolean induced_drag_on_saved = induced_drag_on;
               induced_drag_on = false;
@@ -11008,6 +11181,7 @@ public class FoilBoard extends JApplet {
             begy = 0;
             endy = 0.3;
             break;
+          case PLOT_OUT_CM:
           default: // need to find min and max
             begy = 1e9;
             endy = -1e9;
@@ -11604,6 +11778,7 @@ public class FoilBoard extends JApplet {
                   off2Gg.drawLine(x[0],y[0],x[1],y[1]);
                 }
               }
+              // draw currev value dot
               xlabel = (int) (scalex*(offx+plotx[1][0])) + x0;
               ylabel = (int)(-scaley*(offy+ploty[1][0]))+y0 -4;
               off2Gg.setColor(Color.red);
