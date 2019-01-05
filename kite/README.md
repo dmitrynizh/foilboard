@@ -35,6 +35,10 @@ The above tuning gives impressive top speed. In comparison, naive settings give 
 
 A big factor in foil performance at given speed is fuselage contribution: drag of fuselage is lowest when it travels horizontally. A simplified foil tuning/optimization routine is, therefore, to (1) run drag optimization for given/desired speed (2) check fuse angle, if not 0, then (3) either correct both wing and stab AoA by that value, or, alternatively, change Fuse AoA correspondingly. Repeat until fuse travels strictly horizontally, that is, CraftPitch - FuseAoA = 0. Detailed tuning instructions are to be provided, with screenshots. 
 
+Here is another variant of optimized MLRF setup with the same decalage of 2.4 degrees.  This time, front foil has smaller  camber - NACA2411 - and no incidence (AoA to fuse = 0), but the fuselage angle is 0.5 degrees:
+
+![MikesLab-foil-opt2-for-2p4-dec](MikesLab-foil-opt2-for-2p4-dec-results.png)
+
 ## Air Chair WaterSki Hydrofoi
 
 ![Air Chair Alum](air-chair-results.png)
