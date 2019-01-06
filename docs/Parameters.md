@@ -154,4 +154,6 @@ To run JavaFoil after  foilboard.zip was unzipped, do:
     java -jar javafoil.jar MH.JavaFoil.JavaFoil
 
 
+See also:  [Guide To GUI Panels](GUIPanels.md).
+
 > Written with [StackEdit](https://stackedit.io/).

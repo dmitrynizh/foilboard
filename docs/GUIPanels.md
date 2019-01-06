@@ -229,6 +229,6 @@ Lift is located Above mast.
 This shows the plot selected on the left, see screenshots in the "Choose Plot Tab" section above. 
 
 
-See also: [Guide To Parameters](docs/Parameters.md).
+See also: [Guide To Parameters](Parameters.md).
 
 > Written with [StackEdit](https://stackedit.io/).
