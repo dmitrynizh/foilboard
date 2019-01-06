@@ -191,13 +191,13 @@ import javax.swing.JComboBox;
 import javax.swing.JCheckBox;
 import javax.swing.JPanel;
 import javax.swing.JScrollBar;
-/*test*/import javax.swing.JSlider;
 import javax.swing.JLabel;
 import javax.swing.JTextField;
 import javax.swing.JTextArea;
 import javax.swing.JScrollPane;
 import javax.swing.JFrame;
 import javax.swing.JApplet;
+import javax.swing.JEditorPane;
 
 // Core Java Classes. No '.*', keep track of all links.
 import java.lang.Math;
@@ -1630,15 +1630,15 @@ public class FoilBoard extends JApplet {
   void helpPopUp () {
     if (helpWindow == null) {
       JFrame frame = FoilBoard.frame != null ? FoilBoard.frame : new JFrame();
-      //Panel panel = new Panel();
       String helpContent = getTextResourceAsString("README.md") + 
         getTextResourceAsString("docs/GUIPanels.md") + 
         getTextResourceAsString("docs/Parameters.md");
+
       JTextArea txtArea = new JTextArea(helpContent);
       txtArea.setLineWrap(true);
       txtArea.setWrapStyleWord(true);
       txtArea.setEditable(false);
-      txtArea.setFont(new Font("monospaced", Font.PLAIN, 12));
+      txtArea.setFont(new Font("Monospaced", Font.PLAIN, 14));
       txtArea.setBackground(Color.decode("#F0F0F0"));
       helpWindow = new JFrame("Help Info"); // new JDialog(frame, "help");
       helpWindow.add(new JScrollPane(txtArea), BorderLayout.CENTER);
@@ -1649,6 +1649,32 @@ public class FoilBoard extends JApplet {
     helpWindow.setVisible(true);
   }
 
+  void helpPopUp_html () {
+    if (helpWindow == null) {
+      JFrame frame = FoilBoard.frame != null ? FoilBoard.frame : new JFrame();
+      //Panel panel = new Panel();
+      String helpContent = getTextResourceAsString("README.html") 
+        // + getTextResourceAsString("docs/GUIPanels.md") + 
+        // getTextResourceAsString("docs/Parameters.md")
+        ;
+
+      JEditorPane txtArea = new JEditorPane();
+      txtArea.setAutoscrolls(true);
+      txtArea.setEditable(false);
+      txtArea.setContentType("text/html");
+      txtArea.setText(helpContent);
+
+      txtArea.setBackground(Color.decode("#F0F0F0"));
+      txtArea.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, true);
+      txtArea.setFont(new Font("TimesRoman", Font.PLAIN, 16));
+      helpWindow = new JFrame("Help Info"); // new JDialog(frame, "help");
+      helpWindow.add(new JScrollPane(txtArea));
+      helpWindow.setLocationRelativeTo(this);
+      helpWindow.setLocation(100, 100);
+      helpWindow.setSize(800, 800);
+    }
+    helpWindow.setVisible(true);
+  }
   static String getProperty (String name, String dflt) {
     String val = props == null ? null : props.getProperty(name);
     if (val == null) val = System.getProperty(name, dflt);
@@ -5566,22 +5592,15 @@ public class FoilBoard extends JApplet {
       app = target;
       setLayout(new GridLayout(9,/*ignored!*/0,5,5));
 
-      // l1 = new JLabel("Output", JLabel.RIGHT);
-      // l1.setForeground(Color.red);
-      // l2 = new JLabel("Input", JLabel.CENTER);
-      // l2.setForeground(Color.blue);
-
-
-
       bt3 = new Button("Help");
       bt3.setBackground(Color.red);
       bt3.setForeground(Color.white);
       bt3.addActionListener(new ActionListener() {
           @Override
           public void actionPerformed(ActionEvent e) {
+            // helpPopUp_html(); // pandoc README.md -f markdown -t html -s -o README.html --metadata pagetitle="README"
             helpPopUp();
           }});
-
 
       untch = new JComboBox();
       untch.setBackground(Color.white);
@@ -7646,11 +7665,12 @@ public class FoilBoard extends JApplet {
             }
           }
 
-          // assume xpos of fuse shoudl be always 0
-          {
-            leftPanel.xpos_tf.setEnabled(current_part != fuse);
-            rightPanel.xpos_SB.setEnabled(current_part != fuse);
-          }
+          // assume xpos of fuse should be always 0
+          leftPanel.xpos_tf.setEnabled(current_part != fuse);
+          rightPanel.xpos_SB.setEnabled(current_part != fuse);
+          // tilt active obly for the Mast
+          leftPanel.tilt_mast_lbl.setText(current_part == strut ? "Tilt Mast" : "");
+          rightPanel.tilt_mast_SB.setEnabled(current_part == strut);
 
           // these cause events, so do them first.
           int pos = (int) (((current_part.chord - chrd_min)/(chrd_max-chrd_min))*1000.);
@@ -7688,15 +7708,14 @@ public class FoilBoard extends JApplet {
       }
 
       void scale_span(Part part, double span) {
+        double scale = span/part.span;
         Point3D[] le  = part.mesh_LE;
         Point3D[] te  = part.mesh_TE;
-        double segment_span = span/(le.length-1);
-        int root_idx = le.length/2;
-        for (int i = 1; i <= root_idx; i++) {
-          double y = segment_span * i;
-          le[root_idx+i].y  = te[root_idx+i].y =  y;
-          le[root_idx-i].y  = te[root_idx-i].y = -y;
-        }
+        for (int i = 0; i < le.length; i++)
+          if (part == strut)
+            le[i].z  = te[i].z  = scale * le[i].z;
+          else
+            le[i].y  = te[i].y  = scale * le[i].y;
         part.span = span;
       }
 
@@ -7711,16 +7730,32 @@ public class FoilBoard extends JApplet {
         part.xpos = xpos;
       }
 
+      void scale_xpos_shear_top(Part part, double tilt) {
+        Point3D[] le  = part.mesh_LE;
+        Point3D[] te  = part.mesh_TE;
+        int last_idx = le.length - 1;
+        double curr_tilt = (te[last_idx].x + le[last_idx].x)/2 - (te[0].x + le[0].x)/2;
+        // System.out.println("-- curr_tilt: " + curr_tilt);
+        // System.out.println("-- xoff_tip: " + part.xoff_tip);
+        double delta = tilt - curr_tilt;
+        double step = delta/last_idx;
+        for (int i = 0; i <= last_idx; i++) {
+          le[i].x = le[i].x + i * step;
+          te[i].x = te[i].x + i * step;
+        }
+        part.xoff_tip = te[last_idx].x - te[0].x;
+      }
 
       class LeftPanel extends Panel {
         FoilBoard app;
         JTextField size_tf, span_tf, xpos_tf, area_tf, aspect_tf;
         JLabel part_name, size_lbl, span_lbl, xpos_lbl, area_lbl;
+        JLabel  tilt_mast_lbl;
     
         LeftPanel (FoilBoard target) {
    
           app = target;
-          setLayout(new GridLayout(6,2,2,10));
+          setLayout(new GridLayout(7,2,2,10));
 
           part_name = addJLabel("---", Color.blue, JLabel.RIGHT);
 
@@ -7809,7 +7844,6 @@ public class FoilBoard extends JApplet {
                 size.loadPanel();
               }});
 
-
           area_lbl = new JLabel("Area-sq ft", JLabel.CENTER);
           area_tf = new JTextField("100.0",5);
           area_tf.addActionListener(new ActionListener() {
@@ -7849,6 +7883,9 @@ public class FoilBoard extends JApplet {
           add(xpos_lbl);
           add(xpos_tf);
 
+          add(new JLabel("", JLabel.CENTER));
+          add(tilt_mast_lbl = new JLabel("Tilt Mast", JLabel.CENTER));
+
           add(area_lbl);
           add(area_tf);
 
@@ -7864,10 +7901,11 @@ public class FoilBoard extends JApplet {
         SpanSB span_SB;
         XPosSB xpos_SB;
         AreaSB area_SB;
+        JScrollBar tilt_mast_SB;
 
         RightPanel (FoilBoard target) {
           app = target;
-          setLayout(new GridLayout(6,1,2,10));
+          setLayout(new GridLayout(7,1,2,10));
 
           chord_SB = new ChordSB(app);
           span_SB = new SpanSB(app);
@@ -7878,13 +7916,26 @@ public class FoilBoard extends JApplet {
           add(chord_SB);
           add(span_SB);
           add(xpos_SB);
-          // temporarily disabing area_SB because if cross-editing event collisions..
-          if (false)
-            add(area_SB); 
-          else
-            add(new JLabel(" ", JLabel.CENTER));
+          add(tilt_mast_SB = new JScrollBar(JScrollBar.HORIZONTAL,500,10,0,1000));
+          tilt_mast_SB.addAdjustmentListener(new AdjustmentListener() {
+              public void adjustmentValueChanged(AdjustmentEvent evt) {
+                if (in.size.on_loadPanel) return;
+                double tilt_min = -0.2, tilt_max = 0.2;
+                double tilt  = ((JScrollBar)evt.getSource()).getValue() * (tilt_max - tilt_min)/ 1000. + tilt_min;
+                scale_xpos_shear_top(current_part, tilt);
+                // old order
+                computeFlowAndRegenPlot();
+                size.loadPanel();
+              }});
 
-          add(new JLabel(" ", JLabel.CENTER));
+          if (false) { // disabing area_SB for now because if cross-editing event collisions..
+            add(area_SB); 
+            add(new JLabel(" ", JLabel.CENTER));
+          }
+          else {
+            add(new JLabel(" ", JLabel.CENTER));
+            add(new JLabel(" ", JLabel.CENTER));
+           }
         }
 
         class ChordSB extends JScrollBar {  // chord slider
@@ -11238,37 +11289,42 @@ public class FoilBoard extends JApplet {
             plot_trace_count = 3;
             axis_x_label_width = 4;  axis_y_label_width = 3;
             ntikx=5;
-            del = 40.0 / npt;
-
-            for (ic=1; ic <=npt; ++ic) {
-              angl = -20.0 + (ic-1)*del;
-              double clpl = getCl_plot(current_part.camber/25,current_part.thickness/25,angl);
-              boolean ar_lift_corr_saved = ar_lift_corr;
-              ar_lift_corr = true;
-              ar_lift_corr = ar_lift_corr_saved;
-              double cl2d = f.get_Cl(angl);
-              ploty[0][ic] = cl2d;
-              ploty[1][ic] = clpl;
-              ploty[2][ic] = clpl;
-              alfd = angl;
+            del = 1;
+            angl = -20;
+            for (ic=0; angl<=20; ++ic, angl+=del) {
               double thkd = current_part.thickness;
               double camd = current_part.camber;
-              //   attempt to fix symmetry problem
-              if (fix_symmetry_problem && camd < 0.0) alfd = - angl;
-              //
+
+              // note that below is always with Reynolds correction ON which is correct.
+              boolean ar_lift_corr_saved = ar_lift_corr;
               boolean induced_drag_on_saved = induced_drag_on;
+              // no AR correction - infinite 2D foil lift
               induced_drag_on = false;
-              double cdpl = solver.get_Cd(clpl, alfd, thkd, camd);
-              plotx[0][ic] = cdpl; // plot with no induced drag 
-              double aspect_rat_corr = 0; // still broken (clpl * clpl)/ (3.1415926 * aspect_rat * current_part.Ci_eff);
-              plotx[1][ic] = 
-                // no induced drag, apect drag added
-                cdpl + aspect_rat_corr;
-              // with induced_drag
+              double cl_2D = ploty[0][ic] = f.get_Cl(angl); 
+              boolean skin_drag_on_saved = skin_drag_on;
+              skin_drag_on = false;
+              // plain 2D form/pressure drag - no induced drag, no skin drag              
+              plotx[0][ic] = solver.get_Cd(cl_2D, alfd, thkd, camd);
+              
+              // clpl is lift including AR corection
+              double clpl = getCl_plot(camd/25, thkd/25, angl);
+              ploty[1][ic] = ploty[2][ic] = clpl;
+
+              alfd = angl;
+              // attempt to fix symmetry problem
+              if (fix_symmetry_problem && camd < 0.0) alfd = - angl;
+
+              // now, skin drag ON
+              skin_drag_on = true;
+              // thsis now includes skin drag but no induced yet
+              plotx[1][ic] = solver.get_Cd(clpl, alfd, thkd, camd);
+              // now,  with skin and induced drag on
               induced_drag_on = true;
-              cdpl = solver.get_Cd(clpl, alfd, thkd, camd);
-              plotx[2][ic] = cdpl + aspect_rat_corr;
+              plotx[2][ic] = solver.get_Cd(clpl, alfd, thkd, camd);
+
+              // reset all flags
               induced_drag_on = induced_drag_on_saved;
+              skin_drag_on = skin_drag_on_saved;
             }
             ntiky = 5;
             plotx[1][0] = cdref;
@@ -11883,7 +11939,7 @@ public class FoilBoard extends JApplet {
               off2Gg.setColor(plot_colors[0]);
               off2Gg.drawString("Cl/Cd of a 2D (infinite) foil", x0+plot_w/3, y0+32);
               off2Gg.setColor(plot_colors[1]);
-              off2Gg.drawString("Cl corrected for Aspect Ratio", x0+plot_w/3, y0+32+14);
+              off2Gg.drawString("Cl reduced for AR, Cd with skin friction added", x0+plot_w/3, y0+32+14);
               off2Gg.setColor(plot_colors[2]);
               off2Gg.drawString("that, and Cd with induced drag added", x0+plot_w/3, y0+32+14+14);
               // fall through! no break!
@@ -12588,11 +12644,11 @@ public class FoilBoard extends JApplet {
 
     class PerfWeb extends Panel {
       FoilBoard app;
-      javax.swing.JEditorPane prnt;
+      JEditorPane prnt;
 
       PerfWeb (FoilBoard target) {
         setLayout(new GridLayout(1,1,0,0));
-        prnt = new javax.swing.JEditorPane();
+        prnt = new JEditorPane();
         prnt.setAutoscrolls(true);
         prnt.setContentType("text/html");
         add(prnt);
