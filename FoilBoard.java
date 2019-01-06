@@ -2871,7 +2871,7 @@ public class FoilBoard extends JApplet {
       if (ar_lift_corr) {  // correction for low aspect ratio
         double k = 3.14159*current_part.aspect_rat; // classic
         if (current_part.aspect_rat < 1) // for fuse, it drops down more
-          k *= current_part.aspect_rat;
+          k *= Math.sqrt(current_part.aspect_rat);
         result = result /(1.0 + Math.abs(result)/k);
       }
       return result;
@@ -7703,8 +7703,23 @@ public class FoilBoard extends JApplet {
                              size_input_in_display_units_to_m(span, display_units),
                              span_max);
                 if (current_part.span == span) return;
+                // current_part.span = span;
+                // parseParamData(current_part, current_part.name, current_part.toDefString());
+
+                // update mesh... 
+                {
+                  Point3D[] le  = current_part.mesh_LE;
+                  Point3D[] te  = current_part.mesh_TE;
+                  double segment_span = span/(le.length-1);
+                  int root_idx = le.length/2;
+                  for (int i = 1; i <= root_idx; i++) {
+                    double y = segment_span * i;
+                    le[root_idx+i].y  = te[root_idx+i].y =  y;
+                    le[root_idx-i].y  = te[root_idx-i].y = -y;
+                        
+                  }
+                }
                 current_part.span = span;
-                parseParamData(current_part, current_part.name, current_part.toDefString());
 
                 current_part.area = span * current_part.chord;
                 current_part.aspect_rat = span*span/current_part.area;
@@ -7857,23 +7872,23 @@ public class FoilBoard extends JApplet {
                   // current_part.chord_spec = new String[] {""+chord};
                   // parseParamData(current_part, current_part.name, current_part.toDefString());
 
-                // update mesh... 
-                {
-                  double scale = chord/current_part.chord;
-                  Point3D[] le  = current_part.mesh_LE;
-                  Point3D[] te  = current_part.mesh_TE;
-                  double xpos = current_part.xpos;
-                  for (int i = 0; i < le.length; i++) {
-                    // new le-te = scale*(le-te)
-                    double old_xoffset =  le[i].x - xpos;
-                    double old_chord = te[i].x - le[i].x;
-                    double new_xoffset = scale * old_xoffset;
-                    double new_chord = scale * old_chord;
-                    le[i].x = new_xoffset + xpos;
-                    te[i].x = le[i].x + new_chord;
+                  // update mesh... 
+                  {
+                    double scale = chord/current_part.chord;
+                    Point3D[] le  = current_part.mesh_LE;
+                    Point3D[] te  = current_part.mesh_TE;
+                    double xpos = current_part.xpos;
+                    for (int i = 0; i < le.length; i++) {
+                      // new le-te = scale*(le-te)
+                      double old_xoffset =  le[i].x - xpos;
+                      double old_chord = te[i].x - le[i].x;
+                      double new_xoffset = scale * old_xoffset;
+                      double new_chord = scale * old_chord;
+                      le[i].x = new_xoffset + xpos;
+                      te[i].x = le[i].x + new_chord;
+                    }
                   }
-                }
-                current_part.chord = chord;
+                  current_part.chord = chord;
 
 
                   // rounded up text box value
@@ -7918,11 +7933,25 @@ public class FoilBoard extends JApplet {
                 public void adjustmentValueChanged(AdjustmentEvent evt) {
                   if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
                   if (app.in.size.on_loadPanel) return;
-                  int i = getValue();
-                  double span  = i * (span_max - span_min)/ 1000. + span_min;
+                  double span  = getValue() * (span_max - span_min)/ 1000. + span_min;
                   if (current_part.span == span) return;
+                  // current_part.span = span;
+                  // parseParamData(current_part, current_part.name, current_part.toDefString());
+
+                  // update mesh... 
+                  {
+                    Point3D[] le  = current_part.mesh_LE;
+                    Point3D[] te  = current_part.mesh_TE;
+                    double segment_span = span/(le.length-1);
+                    int root_idx = le.length/2;
+                    for (int i = 1; i <= root_idx; i++) {
+                      double y = segment_span * i;
+                      le[root_idx+i].y  = te[root_idx+i].y =  y;
+                      le[root_idx-i].y  = te[root_idx-i].y = -y;
+                        
+                    }
+                  }
                   current_part.span = span;
-                  parseParamData(current_part, current_part.name, current_part.toDefString());
 
                   current_part.area = current_part.span * current_part.chord;
 
