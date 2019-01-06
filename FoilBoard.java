@@ -206,6 +206,13 @@ import java.util.Hashtable;
 import java.util.Properties;
 import java.io.File;
 
+// imports for getTextResourceAsString
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.FileInputStream;
+import java.io.BufferedReader;
+// end imports for getTextResourceAsString
 
 public class FoilBoard extends JApplet {
 
@@ -1584,24 +1591,60 @@ public class FoilBoard extends JApplet {
         
     return true;
   }
+
+
+  // taken from pspice-tubes/scripts/java/TopLevelMacros.jsl
+  String getTextResourceAsString (String name) {
+    String result = "[text resource " + name + " is empty or not found]";
   
-  JDialog helpWindow;
+    try {
+      String resName = "" + name;
+      ByteArrayOutputStream bos = null;
+      InputStream inFile = null;
+      inFile = getClass().getClassLoader().getResourceAsStream(resName);
+   
+      if (inFile == null) {
+        inFile = new FileInputStream(resName);
+      }
+   
+      BufferedReader reader =
+        new BufferedReader(new InputStreamReader(inFile));
+      bos = new ByteArrayOutputStream();
+      String text = "";
+   
+      for (String line = reader.readLine();
+           line != null;
+           line = reader.readLine()) text += line + "\n";
+   
+      result = text;
+    } catch (Exception e) {
+      System.out
+        .println("-- got exception when reading from text resource: " + e);
+    }
+    return result;
+  }  
+  
+  JFrame  helpWindow; // was: JDialog helpWindow;
   JDialog aboutWindow;
-  
+
   void helpPopUp () {
     if (helpWindow == null) {
       JFrame frame = FoilBoard.frame != null ? FoilBoard.frame : new JFrame();
       //Panel panel = new Panel();
-      String helpContent = "Help Help";
+      String helpContent = getTextResourceAsString("README.md") + 
+        getTextResourceAsString("docs/GUIPanels.md") + 
+        getTextResourceAsString("docs/Parameters.md");
       JTextArea txtArea = new JTextArea(helpContent);
+      txtArea.setLineWrap(true);
+      txtArea.setWrapStyleWord(true);
       txtArea.setEditable(false);
       txtArea.setFont(new Font("monospaced", Font.PLAIN, 12));
       txtArea.setBackground(Color.decode("#F0F0F0"));
-      helpWindow = new JDialog(frame, "help", false);
+      helpWindow = new JFrame("Help Info"); // new JDialog(frame, "help");
       helpWindow.add(new JScrollPane(txtArea), BorderLayout.CENTER);
       helpWindow.setLocationRelativeTo(this);
       helpWindow.setLocation(100, 100);
-      helpWindow.setSize(400, 700);
+      helpWindow.setSize(800, 800);
     }
     helpWindow.setVisible(true);
   }
@@ -7627,6 +7670,48 @@ public class FoilBoard extends JApplet {
         on_loadPanel = false;
       }
 
+      void scale_chords (Part part, double chord) {
+        double scale = chord/part.chord;
+        Point3D[] le  = part.mesh_LE;
+        Point3D[] te  = part.mesh_TE;
+        double xpos = part.xpos;
+        for (int i = 0; i < le.length; i++) {
+          // new le-te = scale*(le-te)
+          double old_xoffset =  le[i].x - xpos;
+          double old_chord = te[i].x - le[i].x;
+          double new_xoffset = scale * old_xoffset;
+          double new_chord = scale * old_chord;
+          le[i].x = new_xoffset + xpos;
+          te[i].x = le[i].x + new_chord;
+        }
+        part.chord = chord;
+      }
+
+      void scale_span(Part part, double span) {
+        Point3D[] le  = part.mesh_LE;
+        Point3D[] te  = part.mesh_TE;
+        double segment_span = span/(le.length-1);
+        int root_idx = le.length/2;
+        for (int i = 1; i <= root_idx; i++) {
+          double y = segment_span * i;
+          le[root_idx+i].y  = te[root_idx+i].y =  y;
+          le[root_idx-i].y  = te[root_idx-i].y = -y;
+        }
+        part.span = span;
+      }
+
+      void scale_xpos(Part part, double xpos) {
+        double delta = xpos - part.xpos;
+        Point3D[] le  = part.mesh_LE;
+        Point3D[] te  = part.mesh_TE;
+        for (int i = 0; i < le.length; i++) {
+          le[i].x = le[i].x + delta;
+          te[i].x = te[i].x + delta;
+        }
+        part.xpos = xpos;
+      }
+
+
       class LeftPanel extends Panel {
         FoilBoard app;
         JTextField size_tf, span_tf, xpos_tf, area_tf, aspect_tf;
@@ -7662,22 +7747,7 @@ public class FoilBoard extends JApplet {
                 // parseParamData(current_part, current_part.name, current_part.toDefString());
 
                 // update mesh... 
-                {
-                  double scale = chord/current_part.chord;
-                  Point3D[] le  = current_part.mesh_LE;
-                  Point3D[] te  = current_part.mesh_TE;
-                  double xpos = current_part.xpos;
-                  for (int i = 0; i < le.length; i++) {
-                    // new le-te = scale*(le-te)
-                    double old_xoffset =  le[i].x - xpos;
-                    double old_chord = te[i].x - le[i].x;
-                    double new_xoffset = scale * old_xoffset;
-                    double new_chord = scale * old_chord;
-                    le[i].x = new_xoffset + xpos;
-                    te[i].x = le[i].x + new_chord;
-                  }
-                }
-                current_part.chord = chord;
+                scale_chords(current_part, chord);
 
                 current_part.area = current_part.span * chord;
 
@@ -7707,19 +7777,7 @@ public class FoilBoard extends JApplet {
                 // parseParamData(current_part, current_part.name, current_part.toDefString());
 
                 // update mesh... 
-                {
-                  Point3D[] le  = current_part.mesh_LE;
-                  Point3D[] te  = current_part.mesh_TE;
-                  double segment_span = span/(le.length-1);
-                  int root_idx = le.length/2;
-                  for (int i = 1; i <= root_idx; i++) {
-                    double y = segment_span * i;
-                    le[root_idx+i].y  = te[root_idx+i].y =  y;
-                    le[root_idx-i].y  = te[root_idx-i].y = -y;
-                        
-                  }
-                }
-                current_part.span = span;
+                scale_span(current_part, span);
 
                 current_part.area = span * current_part.chord;
                 current_part.aspect_rat = span*span/current_part.area;
@@ -7745,16 +7803,7 @@ public class FoilBoard extends JApplet {
                 // parseParamData(current_part, current_part.name, current_part.toDefString());
 
                 // update mesh... 
-                {
-                  double delta = xpos - current_part.xpos;
-                  Point3D[] le  = current_part.mesh_LE;
-                  Point3D[] te  = current_part.mesh_TE;
-                  for (int i = 0; i < le.length; i++) {
-                    le[i].x = le[i].x + delta;
-                    te[i].x = te[i].x + delta;
-                  }
-                }
-                current_part.xpos = xpos;
+                scale_xpos(current_part, xpos);
 
                 computeFlowAndRegenPlot();
                 size.loadPanel();
@@ -7873,23 +7922,7 @@ public class FoilBoard extends JApplet {
                   // parseParamData(current_part, current_part.name, current_part.toDefString());
 
                   // update mesh... 
-                  {
-                    double scale = chord/current_part.chord;
-                    Point3D[] le  = current_part.mesh_LE;
-                    Point3D[] te  = current_part.mesh_TE;
-                    double xpos = current_part.xpos;
-                    for (int i = 0; i < le.length; i++) {
-                      // new le-te = scale*(le-te)
-                      double old_xoffset =  le[i].x - xpos;
-                      double old_chord = te[i].x - le[i].x;
-                      double new_xoffset = scale * old_xoffset;
-                      double new_chord = scale * old_chord;
-                      le[i].x = new_xoffset + xpos;
-                      te[i].x = le[i].x + new_chord;
-                    }
-                  }
-                  current_part.chord = chord;
-
+                  scale_chords(current_part, chord);
 
                   // rounded up text box value
                   //// leftPanel.size_tf.setText(make_size_info_in_display_units(current_part.chord, false));
@@ -7939,19 +7972,7 @@ public class FoilBoard extends JApplet {
                   // parseParamData(current_part, current_part.name, current_part.toDefString());
 
                   // update mesh... 
-                  {
-                    Point3D[] le  = current_part.mesh_LE;
-                    Point3D[] te  = current_part.mesh_TE;
-                    double segment_span = span/(le.length-1);
-                    int root_idx = le.length/2;
-                    for (int i = 1; i <= root_idx; i++) {
-                      double y = segment_span * i;
-                      le[root_idx+i].y  = te[root_idx+i].y =  y;
-                      le[root_idx-i].y  = te[root_idx-i].y = -y;
-                        
-                    }
-                  }
-                  current_part.span = span;
+                  scale_span(current_part, span);
 
                   current_part.area = current_part.span * current_part.chord;
 
@@ -7994,17 +8015,8 @@ public class FoilBoard extends JApplet {
                   if (current_part.xpos == xpos) return;
                   //current_part.xpos = xpos;
                   // parseParamData(current_part, current_part.name, current_part.toDefString());
-                // update mesh... 
-                {
-                  double delta = xpos - current_part.xpos;
-                  Point3D[] le  = current_part.mesh_LE;
-                  Point3D[] te  = current_part.mesh_TE;
-                  for (int i = 0; i < le.length; i++) {
-                    le[i].x = le[i].x + delta;
-                    te[i].x = te[i].x + delta;
-                  }
-                }
-                current_part.xpos = xpos;
+                  // update mesh... 
+                  scale_xpos(current_part, xpos);
 
                   computeFlowAndRegenPlot();
                   size.loadPanel();
