@@ -604,7 +604,7 @@ public class FoilBoard extends JApplet {
       return solver.getCdragAnalytical(cldin, effaoa, thickness, camber);
     }
 
-    // this is mainly Reynolds Correction
+    // this is mainly Reynolds Correction of Cd0 plus Re-based, mixed laminar+turbulent skin drag 
     double adjust_dragco (double dragco, double cldin, double thickness) {
       if (re_corr) {    // reynolds correction
         // examples:
@@ -613,8 +613,16 @@ public class FoilBoard extends JApplet {
         // (expt (/ 300000 100000.0) 0.11) 1.1284526429021564
         // (expt (/ 700000 300000.0) 0.11) 1.097684284266364
         dragco = dragco * Math.pow((reynolds_correction_fixpt/current_part.reynolds),.11);
-        }
-
+      }
+      if (skin_drag_on) { // see Gudmundsson Ch.15 p 678
+        double Cflam  = 1.328/Math.sqrt(current_part.reynolds);
+        double Cfturb = 0.455/Math.pow(Math.log10(current_part.reynolds), 2.58);
+        // now, add Cf as 50% of tubulent, 50% of laminar value interpolation.
+        // TODO: add mix ratio coeff control
+        double Cf = Cflam + 0.5 * (Cfturb-Cflam);
+        // System.out.println("-- Cf: " + Cf);
+        dragco += Cf;
+      }
       return dragco;
     }
 
@@ -885,7 +893,7 @@ public class FoilBoard extends JApplet {
 
     @Override
     void adjust_foil_shape_in_tab () {
-      current_part.thickness = 2;
+      current_part.thickness = 3;
       current_part.camber = 0;
       // current_part.camber/25 = current_part.camber / 25.0;
       in.shp.set_camber_and_thickness_controls(false);
@@ -1291,7 +1299,7 @@ public class FoilBoard extends JApplet {
 
   int bdragflag = 1;
 
-  boolean  ar_lift_corr = true, re_corr = true, induced_drag_on = true;
+  boolean  ar_lift_corr = true, re_corr = true, induced_drag_on = true, skin_drag_on = true;
 
   /* units data */
   static double v_min,alt_min,ang_min,v_max,alt_max,ang_max;
@@ -2861,7 +2869,10 @@ public class FoilBoard extends JApplet {
       double result = current_part.foil.get_Cl(effaoa);
 
       if (ar_lift_corr) {  // correction for low aspect ratio
-        result = result /(1.0 + Math.abs(result)/(3.14159*current_part.aspect_rat));
+        double k = 3.14159*current_part.aspect_rat; // classic
+        if (current_part.aspect_rat < 1) // for fuse, it drops down more
+          k *= current_part.aspect_rat;
+        result = result /(1.0 + Math.abs(result)/k);
       }
       return result;
     }
@@ -8590,6 +8601,13 @@ public class FoilBoard extends JApplet {
         add(chb = new JCheckBox("Compute Lift-Induced Drag", induced_drag_on));
         chb.addItemListener(new ItemListener() { public void itemStateChanged(ItemEvent e) {             
           induced_drag_on = e.getStateChange() == ItemEvent.SELECTED;
+          computeFlowAndRegenPlotAndAdjust();
+          con.recomp_all_parts();
+        }});
+
+        add(chb = new JCheckBox("Compute Skin Drag", skin_drag_on));
+        chb.addItemListener(new ItemListener() { public void itemStateChanged(ItemEvent e) {             
+          skin_drag_on = e.getStateChange() == ItemEvent.SELECTED;
           computeFlowAndRegenPlotAndAdjust();
           con.recomp_all_parts();
         }});
