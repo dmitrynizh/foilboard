@@ -666,7 +666,8 @@ public class FoilBoard extends JApplet {
       return "\n" + print_line;
     }
 
-    boolean tabulated_coeffs () { return false; }
+    // if false, perform FoilSimII style slow computeFlow() calc
+    boolean fast_coeffs () { return false; }
   } // class Foil
 
   class RoundFoil extends Foil {
@@ -725,7 +726,7 @@ public class FoilBoard extends JApplet {
     }
 
     @Override
-    boolean tabulated_coeffs () { return true; }
+    boolean fast_coeffs () { return true; }
 
     @Override
     String getDescr (double thickness, double camber) { 
@@ -770,7 +771,7 @@ public class FoilBoard extends JApplet {
 
     int size () { return 15; }
     @Override
-    boolean tabulated_coeffs () { return true; }
+    boolean fast_coeffs () { return true; }
 
     void check_arrays (int sz) {
       if (t_lift.length != sz) 
@@ -801,6 +802,7 @@ public class FoilBoard extends JApplet {
       // current_part.camber/25 = current_part.camber / 25.0;
       in.shp.set_camber_and_thickness_controls(false);
     }
+
     @Override
     String genReportText (double thickness, double camber) {
       return report_text;
@@ -833,6 +835,64 @@ public class FoilBoard extends JApplet {
     }
 
   }
+
+  // see Gudmundsson, App C1, p46-47
+  // get_Cl, get_Cd and getCmoment are polynomial,
+  // approximating experimental data
+  class NACA_R540_3pct_round_Foil extends Foil {
+    // not yet double re;
+    String report_text;
+
+    NACA_R540_3pct_round_Foil (String descr, String print_line, String report_text) {
+      super(descr, print_line);
+      this.report_text = report_text;
+    }
+
+    @Override
+    boolean fast_coeffs () { return true; }
+
+    @Override
+    double get_Cl (double effaoa) {
+      double pos_aoa = Math.abs(effaoa);
+      double cl_17pst = 0.0009223 *pos_aoa + 0.001153 * pos_aoa * pos_aoa;
+      if (effaoa < 0) cl_17pst = -cl_17pst;
+      return cl_17pst / 2.5;
+    }
+
+    @Override
+    double get_Cd (double cldin, double effaoa, double thickness, double camber, boolean save_p) {
+      double cd_17pst =  0.06672 - 0.001406 * effaoa + 0.00036 * effaoa * effaoa;
+      double _cd = cd_17pst / 3.5;
+      if (save_p) {
+        current_part.cd_profile = _cd;
+        current_part.cd_aux = 0;
+        current_part.cd = _cd;
+      }
+      return _cd;
+    }
+
+    @Override
+    double getCmoment (double effaoa) {
+      return 0.01 * effaoa // very rough but good enough. 
+        // compensate AR corrections of compute_cm 
+        * (4/0.03);
+    }
+
+    @Override
+    String genReportText (double thickness, double camber) {
+      return report_text;
+    }
+
+    @Override
+    void adjust_foil_shape_in_tab () {
+      current_part.thickness = 2;
+      current_part.camber = 0;
+      // current_part.camber/25 = current_part.camber / 25.0;
+      in.shp.set_camber_and_thickness_controls(false);
+    }
+
+  }
+
 
   Foil foil_arr[] = {
     new NACA4Foil("NACA 4 Series", "\n NACA 4 Series Foil"),
@@ -1010,6 +1070,9 @@ public class FoilBoard extends JApplet {
                   new double[]{-0.436, -0.495, -0.549, -0.585, -0.585, -0.521, -0.415, -0.271, -0.097, 0.112, 0.353, 0.596, 0.835, 1.073, 1.302, 1.494, 1.644, 1.715, 1.408, 1.315, 1.167, 1.003, 0.843, 0.702, 0.584},
                   new double[]{0.31324, 0.2687, 0.21301, 0.17075, 0.13549, 0.1072, 0.08288, 0.06413, 0.05002, 0.01114, 0.00998, 0.00805, 0.00833, 0.00811, 0.00777, 0.021, 0.02575, 0.03206, 0.08869, 0.11247, 0.14528, 0.18438, 0.23803, 0.29672, 0.34426},
                   null)
+
+    ,new NACA_R540_3pct_round_Foil("Round Slender Fuse 3%", "\nRound Slender Fuse 3% D/L," +
+                                   "\n based on NACA R540 report. See Gudmundsson, AppC1, p46-47", "\n ---")
                   
     // FoilSim foils
     // these foils - Joukowski, Ellipse, Flat - 
@@ -1745,7 +1808,7 @@ public class FoilBoard extends JApplet {
 
   public void computeFlow () { 
     double effaoa = effective_aoa();
-    if (!can_do_gui_updates && current_part.foil.tabulated_coeffs()) {
+    if (!can_do_gui_updates && current_part.foil.fast_coeffs()) {
       solver.set_q0();
       current_part.cl = solver.get_Cl(effaoa);
     } else {
@@ -11778,7 +11841,7 @@ public class FoilBoard extends JApplet {
                   off2Gg.drawLine(x[0],y[0],x[1],y[1]);
                 }
               }
-              // draw currev value dot
+              // draw curr value as red dot
               xlabel = (int) (scalex*(offx+plotx[1][0])) + x0;
               ylabel = (int)(-scaley*(offy+ploty[1][0]))+y0 -4;
               off2Gg.setColor(Color.red);
