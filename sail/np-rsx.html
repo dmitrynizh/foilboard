@@ -19,10 +19,13 @@
     Each chord spec  can be either L or L/X or L/X/Z, where L is chord length, 
     X is longitudinal relative offset from the prev chord, Z is same for vertical direction
  -->
-  <PARAM NAME="Wing"  VALUE="NACA_4_Series 0.10  1.0  12 3.34  0"/>
-  <PARAM NAME="Stab"  VALUE="NACA_4_Series 0.075 0.66 12 -3.34 -1"/>
+  <PARAM NAME="Wing"  VALUE="NACA_4_Series 0.10  1.0  12 3 0"/>
+  <PARAM NAME="Stab"  VALUE="NACA_4_Series 0.075 0.66 12 0 -1"/>
   <PARAM NAME="Fuse"  VALUE="NACA_4_Series 0.88  0.02 4  0    0.0"/>
-  <PARAM NAME="Mast"  VALUE="NACA_4_Series 0.12 1.0  12 0     0"/>
+  <PARAM NAME="Mast"  VALUE="NACA_4_Series 0.12/0;0.12/0.06 1.0  12 0   0 0.35"/>
+  <!-- slalom setup -->
+  <PARAM NAME="TKD"  VALUE="100"/>
+
 </APPLET></P>
 </BODY>
 </HTML>

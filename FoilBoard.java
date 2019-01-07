@@ -1716,7 +1716,7 @@ public class FoilBoard extends JApplet {
     BOARD_LENGTH    = Double.parseDouble(getParamOrPropAliased("BL",  "BOARD_LENGTH", craft_type == WINDFOIL ? "2.3" : "1.25"));
     // Board weight force in Newtons
     BOARD_WEIGHT    = Double.parseDouble(getParamOrPropAliased("BW",  "BOARD_WEIGHT", craft_type == WINDFOIL ? "80" : "39"));
-    RIG_WEIGHT      = Double.parseDouble(getParamOrPropAliased("RW",  "RIG_WEIGHT", craft_type == WINDFOIL ? "130" : "0"));
+    RIG_WEIGHT      = Double.parseDouble(getParamOrPropAliased("RW",  "RIG_WEIGHT", craft_type == WINDFOIL ? "100" : "0"));
     rider_weight    = Double.parseDouble(getParamOrPropAliased("RSL", "TOTAL_WEIGHT", "735")) -
       BOARD_WEIGHT - RIG_WEIGHT - FOIL_WEIGHT;
 
@@ -2755,7 +2755,7 @@ public class FoilBoard extends JApplet {
  
       stall_model_type = STALL_MODEL_DFLT;
       v_min = 1;     v_max = 70.0;
-      alt_min = 0.0;    alt_max = 85;
+      alt_min = 0.0;    alt_max = 85; // this in %
       ang_min = -20.0; ang_max = 20.0;
       ca_min = -20.0;  ca_max = 20.0;
       thk_min = 1; // do not make it less than 1, or some Cl?Cd calcs fail, see Solver
@@ -6418,7 +6418,7 @@ public class FoilBoard extends JApplet {
                                        double min_lift = (double)constr_tkoff_min_lift; // parse_force_constraint(tf_tkoff_min_lift, "TKL", "735");
                                        load = min_lift; // will do the trick???
                                        double max_drag = (double)constr_tkoff_max_drag; // parse_force_constraint(tf_tkoff_max_drag, "TKD", "85");
-                                       alt = alt_min;
+                                       alt = 0.5 ; // % alt_min;
                                        loadPanel();
                                        can_do_gui_updates = false;
                                        vpp.find_min_takeoff_v(min_lift, max_drag, true);
