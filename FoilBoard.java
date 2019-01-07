@@ -362,6 +362,7 @@ public class FoilBoard extends JApplet {
 
   boolean runAsApplication = false; // main() sets this to true
   boolean fix_symmetry_problem = true; // legacy
+  boolean rider_xpos_tilt_correction = true;
 
   static Properties props;
   static JFrame frame;
@@ -2368,32 +2369,22 @@ public class FoilBoard extends JApplet {
     // new Exception("-- updateTotals  ---------------- ").printStackTrace(System.out);
 
     speed_kts_mph_kmh_ms_info = make_speed_kts_mph_kmh_ms_info(velocity);
-
     double lift = total_lift();
     double drag = total_drag();
 
+                                      
+    // This computes location of the center of gravity of the craft
+    // (rider, roughly) in relation to the leading edge (aka LE) of the
+    // mast (roughly, front bolt of DT). 
+    //
     // Mtipping is 0.5*eff_strut_span*strut,drag
-    double cg_position = find_cg_xpos(lift, // lift equals load
-                                      drag, // drga equals driving force 
-                                      // how much above fuse is driving force?
-                                      strut.span + BOARD_THICKNESS + RIDER_DRIVE_HEIGHT +
-                                      (craft_type == WINDFOIL ? 1 : 0),
-                                      -(  // drag moment is above wings and is CW, hence negative
-                                        // and is strut drug 
-                                        strut.drag * 
-                                        // multiplied by the arm
-                                        (1-alt/100) * strut.span * // typically 30% of strut in the water
-                                        0.5 *  +
-                                        // should include aerodynamic drag here???
-                                        0 // actually, no. It is so because a portion of sail's forward drive compensates it.
-                                          ),
-                                      // board moment plus rig moement
-                                      (BOARD_WEIGHT*
-                                       (BOARD_LENGTH/2-MAST_LE_TO_TRANSOM) // board weight arm is 1/2 length minus mast LE to transom
-                                       + RIG_WEIGHT*WS_MASTBASE_MAST_LE) // 
-                                      );
+    double cg_position = find_cg_xpos();
+
+    // code below needs positive value towards the nose. This is for
+    // 'historic' reasons only, needs fixing
+    //
+    cg_position = -cg_position;
     // negative means aft MAST LE
-    //System.out.println("-- cg_position: " + cg_position);
     con.cg_pos = cg_position;
     // correct cg_position for board-level mast LE x offset, if any.
     // note that positive xoff_tip reduces aft cg_position because curretly/historically cg_position
@@ -2589,72 +2580,90 @@ public class FoilBoard extends JApplet {
     return wing.lift + stab.lift + fuse.lift;
   }
 
-  // This computes location of the center of gravity of the craft
-  // (rider, roughly) in relation to the leading edge (aka LE) of the
-  // mast (roughly, front bolt of DT). Positive value towards the
-  // nose. This is for 'historic' reasons only; 
-  // Also for 'historic' reasons, positive moments here are CCW. This is
-  // opposite from standard literature discussion of aircraft pitching moments where
-  // positive moments rotate the craft CW. If this is all fixed, then
-  // cg_xpos would align with the x axis and be positive towards tail.
+  // On why CCW in classic literature is negative: From Abbott, Von Doenhoff (1959), Theory of Wing
+  // Sections: "The pitching moment is, by convention, considered to
+  // be positive when it acts to pitch the airfoil in the nose-up
+  // direction. Conventional cambered airfoils supported at the
+  // aerodynamic center pitch nose-down so the pitching moment
+  // coefficient of these airfoils is negative.[4]." ... and the
+  // results in a counter-clockwise rotation of the airfoil (from
+  // https://www.grc.nasa.gov/www/k-12/airplane/ac.html), so CCW is
+  // NEGATIVE, CW is POSITIVE.
   //
   // to find combing CG pos, call it as find_cg_xpos(total_load_minus_foil_wt, ..... 0)
   //
   // to find rider body CG pos, call it as find_cg_xpos(rider_weight, ..... board_and_rig_moments)
   // 
-
   double center_of_lift = 0.25;
-  double find_cg_xpos (double load, double driving_force, double driving_arm, double Mdrag_strut, double Mboard_wt_plus_Mrig_wt) {
-    // note: looking at the left side, postive M is CCW, so Mdrag_strut is always negative
-    if (Mdrag_strut > 0) Mdrag_strut = -Mdrag_strut;
-    double Mdrive = // kite or sail, always CCW
+  double find_cg_xpos () {
+    double lift = total_lift();
+    double drag = total_drag();
+    // prob, no.... double load = lift; // lift equals load
+    double driving_force = drag; // drag equals driving force 
+    // driving_arm: how much above fuse is driving force?
+    double driving_arm = 
+      strut.span + BOARD_THICKNESS + RIDER_DRIVE_HEIGHT +
+      (craft_type == WINDFOIL ? 1 : 0); // sail drives "from ~ 1m above harness"
+      // strut_drag_arm
+    double strut_drag_arm = 
+      (1-alt/100) * strut.span * // this is the length of water immersed section fo the strut.
+      0.5; // drag center is at the center of the immersed section
+
+    // should include aerodynamic drag here???
+    double arero_drag = 
+      0; // actually, no. It is so because a portion of sail's forward drive compensates it.
+    
+    // board arm rig arm
+    double board_arm = // tangential arm at 90 degrees to gravity
+      (BOARD_LENGTH/2-MAST_LE_TO_TRANSOM);
+    // board weight arm is 1/2 length minus mast LE to transom
+    double rig_arm = WS_MASTBASE_MAST_LE; // easy
+
+    double  drive_moment = // kite or sail, always CCW
       driving_force * driving_arm;
 
-    // Mcg + Mdrive + Mdrag_strut + Mwing + Mstab + Mfuse = 0 =>
-    // load_xpos * load =  - (Mwing + Mstab + Mfuse)
-
-    //double ref_pt_fore_fuse = 100.0;
     double mast_le_xpos = strut.xpos; 
-    double foils_Cm_moments =            
+    double strut_moment = strut.drag * strut_drag_arm;
+    double board_moment = BOARD_WEIGHT * board_arm;
+    double rig_moment   = RIG_WEIGHT * rig_arm;
+    double foils_Cm_moments =  // all same sign because rotate 'in plane'
       wing.moment +
       stab.moment + 
       fuse.moment;
-
-    // debug...
-    // double fuse_arm = (0.25 * fuse.chord - mast_le_xpos);
-    // System.out.println("-- fuse_arm: " + fuse_arm);
-
-    double total_pitchin_moment_no_load =
-      Mdrag_strut + Mdrive +
-      Mboard_wt_plus_Mrig_wt +
-      // if we include prorated rider-mast calcs here 
-      // -(load*load_distribution_to_mast_loc) * (-mast_foot_dist_from_strut_le) +
-      wing.lift * (wing.xpos + wing.chord_xoffs + center_of_lift * wing.chord - mast_le_xpos) +
-      stab.lift * (stab.xpos + stab.chord_xoffs + center_of_lift * stab.chord - mast_le_xpos) +
-      fuse.lift * (center_of_lift * fuse.chord - mast_le_xpos)
-      // these are 'standard' moments, based on the sign of current_part.cm,  so must be taken in with negation
-      -foils_Cm_moments
-      ;
     
-    double load_xpos = // initially, x pos in relation to mast LE at the fuse level
-      - (total_pitchin_moment_no_load)
-      / (load
-         // if we include prorated rider-mast calcs here 
-         //*(1-load_distribution_to_mast_loc)
-         );
+    double CW_moments = // +CW
+      strut_moment + 
+      foils_Cm_moments +
+      wing.lift * Math.abs(mast_le_xpos - (wing.xpos + wing.chord_xoffs + center_of_lift * wing.chord)) +
+      fuse.lift * (mast_le_xpos - center_of_lift * fuse.chord); // no abs() here!!
 
-    // double load_xpos_no_moments = - (total_pitchin_moment_no_load + foils_Cm_moments)/load;
-    // System.out.println("-- load_xpos_no_moments - load_xpos " + (load_xpos_no_moments-load_xpos));
+    double CCW_moments  = // -CW
+      drive_moment +
+      stab.lift * Math.abs(stab.xpos + stab.chord_xoffs + center_of_lift * stab.chord - mast_le_xpos) +
+      board_moment +
+      rig_moment;
 
-    
+    // Suppose rider_moment is +CW, it is with arm towards transom from mast bottom LE.
+    // rider_moment + CW_moments = CCW_moments ==>
+    // rider_arm = (CCW_moments - CW_moments) / load
+    // where load is not rider weigth but load from the load slider
+    //
+    // 
+    double load = FoilBoard.this.load; 
+    // if we decide to include prorated rider-mast calcs here 
+    // load = load*(1-load_distribution_to_mast_loc)
+    double rider_arm = (CCW_moments - CW_moments) / load;
+
+    if (rider_xpos_tilt_correction == false) 
+      return rider_arm;
+
     // now, must correct xpos for craft tilt
     // so that the value corresponds to mast LE at board deck level
-    double deck_height = 0.1 // board thickness, m
+    double deck_height = BOARD_THICKNESS // board thickness, m
       + strut.span;
     // note this offset is positive when nose is up, negative when nose is down
     double x_offset = deck_height * Math.sin(Math.toRadians(craft_pitch));
-
-    return load_xpos + x_offset;
+    return rider_arm - x_offset;
   }
 
   // just for a test
@@ -8766,6 +8775,15 @@ public class FoilBoard extends JApplet {
         chb.addItemListener(new ItemListener() {
             public void itemStateChanged(ItemEvent e) {             
              fix_symmetry_problem  = e.getStateChange() == ItemEvent.SELECTED;
+             computeFlowAndRegenPlotAndAdjust();
+             con.recomp_all_parts();
+            }
+          });
+
+        add(chb = new JCheckBox("ride xpos: board tilt correction", rider_xpos_tilt_correction));
+        chb.addItemListener(new ItemListener() {
+            public void itemStateChanged(ItemEvent e) {             
+             rider_xpos_tilt_correction  = e.getStateChange() == ItemEvent.SELECTED;
              computeFlowAndRegenPlotAndAdjust();
              con.recomp_all_parts();
             }
