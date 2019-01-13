@@ -33,7 +33,7 @@
 * size arranged on a 2-by-2 grid, out of which left top is graphical,
 * left bottom is inputs, right top is outputs and right bottom is for
 * plots, data, gauges. Most code inherited from "FoilSim III" has been
-* reachitected, varianles were renamned etc.
+* re-architected, variables were renamed etc.
 * 
 * This simulator accurately computes lift and drag for a T-shape
 * hydrofoil having a vertical strut (a.k.a. "mast"), a main wing, a
@@ -359,10 +359,13 @@ public class FoilBoard extends JApplet {
 
   } // Part
 
-
+  
   boolean runAsApplication = false; // main() sets this to true
   boolean fix_symmetry_problem = true; // legacy
   boolean rider_xpos_tilt_correction = true;
+
+  double FRONT_FOOTSTRAP_XPOS = Double.NaN; // This is signed. NaN: not defined
+  double  BACK_FOOTSTRAP_XPOS = Double.NaN; // This is signed. NaN: not defined
 
   static Properties props;
   static JFrame frame;
@@ -1185,7 +1188,7 @@ public class FoilBoard extends JApplet {
   static double MAST_LE_TO_TRANSOM = 0.3;
   static double WS_MASTBASE_MAST_LE = 1.04; // 1.04 is typical rig mast base from strut LE distance...
 
-  static double rider_weight;
+  static double rider_weight, total_weight;
 
   static double RIDER_DRIVE_HEIGHT = 1.05; // this is ~ where waist harness is
 
@@ -1243,7 +1246,8 @@ public class FoilBoard extends JApplet {
     STALL_MODEL_DFLT = 1, // default 0.5 + 0.1A + 0.005A^2 and +-10
     STALL_MODEL_REFINED = 2; // this is per foil type.
 
-  // wing downwash influence: makes effective stab AOA more negative
+  // wing downwash influence: makes effective stab AOA more negative. 
+  // See Gudmundsson, General aviation aicraft design, Appendix C1.
   static boolean stab_aoa_correction = false; 
   
   static final int POINTS_COUNT = 35;
@@ -1696,7 +1700,7 @@ public class FoilBoard extends JApplet {
       if (val == null) val = getParameter(alias);
     }
     if (val == null) val = getProperty(name, null);
-    if (val == null) val = getProperty(name, dflt);
+    if (val == null) val = getProperty(alias, dflt);
     return val;
   }
 
@@ -1717,14 +1721,29 @@ public class FoilBoard extends JApplet {
     // Board weight force in Newtons
     BOARD_WEIGHT    = Double.parseDouble(getParamOrPropAliased("BW",  "BOARD_WEIGHT", craft_type == WINDFOIL ? "80" : "39"));
     RIG_WEIGHT      = Double.parseDouble(getParamOrPropAliased("RW",  "RIG_WEIGHT", craft_type == WINDFOIL ? "100" : "0"));
-    rider_weight    = Double.parseDouble(getParamOrPropAliased("RSL", "TOTAL_WEIGHT", "735")) -
-      BOARD_WEIGHT - RIG_WEIGHT - FOIL_WEIGHT;
+    total_weight    = Double.parseDouble(getParamOrPropAliased("RSL", "TOTAL_WEIGHT", "735"));
+    rider_weight    = total_weight - BOARD_WEIGHT - RIG_WEIGHT - FOIL_WEIGHT;
 
     MAST_LE_TO_TRANSOM = Double.parseDouble(getParamOrPropAliased("MAST_LE2TRANS",  "MAST_LE_TO_TRANSOM_DISTANCE", ""+MAST_LE_TO_TRANSOM));
     WS_MASTBASE_MAST_LE = Double.parseDouble(getParamOrPropAliased("WSMAST2MASTLE",  "WS_MASTBASE_TO_MAST_LE_DISTANCE", ""+WS_MASTBASE_MAST_LE));
     use_cylinder_shapes = Boolean.parseBoolean(getParamOrPropAliased("CYLS", "USE_CYLINDER_SHAPES", "false"));
     use_foilsim_foils   = Boolean.parseBoolean(getParamOrPropAliased("FSIMFOILS", "USE_FOILSIM_FOILS", "false"));
 
+    RIDER_DRIVE_HEIGHT = craft_type == WINDFOIL ? 1.5 : RIDER_DRIVE_HEIGHT; // sail drives "from  above harness"
+
+    FRONT_FOOTSTRAP_XPOS = Double.parseDouble(getParamOrPropAliased("FRONT_FOOTSTRAP_XPOS",  "FRONT_FOOTSTRAP_TO_MAST_LE_DISTANCE", 
+                                                                    craft_type == WINDFOIL
+                                                                    ? "-0.5"
+                                                                    : "NaN"));
+    BACK_FOOTSTRAP_XPOS = Double.parseDouble(getParamOrPropAliased("BACK_FOOTSTRAP_XPOS",  "BACK_FOOTSTRAP_TO_MAST_LE_DISTANCE", 
+                                                                    craft_type == WINDFOIL
+                                                                    ? "0.04"
+                                                                    : "NaN"));
+
+    // String footstraps_string = getParamOrProp("FOOTSTRAPS", "None").toLowerCase();
+    // if (footstraps_string.startsWith("no")) footstraps = 0; // none
+    // else if (footstraps_string.equals("front")) footstraps = 1; // front onl
+    // else footstraps = 2; // both
 
     // Parse parameters. Parse Fuse first so that default xpos for 
     // other foisl parts can be computed, then the rest of them.
@@ -1815,7 +1834,7 @@ public class FoilBoard extends JApplet {
     // Stab in downwash? if so, turn correction 'on' by default
     if (wing.xpos + wing.chord_xoffs < stab.xpos + stab.chord_xoffs ) {
       stab_aoa_correction = true;
-      in.anl.chb_stab_aoa_corr.setSelected(true);
+      in.opts.chb_stab_aoa_corr.setSelected(true);
     }
     
     computeFlowAndRegenPlotAndAdjust();
@@ -2245,11 +2264,11 @@ public class FoilBoard extends JApplet {
   }
 
   String maybe_warn_about_excessive_cg_offset () {
-    if (con.cg_pos_board_level > 1.50) // oops, way too much forward!
+    if (con.rider_cg > 1.50) // oops, way too much forward!
       return "\nWarning: required rider stance indicates wrong setup;\nlikely, stab's negative lift is excessive.";
-    else if (con.cg_pos_board_level > 0.60) // auch, forward of front strap, awkward!
+    else if (con.rider_cg > 0.60) // auch, forward of front strap, awkward!
       return "\nWarning: required rider stance indicates\nthat stab's negative lift likely needs be reduced.";
-    else if (con.cg_pos_board_level < -0.20) // required stance (or "position on the board") is way to much aft
+    else if (con.rider_cg < -0.20) // required stance (or "position on the board") is way to much aft
       return "\nWarning: rider's stance excessively aft the mast\nindicates that comfortable riding with required\npull force needs increase of stab's downward angle.";
     else 
       return "";
@@ -2261,7 +2280,7 @@ public class FoilBoard extends JApplet {
     min_takeoff_lift  = min_lift;
     min_takeoff_drag  = max_drag;
     min_takeoff_cg =  // can't use the box - was not set yet con.outCGPosition.getText();
-      niceCGPositionInfo(con.cg_pos_board_level);
+      niceCGPositionInfo(con.rider_cg);
     return min_takeoff_speed_info = 
       "This foil has been evaluated for minimum possible \n" + 
       "takeoff speed.\n" +
@@ -2272,7 +2291,7 @@ public class FoilBoard extends JApplet {
       "it can take off at speed of foiling as low as \n" + 
       //filter1(velocity) + " km/h"
       make_speed_kts_mph_kmh_ms_info(speed) + 
-      "\nLift is located " + min_takeoff_cg + " mast." +
+      "\nRider C.G. is located " + min_takeoff_cg + " mast." +
       maybe_warn_about_excessive_cg_offset()
       ;
   }
@@ -2282,7 +2301,7 @@ public class FoilBoard extends JApplet {
     cruising_lift  = min_lift;
     cruising_drag  = min_drag;
     cruising_cg =  // can't use the box - was not set yet con.outCGPosition.getText();
-      niceCGPositionInfo(con.cg_pos_board_level);
+      niceCGPositionInfo(con.rider_cg);
     return cruising_info = 
       "This foil has been evaluated for minimum possible \n" + 
       "drag during cruising at speeds >= takeoff speed.\n" +
@@ -2293,7 +2312,7 @@ public class FoilBoard extends JApplet {
       "L/D ratio = " + filter1(min_lift/min_drag) + ", when cruise-foiling at \n" + 
       //filter1(velocity) + " km/h"
       make_speed_kts_mph_kmh_ms_info(speed) + 
-      "\nLift is located " + cruising_cg + " mast." +
+      "\nRider C.G. is located " + cruising_cg + " mast." +
       maybe_warn_about_excessive_cg_offset()
       ;
   }
@@ -2303,7 +2322,7 @@ public class FoilBoard extends JApplet {
     max_speed_lift  = min_lift;
     max_speed_drag  = max_drag;
     max_speed_cg = // can't use the box - was not set yet con.outCGPosition.getText();
-      niceCGPositionInfo(con.cg_pos_board_level);
+      niceCGPositionInfo(con.rider_cg);
     return max_speed_info = 
       "This foil has been evaluated for maximum possible \n" 
       + "sustained, controllable flight speed.\n" +
@@ -2314,7 +2333,7 @@ public class FoilBoard extends JApplet {
       "it can maintain sustained flight speed of at least \n" + 
       //filter1(velocity) + " km/h"
       make_speed_kts_mph_kmh_ms_info(speed) + 
-      "\nLift is located " + max_speed_cg + " mast." +
+      "\nRider C.G. is located " + max_speed_cg + " mast." +
       maybe_warn_about_excessive_cg_offset()
       ;
   }
@@ -2364,7 +2383,6 @@ public class FoilBoard extends JApplet {
   }
 
   void updateTotals () {
-
     // System.out.println("-- updateTotals... " + can_do_gui_updates);
     // new Exception("-- updateTotals  ---------------- ").printStackTrace(System.out);
 
@@ -2391,6 +2409,11 @@ public class FoilBoard extends JApplet {
     // ofsset is negative in positive x direction. 
     cg_position += strut.xoff_tip;
     con.cg_pos_board_level = cg_position;
+
+    // drive_offset/height = drive_force/weight
+    double rider_countering_x_offset = (total_drag()/rider_weight)* RIDER_DRIVE_HEIGHT; // wasFF 0.86;
+    con.rider_cg = con.cg_pos_board_level - rider_countering_x_offset;
+
 
     if (can_do_gui_updates) {
       // new Exception("-- updateTotals in GUI  ---------------- ").printStackTrace(System.out);
@@ -2595,16 +2618,20 @@ public class FoilBoard extends JApplet {
   // to find rider body CG pos, call it as find_cg_xpos(rider_weight, ..... board_and_rig_moments)
   // 
   double center_of_lift = 0.25;
-  double find_cg_xpos () {
+  double find_cg_xpos () { // vertical ref point is fuse level (at ref_point_xpos)
     double lift = total_lift();
     double drag = total_drag();
+
+    // this was named mast_le_xpos when ref point was mast le, which is strut.xpos.
+    double ref_point_xpos = strut.xpos; 
+
     // prob, no.... double load = lift; // lift equals load
     double driving_force = drag; // drag equals driving force 
     // driving_arm: how much above fuse is driving force?
     double driving_arm = 
-      strut.span + BOARD_THICKNESS + RIDER_DRIVE_HEIGHT +
-      (craft_type == WINDFOIL ? 1 : 0); // sail drives "from ~ 1m above harness"
-      // strut_drag_arm
+      strut.span + BOARD_THICKNESS; // wasFF  + RIDER_DRIVE_HEIGHT;
+
+    // strut_drag_arm
     double strut_drag_arm = 
       (1-alt/100) * strut.span * // this is the length of water immersed section fo the strut.
       0.5; // drag center is at the center of the immersed section
@@ -2612,18 +2639,20 @@ public class FoilBoard extends JApplet {
     // should include aerodynamic drag here???
     double arero_drag = 
       0; // actually, no. It is so because a portion of sail's forward drive compensates it.
+
+    // drag of wings and fuse can be for now ignored thanks to ref point chosen;
+    // more accurate calc shoud include craft AoA and Z offsetts to calc that. 
     
-    // board arm rig arm
-    double board_arm = // tangential arm at 90 degrees to gravity
-      (BOARD_LENGTH/2-MAST_LE_TO_TRANSOM);
     // board weight arm is 1/2 length minus mast LE to transom
+    double board_arm = // tangential arm at 90 degrees to gravity
+      BOARD_LENGTH/2 - MAST_LE_TO_TRANSOM;
+
     double rig_arm = WS_MASTBASE_MAST_LE; // easy
 
     double  drive_moment = // kite or sail, always CCW
-      driving_force * driving_arm;
+      in.opts.ignore_drive_moment ? 0 : driving_force * driving_arm;
 
-    double mast_le_xpos = strut.xpos; 
-    double strut_moment = strut.drag * strut_drag_arm;
+    double strut_moment = in.opts.ignore_drag_moments ? 0 : strut.drag * strut_drag_arm;
     double board_moment = BOARD_WEIGHT * board_arm;
     double rig_moment   = RIG_WEIGHT * rig_arm;
     double foils_Cm_moments =  // all same sign because rotate 'in plane'
@@ -2634,14 +2663,15 @@ public class FoilBoard extends JApplet {
     double CW_moments = // +CW
       strut_moment + 
       foils_Cm_moments +
-      wing.lift * Math.abs(mast_le_xpos - (wing.xpos + wing.chord_xoffs + center_of_lift * wing.chord)) +
-      fuse.lift * (mast_le_xpos - center_of_lift * fuse.chord); // no abs() here!!
+      wing.lift *  - (wing.xpos + wing.chord_xoffs + center_of_lift * wing.chord - ref_point_xpos) +
+      fuse.lift *  - (center_of_lift * fuse.chord - ref_point_xpos); 
 
     double CCW_moments  = // -CW
       drive_moment +
-      stab.lift * Math.abs(stab.xpos + stab.chord_xoffs + center_of_lift * stab.chord - mast_le_xpos) +
-      board_moment +
-      rig_moment;
+      stab.lift * (stab.xpos + stab.chord_xoffs + center_of_lift * stab.chord - ref_point_xpos) +
+      (in.opts.ignore_aux_weight_moments 
+       ? 0 
+       : board_moment + rig_moment);
 
     // Suppose rider_moment is +CW, it is with arm towards transom from mast bottom LE.
     // rider_moment + CW_moments = CCW_moments ==>
@@ -2947,9 +2977,10 @@ public class FoilBoard extends JApplet {
       double result = current_part.foil.get_Cl(effaoa);
 
       if (ar_lift_corr) {  // correction for low aspect ratio
-        double k = 3.14159*current_part.aspect_rat; // classic
-        if (current_part.aspect_rat < 1) // for fuse, it drops down more
-          k *= Math.sqrt(current_part.aspect_rat);
+        double k = 
+          (current_part.aspect_rat >= 0.2) 
+          ? 3.14159*current_part.aspect_rat // classic, normal 
+          : 3.14159*Math.pow(current_part.aspect_rat, 1.2); // for fuse, it drops down more
         result = result /(1.0 + Math.abs(result)/k);
       }
       return result;
@@ -4523,7 +4554,7 @@ public class FoilBoard extends JApplet {
 
         if (current_part.foil == FOIL_JOUKOWSKI)    //airfoil drag logic
           {
-            //switch (in.anl.foil_drag_comp_method) {
+            //switch (in.opts.foil_drag_comp_method) {
             //case DRAG_COMP_POLY_FOILSIMORIG: {
             // thickness 5%
             dragCam0Thk5 = -9E-07*Math.pow(effaoa,3) + 0.0007*Math.pow(effaoa,2) + 0.0008*effaoa + 0.015;
@@ -5446,7 +5477,7 @@ public class FoilBoard extends JApplet {
   class Controls extends Panel {
     FoilBoard app;
     JLabel l1,l2,blank,pitchMomentJLabel,liftOverDrag,reynoldsJLabel,FSlabel, lbl_cg_pos;
-    double cg_pos, cg_pos_board_level;
+    double cg_pos, cg_pos_board_level, rider_cg;
     JComboBox outch,dragOutputCh,untch;
 
     JTextField outlft_wing, outlft_stab, outlft_strut, outlft_fuse;
@@ -5845,7 +5876,7 @@ public class FoilBoard extends JApplet {
     Size size;
     BallCylinderShape cylShape;
     PlotSelectorTab grf;
-    Anl anl;
+    Opts opts;
     Env env;
     Panel[] all;
     Panel current;
@@ -5866,7 +5897,7 @@ public class FoilBoard extends JApplet {
       size = new Size(app);       
       cylShape = new BallCylinderShape(app);
       grf = new PlotSelectorTab(app);
-      anl = new Anl(app);
+      opts = new Opts(app);
       env = new Env(app);
 
       all = new Panel[] {
@@ -5875,7 +5906,7 @@ public class FoilBoard extends JApplet {
             size,  
             cylShape,
             grf,
-            anl,
+            opts,
             env
             };
 
@@ -5883,7 +5914,7 @@ public class FoilBoard extends JApplet {
       addTab(shp, "Shape", "foil-shape-panel");
       addTab(size, "Size", "Size Panel");
       addTab(grf, "Choose Plot", "Select Plot Panel");
-      addTab(anl, "Options", "Settings Panel");
+      addTab(opts, "Options", "Settings Panel");
 
       // not very useful for Hydrofoiling board...
       if (use_cylinder_shapes)
@@ -5951,17 +5982,17 @@ public class FoilBoard extends JApplet {
         in.toggle_cyl_tab();
         in.switch_to(cylShape);
         if (current_part.foil == FOIL_CYLINDER) {
-          // in.anl.cbt1.setBackground(Color.white);
-          // in.anl.cbt2.setBackground(Color.white);
-          // in.anl.cbt3.setBackground(Color.white);
+          // in.opts.cbt1.setBackground(Color.white);
+          // in.opts.cbt2.setBackground(Color.white);
+          // in.opts.cbt3.setBackground(Color.white);
         } else if (current_part.foil == FOIL_BALL) {
           current_part.span = radius;
           current_part.area = 3.1415926*radius*radius;
           if (viewflg != VIEW_EDGE) viewflg = VIEW_EDGE;
           bdragflag = 1;
-          // in.anl.cbt1.setBackground(Color.yellow);
-          // in.anl.cbt2.setBackground(Color.white);
-          // in.anl.cbt3.setBackground(Color.white);
+          // in.opts.cbt1.setBackground(Color.yellow);
+          // in.opts.cbt2.setBackground(Color.white);
+          // in.opts.cbt3.setBackground(Color.white);
         } 
       } else {
         in.toggle_shp_tab();
@@ -5975,15 +6006,15 @@ public class FoilBoard extends JApplet {
     
       if (!foil_is_cylinder_or_ball(current_part.foil)) {
         //layplt.show(in.grf.l, "first");
-        // in.anl.bt7.setBackground(Color.yellow);
-        // in.anl.bt8.setBackground(Color.white);
-        // in.anl.cbt1.setBackground(Color.white);
-        // in.anl.cbt2.setBackground(Color.white);
-        // in.anl.cbt3.setBackground(Color.white);
+        // in.opts.bt7.setBackground(Color.yellow);
+        // in.opts.bt8.setBackground(Color.white);
+        // in.opts.cbt1.setBackground(Color.white);
+        // in.opts.cbt2.setBackground(Color.white);
+        // in.opts.cbt3.setBackground(Color.white);
       } else {
         //layplt.show(in.grf.l, "second");
-        //in.anl.bt7.setBackground(Color.white);
-        //in.anl.bt8.setBackground(Color.yellow);
+        //in.opts.bt7.setBackground(Color.white);
+        //in.opts.bt8.setBackground(Color.yellow);
       }
 
       //in.cylShape.rightPanel.shape_choice.setSelectedIndex(foil.id);
@@ -6149,8 +6180,8 @@ public class FoilBoard extends JApplet {
       // later: bind it to others sliders (load?)
       void find_steady_conditions () {
         // System.out.println("-- find_steady_conditions: " + can_do_gui_updates);
-        // double min_lift = parse_force_constraint(tf_tkoff_min_lift, "TKL", "735");
-        double max_drag = parse_force_constraint(tf_tkoff_max_drag, "TKD", craft_pitch == WINDFOIL ? "85" : "120");
+        // double min_lift = parse_force_constraint(tf_tkoff_min_lift);
+        double max_drag = parse_force_constraint(tf_tkoff_max_drag);
         boolean saved_flag = can_do_gui_updates;
         can_do_gui_updates = false;
         vpp.steady_flight_at_given_speed(5, 0);
@@ -6258,7 +6289,7 @@ public class FoilBoard extends JApplet {
         // row 4
         rows++;
         load_ctrl = new NameBoxBar(this, "Load N", "CRL", 
-                                   craft_type == WINDFOIL ? "735" : "650", 
+                                   craft_type == WINDFOIL ? ""+total_weight : "650", 
                                    load_min, load_max);
         load = Double.parseDouble(load_ctrl.box.getText());
         load_ctrl.bar.addAdjustmentListener(new AdjustmentListener() {
@@ -6409,15 +6440,15 @@ public class FoilBoard extends JApplet {
         rows++;
         NameBoxNameBoxButton takeoff = 
           new NameBoxNameBoxButton(this, 
-                                   "Lift >", "TKL", craft_type == WINDFOIL ? "735" : "600", 
+                                   "Lift >", "TKL", craft_type == WINDFOIL ? ""+total_weight : "600", 
                                    "Drag <", "TKD", craft_type == WINDFOIL ? "85" : "120",
                                    "Find Lowest TakeOff speed",
                                    new ActionListener() {
                                      @Override
                                      public void actionPerformed(ActionEvent e) {
-                                       double min_lift = (double)constr_tkoff_min_lift; // parse_force_constraint(tf_tkoff_min_lift, "TKL", "735");
+                                       double min_lift = (double)constr_tkoff_min_lift; // parse_force_constraint(tf_tkoff_min_lift);
                                        load = min_lift; // will do the trick???
-                                       double max_drag = (double)constr_tkoff_max_drag; // parse_force_constraint(tf_tkoff_max_drag, "TKD", "85");
+                                       double max_drag = (double)constr_tkoff_max_drag; // parse_force_constraint(tf_tkoff_max_drag);
                                        alt = 0.5 ; // % alt_min;
                                        loadPanel();
                                        can_do_gui_updates = false;
@@ -6432,7 +6463,7 @@ public class FoilBoard extends JApplet {
         tf_tkoff_min_lift.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-              constr_tkoff_min_lift = filter0(parse_force_constraint(tf_tkoff_min_lift, "", ""));
+              constr_tkoff_min_lift = filter0(parse_force_constraint(tf_tkoff_min_lift));
             }});
 
         
@@ -6441,21 +6472,21 @@ public class FoilBoard extends JApplet {
         tf_tkoff_max_drag.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-              constr_tkoff_max_drag = filter0(parse_force_constraint(tf_tkoff_max_drag, "", ""));
+              constr_tkoff_max_drag = filter0(parse_force_constraint(tf_tkoff_max_drag));
             }});
 
         // row 10
         rows++;
         NameBoxNameBoxButton cruise = 
           new NameBoxNameBoxButton(this, 
-                                   "Lift >", "CRL", craft_type == WINDFOIL ? "735" : "650",
+                                   "Lift >", "CRL", craft_type == WINDFOIL ? ""+total_weight : "650",
                                    "Speed >=", 
                                    "CRS", "5",
                                    "Find Speed of lesser Drag",
                                    new ActionListener() {
                                      @Override
                                      public void actionPerformed(ActionEvent e) {
-                                       double min_lift = (double)constr_cruise_min_lift; // parse_force_constraint(tf_cruise_min_lift, "CRL", "735");
+                                       double min_lift = (double)constr_cruise_min_lift; // parse_force_constraint(tf_cruise_min_lift);
                                        load = min_lift; // will do the trick???
                                        double starting_speed = (double)constr_cruise_starting_speed; // parse_speed_constraint(tf_cruise_starting_speed, "CRS", "10 km/h");
                                        System.out.println("-- constr_cruise_starting_speed: " + constr_cruise_starting_speed);
@@ -6476,7 +6507,7 @@ public class FoilBoard extends JApplet {
         tf_cruise_min_lift.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-              constr_cruise_min_lift = filter0(parse_force_constraint(tf_cruise_min_lift, "", ""));
+              constr_cruise_min_lift = filter0(parse_force_constraint(tf_cruise_min_lift));
             }});
 
         tf_cruise_starting_speed = cruise.box2;
@@ -6494,15 +6525,15 @@ public class FoilBoard extends JApplet {
         rows++;
         NameBoxNameBoxButton race = 
           new NameBoxNameBoxButton(this, 
-                                   "Lift >", "RSL", "735", 
+                                   "Lift >", "RSL", ""+total_weight, 
                                    "Drag <", "RSD", "245", // 25 kg force
                                    "Find Max Possible Steady Speed",
                                    new ActionListener() {
                                      @Override
                                      public void actionPerformed(ActionEvent e) {
-                                       double min_lift = (double)constr_race_min_lift; // parse_force_constraint(tf_race_min_lift, "RSL", "735");
+                                       double min_lift = (double)constr_race_min_lift; // parse_force_constraint(tf_race_min_lift);
                                        load = min_lift; // will do the trick???
-                                       double max_drag = (double)constr_race_max_drag; // parse_force_constraint(tf_race_max_drag, "RSD", "245");
+                                       double max_drag = (double)constr_race_max_drag; // parse_force_constraint(tf_race_max_drag);
                                        can_do_gui_updates = false;
                                        alt = 70;
                                        vpp.max_speed(min_lift, max_drag, true);
@@ -6516,7 +6547,7 @@ public class FoilBoard extends JApplet {
         tf_race_min_lift.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-              constr_race_min_lift = filter0(parse_force_constraint(tf_race_min_lift, "", ""));
+              constr_race_min_lift = filter0(parse_force_constraint(tf_race_min_lift));
             }});
 
         tf_race_max_drag = race.box2;
@@ -6524,7 +6555,7 @@ public class FoilBoard extends JApplet {
         tf_race_max_drag.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-              constr_race_max_drag = filter0(parse_force_constraint(tf_race_max_drag, "", ""));
+              constr_race_max_drag = filter0(parse_force_constraint(tf_race_max_drag));
             }});
 
 
@@ -6570,7 +6601,7 @@ public class FoilBoard extends JApplet {
       }
 
       // no suffix mode
-      double parse_force_constraint (JTextField tf, String prop_name, String dflt) {
+      double parse_force_constraint (JTextField tf) {
         return force_input_in_display_units_to_n(tf, display_units);
       }
 
@@ -6585,7 +6616,7 @@ public class FoilBoard extends JApplet {
                   !dflt.matches("[+-\\.]?\\d*[\\.]?\\d*")) 
             ? "10" : dflt;
           tf.setText(getParamOrProp(prop_name, dflt));
-          return parse_force_constraint(tf, prop_name, dflt);
+          return parse_force_constraint(tf);
         case 1:
           String s = input[0].toLowerCase();
           if (
@@ -6596,10 +6627,10 @@ public class FoilBoard extends JApplet {
               separate_suffix(s, tf, "kgf") ||
               separate_suffix(s, tf, "lbf") ||
               false)
-            return parse_force_constraint(tf, prop_name, dflt);
+            return parse_force_constraint(tf);
           else {
             tf.setText(s + " " + "N");
-            return parse_force_constraint(tf, prop_name, dflt);
+            return parse_force_constraint(tf);
           }
             
         default:
@@ -6930,16 +6961,6 @@ public class FoilBoard extends JApplet {
           add(rightPanel3);
           add(rightPanel6);
 
-          add(new JLabel("below is rider drive height slider:"));
-          JScrollBar test = new JScrollBar(JScrollBar.HORIZONTAL, 300,10, 0, 1000);
-          test.addAdjustmentListener(new AdjustmentListener() {
-              public void adjustmentValueChanged(AdjustmentEvent evt) {
-                if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
-                // center_of_lift = adjustmentEvent.getValue()/1000.0;
-                // System.out.println("-- center_of_lift: " + center_of_lift);
-                RIDER_DRIVE_HEIGHT = 0.5+ evt.getValue()/1000.0;
-              }});
-          add(test);
 
         }
 
@@ -7932,7 +7953,7 @@ public class FoilBoard extends JApplet {
                 double tilt_min = -0.2, tilt_max = 0.2;
                 double tilt  = ((JScrollBar)evt.getSource()).getValue() * (tilt_max - tilt_min)/ 1000. + tilt_min;
                 scale_xpos_shear_top(current_part, tilt);
-                // old order
+
                 computeFlowAndRegenPlot();
                 size.loadPanel();
               }});
@@ -7994,7 +8015,6 @@ public class FoilBoard extends JApplet {
                   current_part.aspect_rat = current_part.span*current_part.span/current_part.area;
                   current_part.spanfac = (int)(2.0*fact*current_part.aspect_rat*.3535);
 
-                  // old order
                   computeFlowAndRegenPlot();
                   size.loadPanel();
                   
@@ -8039,7 +8059,6 @@ public class FoilBoard extends JApplet {
                   current_part.aspect_rat = current_part.span*current_part.span/current_part.area;
                   current_part.spanfac = (int)(2.0*fact*current_part.aspect_rat*.3535);
 
-                  // old order
                   computeFlowAndRegenPlot();
                   size.loadPanel();
                 }});
@@ -8121,7 +8140,6 @@ public class FoilBoard extends JApplet {
 
                   // current_part.area = current_part.span * current_part.chord;
 
-                  // old order
                   computeFlowAndRegenPlot();
                   size.loadPanel();
                 }});
@@ -8674,7 +8692,7 @@ public class FoilBoard extends JApplet {
       // } // Lower
     }  // PlotSelectorTab
 
-    class Anl extends InputPanel {
+    class Opts extends InputPanel {
       FoilBoard app;
 
       // JLabel l1,l2,l3,l4,l5,l6;
@@ -8684,9 +8702,13 @@ public class FoilBoard extends JApplet {
       // int foil_drag_comp_method = DRAG_COMP_NACA4SERIES;
       //Button cbt1,cbt2,cbt3;
 
+      boolean ignore_drive_moment,
+        ignore_drag_moments,
+        ignore_aux_weight_moments;
+
       JCheckBox chb_stab_aoa_corr;
 
-      Anl (FoilBoard target) {
+      Opts (FoilBoard target) {
 
         app = target;
         setLayout(new GridLayout(8,1,5,5));
@@ -8771,6 +8793,34 @@ public class FoilBoard extends JApplet {
             }
           });        
 
+        add(chb = new JCheckBox("Ignore Drive M", false));
+        chb.addItemListener(new ItemListener() {
+            public void itemStateChanged(ItemEvent e) {             
+              ignore_drag_moments  = e.getStateChange() != ItemEvent.SELECTED;
+              computeFlowAndRegenPlotAndAdjust();
+              con.recomp_all_parts();
+            }
+          });        
+
+        add(chb = new JCheckBox("Ignore Drag Mts", false));
+        chb.addItemListener(new ItemListener() {
+            public void itemStateChanged(ItemEvent e) {             
+              ignore_drag_moments = e.getStateChange() != ItemEvent.SELECTED;
+              computeFlowAndRegenPlotAndAdjust();
+              con.recomp_all_parts();
+            }
+          });        
+
+        add(chb = new JCheckBox("Ignore Aux W Mts", false));
+        chb.addItemListener(new ItemListener() {
+            public void itemStateChanged(ItemEvent e) {             
+              ignore_aux_weight_moments  = e.getStateChange() != ItemEvent.SELECTED;
+              computeFlowAndRegenPlotAndAdjust();
+              con.recomp_all_parts();
+            }
+          });        
+
+
         add(chb = new JCheckBox("Fix Symmetry probkem (legacy)", false));
         chb.addItemListener(new ItemListener() {
             public void itemStateChanged(ItemEvent e) {             
@@ -8797,9 +8847,20 @@ public class FoilBoard extends JApplet {
             }
           });
 
+          add(new JLabel("rider drive height"));
+          JScrollBar test = new JScrollBar(JScrollBar.HORIZONTAL, (int)(1000*RIDER_DRIVE_HEIGHT),10, 0, 3000);
+          test.addAdjustmentListener(new AdjustmentListener() {
+              public void adjustmentValueChanged(AdjustmentEvent evt) {
+                RIDER_DRIVE_HEIGHT = evt.getValue()/1000.0;
+                computeFlowAndRegenPlotAndAdjust();
+                con.recomp_all_parts();
+              }});
+          add(test);
+
+
       }
 
-      // Anl.loadPanel
+      // Opts.loadPanel
       //
       // controled by a few flag varaibles
       @Override
@@ -8971,7 +9032,7 @@ public class FoilBoard extends JApplet {
       //   computeFlowAndRegenPlotAndAdjust();
       //   con.recomp_all_parts();
       // }
-    } // end Anl
+    } // end Opts
   }  // In 
 
   
@@ -9072,7 +9133,7 @@ public class FoilBoard extends JApplet {
       boolean mesh_x_angle_widget_active = false;
       boolean mesh_z_angle_widget_active = false;
 
-      double force_scale = 0.001;
+      double force_scale = craft_type == WINDFOIL ? 0.0008 : 0.0012;
       int force_scale_slider = 50;
       int mesh_x_angle_slider = 50;
       int mesh_z_angle_slider = 50;
@@ -9203,23 +9264,27 @@ public class FoilBoard extends JApplet {
             find_it();
           }
         } else if (y <= 30) { 
-          if (x >= 80 && x <= 154) {   //display streamlines or orthogonall view or toggle force labels
-            if (viewflg == VIEW_3D_MESH) perspective = false;
-            else if (viewflg == VIEW_FORCES) force_labels = !force_labels;
-            else displ = DISPLAY_STREAMLINES;
+          if (viewflg == VIEW_FORCES) {
+            if (x >= 80 && x <= 228)
+              force_labels = !force_labels;
+          } else {
+            if (x >= 80 && x <= 154) {   //display streamlines or orthogonall view or toggle force labels & details
+              if (viewflg == VIEW_3D_MESH) perspective = false;
+              else displ = DISPLAY_STREAMLINES;
+            }
+            if (x >= 155 && x <= 204) {   //display animation
+              if (viewflg == VIEW_3D_MESH) perspective = true;
+              else displ = DISPLAY_ANIMATION;
+            }
+            if (x >= 205 && x <= 249) {   //display direction
+              displ = DISPLAY_DIRECTION;
+            }
+            if (x >= 250 && x <= 330) {   //display geometry
+              displ = DISPLAY_GEOMETRY;
+              pboflag = 0;
+            }
           }
-          if (x >= 155 && x <= 204) {   //display animation
-            if (viewflg == VIEW_3D_MESH) perspective = true;
-            else if (viewflg != VIEW_FORCES) displ = DISPLAY_ANIMATION;
-          }
-          if (x >= 205 && x <= 249) {   //display direction
-            if (viewflg != VIEW_FORCES) displ = DISPLAY_DIRECTION;
-          }
-          if (x >= 250 && x <= 330) {   //display geometry
-            displ = DISPLAY_GEOMETRY;
-            pboflag = 0;
-          }
-        }
+        } 
         out.viewer.repaint();
       }
 
@@ -9437,7 +9502,8 @@ public class FoilBoard extends JApplet {
 
         /// do not need them for the remaining
         offx = offy = 0;
-        
+
+        // draw the chords
         for (i = 0; i < le.length; i++) {
           to_screen_x_y( le[i],x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
           to_screen_x_y(top1[i],x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
@@ -9448,8 +9514,10 @@ public class FoilBoard extends JApplet {
           off1Gg.drawLine(x[2], y[2], x[3], y[3]);
           off1Gg.drawLine(x[3], y[3], x[0], y[0]);
         }
-        
+
+        // draw LE and TE 
         for (i = 0; i < le.length-1; i++) {
+          off1Gg.setColor(Color.red);
           to_screen_x_y(le[i],x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
           to_screen_x_y(le[i+1],x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
           to_screen_x_y(te[i],x,y,3,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
@@ -9481,11 +9549,11 @@ public class FoilBoard extends JApplet {
         }
         off1Gg.drawLine(start_x, start_y, start_x, end_y);
         if (start_y <  end_y - 7) {
-          x[0] = start_x-5;  x[1] = start_x+5; x[2] = start_x;
-          y[0] = end_y - 10;  y[1] = end_y - 10; y[2] = end_y;
+          x[0] = start_x-4;  x[1] = start_x+4; x[2] = start_x;
+          y[0] = end_y - 8;  y[1] = end_y - 8; y[2] = end_y;
         } else if (start_y > end_y + 10 ) {
-          x[0] = start_x-5;  x[1] = start_x+5; x[2] = start_x;
-          y[0] = end_y + 10;  y[1] = end_y + 10; y[2] = end_y;
+          x[0] = start_x-4;  x[1] = start_x+4; x[2] = start_x;
+          y[0] = end_y + 8;  y[1] = end_y + 8; y[2] = end_y;
         }
           off1Gg.fillPolygon(x,y,3);
       }
@@ -9507,11 +9575,11 @@ public class FoilBoard extends JApplet {
         }
         off1Gg.drawLine(start_x, start_y, end_x, start_y);
         if (start_x <  end_x - 7) {
-          y[0] = start_y-5;  y[1] = start_y+5; y[2] = start_y;
-          x[0] = end_x - 10;  x[1] = end_x - 10; x[2] = end_x;
+          y[0] = start_y-4;  y[1] = start_y+4; y[2] = start_y;
+          x[0] = end_x - 8;  x[1] = end_x - 8; x[2] = end_x;
         } else if (start_x > end_x + 10 ) {
-          y[0] = start_y-5;  y[1] = start_y+5; y[2] = start_y;
-          x[0] = end_x + 10;  x[1] = end_x + 10; x[2] = end_x;
+          y[0] = start_y-4;  y[1] = start_y+4; y[2] = start_y;
+          x[0] = end_x + 8;  x[1] = end_x + 8; x[2] = end_x;
         }
           off1Gg.fillPolygon(x,y,3);
       }
@@ -9600,18 +9668,56 @@ public class FoilBoard extends JApplet {
           to_screen_x_y(new Point3D(cg_x_pos, // just for appearance
                                     0,strut.span+BOARD_THICKNESS),x,y,0,offx,scalex,offy,scaley,0,0);
           
-          double cg_x_pos_rot = x[0]/scalex; // after rotation, we want cg be at level distance from board surface (related to rider height)
+          double cg_x_pos_rot_x = x[0]/scalex; // after rotation, we want cg be at level distance from board surface (related to rider height)
+          double cg_x_pos_rot_y = y[0]/scaley; // after rotation, we want cg be at level distance from board surface (related to rider height)
           // feet-mast load distribution if any
           // note minus in front of con.cg_pos !!!
           // -cg_pos = k*moff + (1-k)*rx -> rx = (-cgpos - k*l)/(1-k)
           //double rider_center_x = strut.xpos + (-con.cg_pos + mast_foot_pressure_k * mast_foot_dist_from_strut_le)/(1-mast_foot_pressure_k);
-          double rider_center_x = cg_x_pos;
+          // for now, this parallels computation from updateTotals...
+          double rider_countering_x_offset = (total_drag()/rider_weight)* RIDER_DRIVE_HEIGHT; // wasFF 0.86;
+          double rider_center_x = cg_x_pos + rider_countering_x_offset;
+
+          // old double front_foot_heel_x = -0.1+strut.xpos - 0.7*con.cg_pos + 0.2*rider_center_x - 0.22; 
+          double front_foot_heel_x = Double.isNaN(FRONT_FOOTSTRAP_XPOS) 
+            ? cg_x_pos - 0.26
+            : mast_xpos + FRONT_FOOTSTRAP_XPOS;
+
+          // old double back_foot_heel_x = -0.1+strut.xpos - 0.7*con.cg_pos + 0.2*rider_center_x + 0.24; 
+          double back_foot_heel_x = Double.isNaN(BACK_FOOTSTRAP_XPOS) 
+            ? cg_x_pos + 0.26
+            : BACK_FOOTSTRAP_XPOS + mast_xpos;
+
+          // stance correctiion for the case of a single strap pair
+          // if (back_foot_heel_x - front_foot_heel_x < 30) back_foot_heel_x = front_foot_heel_x + 0.30;
+          back_foot_heel_x = Math.max(back_foot_heel_x, front_foot_heel_x + 0.30);
+
+          double rider_feet_center = (back_foot_heel_x + front_foot_heel_x)/2; // wasFF rider_center_x - total_drag()*0.86/rider_weight;
+
+          // finally, adjust rider_center_x for WS mast loading
+          if (craft_type == WINDFOIL) {
+            // not ideal... if (cg_x_pos < rider_feet_center) rider_center_x = rider_feet_center; // rider loads mast-base, standing upright (hanging off the [sufficiently high] boom)
+            // d/w = b/a ==> b = d * a / w.
+            
+            // double dist_a = cg_x_pos - (-WS_MASTBASE_MAST_LE); 
+            // rider_center_x = -WS_MASTBASE_MAST_LE + dist_a * total_drag()/rider_weight;
+          }
+
           to_screen_x_y(new Point3D(rider_center_x, // just for appearance
                                     0,strut.span+BOARD_THICKNESS),x,y,0,offx,scalex,offy,scaley,0,0);
           double rider_rot_center_x_real = x[0]/scalex; // rotation corrected, real coords not screen
-          double rider_rot_center_x = rider_rot_center_x_real - 0.04; // rotation corrected, real coords not screen
+          double rider_rot_center_x = rider_rot_center_x_real; // wasFF  - 0.04; // rotation corrected, real coords not screen
           double rider_rot_center_y = y[0]/scaley; // rotation corrected, real coords not screen
           double rider_drive_center_y = rider_rot_center_y + RIDER_DRIVE_HEIGHT; // rotation corrected, real coords not screen
+
+          double rider_torso_height_correction = 
+            // wasFF 0.86 * (Math.cos(total_drag()/rider_weight) - 1);
+            // 0.8 * (Math.cos((rider_center_x-cg_x_pos)/0.8) - 1);
+            Math.sqrt(Math.max(0, 0.8*0.8 - rider_countering_x_offset*rider_countering_x_offset)) - 0.8 ;
+
+          // if in 2 straps, keep it for visual only 
+          if (!Double.isNaN(BACK_FOOTSTRAP_XPOS) && !Double.isNaN(FRONT_FOOTSTRAP_XPOS))
+            rider_torso_height_correction *= 0.2;
 
           // draw mast boom sail or kite lines
           if (craft_type == KITEFOIL) {
@@ -9861,11 +9967,11 @@ public class FoilBoard extends JApplet {
           i = 0;
 
           // front foot
-          to_screen_x_y(new Point3D(-0.1+strut.xpos - 0.7*con.cg_pos + 0.2*rider_center_x - 0.22,0,strut.span+BOARD_THICKNESS),x,y,i++,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-          to_screen_x_y(new Point3D(-0.1+strut.xpos - 0.7*con.cg_pos + 0.2*rider_center_x - 0.32,0,strut.span+BOARD_THICKNESS),x,y,i++,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+          to_screen_x_y(new Point3D(front_foot_heel_x       ,0,strut.span+BOARD_THICKNESS),x,y,i++,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+          to_screen_x_y(new Point3D(front_foot_heel_x - 0.10,0,strut.span+BOARD_THICKNESS),x,y,i++,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
           // front leg.. etc
           x[i  ] = screen_off_x+toInt(scalex*(rider_rot_center_x - 0.20));
-          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 0.86));
+          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 0.86 + rider_torso_height_correction));
 
           // thick hand
           // x[i  ] = screen_off_x+toInt(scalex*(rider_rot_center_x - 0.20));
@@ -9881,42 +9987,44 @@ public class FoilBoard extends JApplet {
 
 
           x[i  ] = screen_off_x+toInt(scalex*(rider_rot_center_x - 0.20));
-          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.34));
+          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.34 + rider_torso_height_correction));
+          // front hand
           x[i  ] = screen_off_x+toInt(scalex*(rider_rot_center_x - 0.45));
-          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.11));
+          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.11 + rider_torso_height_correction));
           x[i  ] = screen_off_x+toInt(scalex*(rider_rot_center_x - 0.58));
-          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.5));
+          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.5 + rider_torso_height_correction));
           x[i  ] = screen_off_x+toInt(scalex*(rider_rot_center_x - 0.5));
-          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.6));
+          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.6 + rider_torso_height_correction));
           x[i  ] = screen_off_x+toInt(scalex*(rider_rot_center_x - 0.42));
-          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.35));
+          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.35 + rider_torso_height_correction));
+          // shoulder 
           x[i  ] = screen_off_x+toInt(scalex*(rider_rot_center_x - 0.20));
-          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.6));
+          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.6 + rider_torso_height_correction));
           x[i  ] = screen_off_x+toInt(scalex*(rider_rot_center_x - 0.15));
-          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.6));
+          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.6 + rider_torso_height_correction));
           // top head
           x[i  ] = screen_off_x+toInt(scalex*(rider_rot_center_x - 0.13));
-          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.82));
+          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.82 + rider_torso_height_correction));
 
           x[i  ] = screen_off_x+toInt(scalex*(rider_rot_center_x + 0.13));
-          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.82));
+          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.82 + rider_torso_height_correction));
           x[i  ] = screen_off_x+toInt(scalex*(rider_rot_center_x + 0.15));
-          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.6));
+          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.6 + rider_torso_height_correction));
           x[i  ] = screen_off_x+toInt(scalex*(rider_rot_center_x + 0.23));
-          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.6));
+          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.6 + rider_torso_height_correction));
           x[i  ] = screen_off_x+toInt(scalex*(rider_rot_center_x + 0.23));
-          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.4));
+          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.4 + rider_torso_height_correction));
           x[i  ] = screen_off_x+toInt(scalex*(rider_rot_center_x + 0.20));
-          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.35));
+          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 1.35 + rider_torso_height_correction));
           x[i  ] = screen_off_x+toInt(scalex*(rider_rot_center_x + 0.20));
-          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 0.86));
+          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 0.86 + rider_torso_height_correction));
 
           // back foot
-          to_screen_x_y(new Point3D(-0.1+strut.xpos - 0.5*con.cg_pos + 0.2*rider_center_x + 0.24,0,strut.span+ BOARD_THICKNESS),x,y,i++,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-          to_screen_x_y(new Point3D(-0.1+strut.xpos - 0.5*con.cg_pos+  0.2*rider_center_x + 0.14,0,strut.span+ BOARD_THICKNESS),x,y,i++,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+          to_screen_x_y(new Point3D(back_foot_heel_x       ,0,strut.span+ BOARD_THICKNESS),x,y,i++,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+          to_screen_x_y(new Point3D(back_foot_heel_x - 0.10,0,strut.span+ BOARD_THICKNESS),x,y,i++,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
 
           x[i  ] = screen_off_x+toInt(scalex*(rider_rot_center_x));
-          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 0.8));
+          y[i++] = screen_off_y+toInt(scaley*(rider_rot_center_y-0.031 + 0.8 + rider_torso_height_correction));
 
           off1Gg.setColor(Color.yellow);
           off1Gg.fillPolygon(x,y,i);
@@ -9930,57 +10038,82 @@ public class FoilBoard extends JApplet {
           //off1Gg.fillPolygon(x,y,3);
           double drag_x;
 
-          to_screen_x_y(new Point3D(wing.xpos+wing.chord_xoffs+0.3*wing.chord,0,wing.chord_zoffs),                        x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+          to_screen_x_y(new Point3D(wing.xpos+wing.chord_xoffs+0.250*wing.chord,0,wing.chord_zoffs),                        x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
           //         need offx here ^^^  ? or not?
-          to_screen_x_y(new Point3D(wing.xpos+wing.chord_xoffs+0.3*wing.chord,0,wing.chord_zoffs + wing.lift*force_scale),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+          to_screen_x_y(new Point3D(wing.xpos+wing.chord_xoffs+0.250*wing.chord,0,wing.chord_zoffs + wing.lift*force_scale),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
           drawVectorVert(wing.lift > 0 ? Color.green : Color.red, "Wing Lift", x[0], y[0], y[1]);
 
-          to_screen_x_y(new Point3D(wing.xpos+wing.chord_xoffs+0.7*wing.chord,0,wing.chord_zoffs),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-          to_screen_x_y(new Point3D(wing.xpos+wing.chord_xoffs+0.7*wing.chord + wing.drag*force_scale,0,wing.chord_zoffs),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+          to_screen_x_y(new Point3D(wing.xpos+wing.chord_xoffs+0.251*wing.chord,0,wing.chord_zoffs),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+          to_screen_x_y(new Point3D(wing.xpos+wing.chord_xoffs+0.251*wing.chord + wing.drag*force_scale,0,wing.chord_zoffs),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
           drawVectorHoriz(Color.red, "Wing Drag", y[0], x[0], x[1]);
 
-          to_screen_x_y(new Point3D(stab.xpos+stab.chord_xoffs+0.3*stab.chord,0,stab.chord_zoffs),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-          to_screen_x_y(new Point3D(stab.xpos+stab.chord_xoffs+0.3*stab.chord,0,stab.chord_zoffs + stab.lift*force_scale),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+          to_screen_x_y(new Point3D(stab.xpos+stab.chord_xoffs+0.250*stab.chord,0,stab.chord_zoffs),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+          to_screen_x_y(new Point3D(stab.xpos+stab.chord_xoffs+0.250*stab.chord,0,stab.chord_zoffs + stab.lift*force_scale),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
           drawVectorVert(stab.lift > 0 ? Color.green : Color.red, "Stab Lift", x[0], y[0], y[1]);
 
-          drag_x = offx + stab.xpos + 0.5*stab.chord;
-          to_screen_x_y(new Point3D(stab.xpos+stab.chord_xoffs+0.7*stab.chord,0,stab.chord_zoffs),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-          to_screen_x_y(new Point3D(stab.xpos+stab.chord_xoffs+0.7*stab.chord+ stab.drag*force_scale,0,stab.chord_zoffs),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+          to_screen_x_y(new Point3D(stab.xpos+stab.chord_xoffs+0.251*stab.chord,0,stab.chord_zoffs),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+          to_screen_x_y(new Point3D(stab.xpos+stab.chord_xoffs+0.251*stab.chord+ stab.drag*force_scale,0,stab.chord_zoffs),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
           drawVectorHoriz(Color.red, "Stab Drag", y[0], x[0], x[1]);
 
 
-          // combined CG is a bit forward from rider CG
-          drawVectorVert(Color.red, "Rider Weight", 
-                         screen_off_x+toInt(scalex*(cg_x_pos_rot)),
-                         screen_off_y+toInt(scaley*(rider_rot_center_y-0.031+1.0)),
-                         screen_off_y+toInt(scaley*(rider_rot_center_y-0.031+1.0- 
+          if (force_labels) {
+            to_screen_x_y(new Point3D(fuse.xpos+fuse.chord_xoffs+0.250*fuse.chord,0,fuse.chord_zoffs),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+            to_screen_x_y(new Point3D(fuse.xpos+fuse.chord_xoffs+0.250*fuse.chord,0,fuse.chord_zoffs + fuse.lift*force_scale),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+            drawVectorVert(fuse.lift > 0 ? Color.green : Color.red, "Fuse Lift", x[0], y[0], y[1]);
+
+            to_screen_x_y(new Point3D(fuse.xpos+fuse.chord_xoffs+0.251*fuse.chord,0,fuse.chord_zoffs),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+            to_screen_x_y(new Point3D(fuse.xpos+fuse.chord_xoffs+0.251*fuse.chord+ fuse.drag*force_scale,0,fuse.chord_zoffs),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+            drawVectorHoriz(Color.red, "Fuse Drag", y[0], x[0], x[1]);
+          }
+
+          drawVectorVert(Color.red, "Effective Rider Weight Pos", 
+                         screen_off_x+toInt(scalex*(cg_x_pos_rot_x)),
+                         screen_off_y+toInt(scaley*(cg_x_pos_rot_y)),
+                         screen_off_y+toInt(scaley*(cg_x_pos_rot_y -
                                                     // vpp.steady_flight_at_given_speed___load*force_scale
                                                     rider_weight*force_scale
                                                     )));
 
-          // board weight.
-          // board weight arm is 1/2 length minus mast LE to transom
-          to_screen_x_y(new Point3D((-BOARD_LENGTH/2+mast_xpos+MAST_LE_TO_TRANSOM),0,strut.span+BOARD_THICKNESS/2),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-          to_screen_x_y(new Point3D((-BOARD_LENGTH/2+mast_xpos+MAST_LE_TO_TRANSOM),0,strut.span+BOARD_THICKNESS/2-BOARD_WEIGHT*force_scale),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-          drawVectorVert(Color.red, "Board Weight", x[0], y[0], y[1]);
+          drawVectorHoriz(Color.red, "Effective FWD Drive", 
+                          screen_off_y+toInt(scaley*(cg_x_pos_rot_y)),
+                          screen_off_x+toInt(scalex*(cg_x_pos_rot_x)), 
+                          screen_off_x+toInt(scalex*(cg_x_pos_rot_x - total_drag()*force_scale)));
 
-          // ws rig weight
-          to_screen_x_y(new Point3D((mast_xpos-WS_MASTBASE_MAST_LE),0,strut.span+2*BOARD_THICKNESS),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-          to_screen_x_y(new Point3D((mast_xpos-WS_MASTBASE_MAST_LE),0,strut.span+2*BOARD_THICKNESS-(rider_weight*mast_foot_pressure_k+RIG_WEIGHT)*force_scale),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-          drawVectorVert(Color.red, "MFP", x[0], y[0], y[1]);
+          if (force_labels) {
+            drawVectorVert(Color.orange, "Rider Weight", 
+                           screen_off_x+toInt(scalex*(rider_rot_center_x)),
+                           screen_off_y+toInt(scaley* rider_drive_center_y), // wasFF (rider_rot_center_y-0.031+1.0)),
+                           screen_off_y+toInt(scaley*(rider_drive_center_y - // wasFF rider_rot_center_y-0.031+1.0- 
+                                                      // vpp.steady_flight_at_given_speed___load*force_scale
+                                                      rider_weight*force_scale
+                                                      )));
+
+            // board weight.
+            // board weight arm is 1/2 length minus mast LE to transom
+            to_screen_x_y(new Point3D((-BOARD_LENGTH/2+mast_xpos+MAST_LE_TO_TRANSOM),0,strut.span+BOARD_THICKNESS/2),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+            to_screen_x_y(new Point3D((-BOARD_LENGTH/2+mast_xpos+MAST_LE_TO_TRANSOM),0,strut.span+BOARD_THICKNESS/2-BOARD_WEIGHT*force_scale),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+            drawVectorVert(Color.red, "Board Weight", x[0], y[0], y[1]);
+
+            // ws rig weight
+            to_screen_x_y(new Point3D((mast_xpos-WS_MASTBASE_MAST_LE),0,strut.span+2*BOARD_THICKNESS),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+            to_screen_x_y(new Point3D((mast_xpos-WS_MASTBASE_MAST_LE),0,strut.span+2*BOARD_THICKNESS-(rider_weight*mast_foot_pressure_k+RIG_WEIGHT)*force_scale),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+            drawVectorVert(Color.red, "MFP", x[0], y[0], y[1]);
 
 
 
-          if (craft_type == WINDFOIL)
-            drawVectorHoriz(Color.red, "Sail FWD Drive", 
-                            screen_off_y+toInt(scaley*( rider_drive_center_y + 1)), // ~1 is distance to sail COE above hands/boom
-                            screen_off_x+toInt(scalex*(mast_xpos)), 
-                            screen_off_x+toInt(scalex*(mast_xpos - total_drag()*force_scale)));
-          else
-            drawVectorHoriz(Color.red, "Kite FWD Drive", 
-                            screen_off_y+toInt(scaley*( rider_drive_center_y)), // 
-                            screen_off_x+toInt(scalex*(rider_rot_center_x - 0.1)), 
-                            screen_off_x+toInt(scalex*(rider_rot_center_x - 0.1 - total_drag()*force_scale)));
+            if (craft_type == WINDFOIL)
+              drawVectorHoriz(Color.orange, "Sail FWD Drive", 
+                              screen_off_y+toInt(scaley*(rider_drive_center_y)),
+                              screen_off_x+toInt(scalex*(rider_rot_center_x_real)),
+                              screen_off_x+toInt(scalex*(rider_rot_center_x_real - total_drag()*force_scale)));
+            else
+              drawVectorHoriz(Color.orange, "Kite FWD Drive", 
+                              screen_off_y+toInt(scaley*(rider_drive_center_y)), // 
+                              screen_off_x+toInt(scalex*rider_rot_center_x_real), // wasFF  (rider_rot_center_x - 0.1)), 
+                              screen_off_x+toInt(scalex*(rider_rot_center_x_real - total_drag()*force_scale))); // wasFF (rider_rot_center_x - 0.1 - total_drag()*force_scale)));
+
+          }
+
 
           drag_x = offx + strut.xpos + 0.5*strut.chord;
           // why -offy/2 ? because offy is negative
@@ -10423,7 +10556,7 @@ public class FoilBoard extends JApplet {
 
         if (viewflg == VIEW_FORCES) {
           off1Gg.setColor(force_labels ? Color.yellow : Color.cyan);
-          off1Gg.drawString("Force Labels",85,25);
+          off1Gg.drawString("Details: Labels, Aux forces",85,25);
         } else if (viewflg == VIEW_3D_MESH) {
           off1Gg.setColor(perspective ? Color.cyan :  Color.yellow);
           off1Gg.drawString("Ortographic",85,25);
@@ -12716,7 +12849,7 @@ public class FoilBoard extends JApplet {
               "<table border='0'>\n"+
               "<thead >\n"+
               "<tr style='background-color:yellow'>\n"+
-              "<th>Performance Evaluation</th><th>Speed<br>"+v_u+"</th><th>Lift<br>"+f_u+"</th><th>Drag<br>"+f_u+"</th><th>Lift & C.G.<br>Location</th></tr></thead>\n"+
+              "<th>Performance Evaluation</th><th>Speed<br>"+v_u+"</th><th>Lift<br>"+f_u+"</th><th>Drag<br>"+f_u+"</th><th>Rider C.G.<br>Location</th></tr></thead>\n"+
               "<tbody>\n"+
               "  <tr style='background-color:#ffffff'><td>Takeoff (Min Speed)</td><td>$TKS</td><td>$TKL</td><td>$TKD</td><td>$TKX</td></tr>\n"+
               "  <tr style='background-color:#f0f0f0'><td>Cruise (Least Drag)</td><td>$CRS</td><td>$CRL</td><td>$CRD</td><td>$CRX</td></tr>\n"+

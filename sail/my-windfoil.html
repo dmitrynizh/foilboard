@@ -22,26 +22,29 @@
     <!-- this is 0.5 degree aoa which seem what I have currently... 
   <PARAM NAME="Wing"  VALUE="NACA_63A-410.foil  0.135/0;0.125/-0.02;0.115/-0.02;0.085/0.004;0.055/0.006 0.88 12 3.34 0.0"/>
     -->
-  <PARAM NAME="Wing"  VALUE="Aquila_9.3% 0.135/0;0.125/-0.02;0.115/-0.02;0.085/0.004;0.055/0.006 0.88 12 3.34 1"/>
+  <PARAM NAME="Wing"  VALUE="Aquila_9.3% 0.135/0;0.125/-0.02;0.115/-0.02;0.085/0.004;0.055/0.006 0.88 12 3.34 0.3"/>
 
-  <!-- My stab is NACA2410,  here non-inverted varaint -->
+  <!-- My stab is NACA2410 - NACA1408,  here non-inverted varaint -->
   <!-- positive stab camber and negative aoa seem better....
-  <PARAM NAME="Stab"  VALUE="NACA_4_Series 0.07 0.55 12 2 -3"/>  -->
+  <PARAM NAME="Stab"  VALUE="NACA_4_Series 0.07 0.55 10 2 -3"/>  -->
 
-  <!-- My stab is NACA2410, currently inverted.... -->
-  <PARAM NAME="Stab"  VALUE="NACA_4_Series 0.085/0;0.076/0.012;0.06/0.024;0.03/0.039 0.52 12 -1.5 1.5"/> 
+  <!-- currently inverted.... -->
+  <PARAM NAME="Stab"  VALUE="NACA_4_Series 0.085/0;0.076/0.012;0.06/0.024;0.03/0.039 0.52 8 -1 0"/> 
 
   <!-- experimental symm stab 
   <PARAM NAME="Stab"  VALUE="NACA_4_Series 0.085/0;0.076/0.012;0.06/0.024;0.03/0.039 0.52 12 0 -2.4"/> -->
 
   <!-- my mast profile is NACA 63 012, aprox it here with NACA0412-->
   <PARAM NAME="Mast"  VALUE="NACA_4_Series 0.125/0;0.125/0.06 0.85 12 0 0 0.33"/>
-  <PARAM NAME="Fuse"  VALUE="NACA_4_Series 0.82 0.025 3 0 -1.55"/>
+  <PARAM NAME="Fuse"  VALUE="NACA_4_Series 0.82 0.025 3 0 -1"/>
 
     <!-- my modded ML70 is 4kg  and less than 190cm -->
+  <PARAM NAME="WSMAST2MASTLE"  VALUE="1"/>
   <PARAM NAME="BW"  VALUE="40"/>
   <PARAM NAME="RW"  VALUE="90"/>
   <PARAM NAME="BL"  VALUE="1.89"/>
+  <PARAM NAME="BACK_FOOTSTRAP_XPOS"  VALUE="0.1"/>
+  <PARAM NAME="FRONT_FOOTSTRAP_XPOS"  VALUE="-0.48"/>
 </APPLET></P>
 </BODY>
 </HTML>
