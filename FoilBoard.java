@@ -1143,7 +1143,7 @@ public class FoilBoard extends JApplet {
   static double convdr = 3.1415926/180.;
   static double pid2 = 3.1415926/2.0;
 
-  static double liftOverDrag,viscos;
+  static double viscos;
 
   static double usq,vsq,alt,altmax;
 
@@ -1258,7 +1258,7 @@ public class FoilBoard extends JApplet {
 
   int stall_model_type;
 
-  int lunits,lftout,planet,dragOut;
+  int lunits, lftout, planet, dragOut;
   int display_units = METRIC;
 
   //  foil display state
@@ -2289,7 +2289,7 @@ public class FoilBoard extends JApplet {
     in.flt.tf_cruise_starting_speed.setText(""+filter0(min_takeoff_speed));
     min_takeoff_lift  = min_lift;
     min_takeoff_drag  = max_drag;
-    min_takeoff_cg =  // can't use the box - was not set yet con.outCGPosition.getText();
+    min_takeoff_cg =  // can't use the box - was not set yet con.out_board_NP_xpos.getText();
       niceCGPositionInfo(con.rider_cg);
     return min_takeoff_speed_info = 
       "This foil has been evaluated for minimum possible \n" + 
@@ -2310,7 +2310,7 @@ public class FoilBoard extends JApplet {
     cruising_speed = speed;
     cruising_lift  = min_lift;
     cruising_drag  = min_drag;
-    cruising_cg =  // can't use the box - was not set yet con.outCGPosition.getText();
+    cruising_cg =  // can't use the box - was not set yet con.out_board_NP_xpos.getText();
       niceCGPositionInfo(con.rider_cg);
     return cruising_info = 
       "This foil has been evaluated for minimum possible \n" + 
@@ -2331,7 +2331,7 @@ public class FoilBoard extends JApplet {
     max_speed_speed = speed;
     max_speed_lift  = min_lift;
     max_speed_drag  = max_drag;
-    max_speed_cg = // can't use the box - was not set yet con.outCGPosition.getText();
+    max_speed_cg = // can't use the box - was not set yet con.out_board_NP_xpos.getText();
       niceCGPositionInfo(con.rider_cg);
     return max_speed_info = 
       "This foil has been evaluated for maximum possible \n" 
@@ -2374,17 +2374,14 @@ public class FoilBoard extends JApplet {
 
   String niceCGPositionInfo (double pos) {
     if (pos >= 0.01) { // 1cm or more fore
-      // con.lbl_cg_pos.setText("CG to Mast");
       if (display_units == METRIC || display_units == METRIC_2)
         return pprint(filter0(    100*Math.abs(pos/*-wing.xpos*/))) + " cm fore";
       else
         return pprint(filter0(39.3701*Math.abs(pos/*-wing.xpos*/))) + " in fore";
     } else if (pos > - 0.01) { // above mast LE
-      // con.lbl_cg_pos.setText("CG above Mast");
       return "Above";
       // return "" + filter0(100*pos/fuse.chord) + " % aft";
     } else {
-      // con.lbl_cg_pos.setText("CG to Mast");
       if (display_units == METRIC || display_units == METRIC_2)
         return pprint(filter0(    100*Math.abs(pos/*-wing.xpos*/))) + " cm aft";
       else
@@ -2435,7 +2432,8 @@ public class FoilBoard extends JApplet {
       con.outPower.setText(make_power_info_in_display_units(drag, velocity, true));
       con.outTotalLDRatio.setText(""+filter1(lift/drag));
 
-      con.outCGPosition.setText(niceCGPositionInfo(cg_position));      
+      con.out_rider_CG_xpos.setText(niceCGPositionInfo(con.rider_cg));      
+      con.out_board_NP_xpos.setText(niceCGPositionInfo(cg_position));      
     }
   }
 
@@ -2523,28 +2521,28 @@ public class FoilBoard extends JApplet {
 
     }
 
-    liftOverDrag = Math.abs(current_part.cl/current_part.cd);
+    
 
 
     // part 2. update GUI
 
 
     if (can_do_gui_updates) {
-      con.outlft_setText((lftout == 1)
-                         ? // Cl
-                         pprint(filter3(current_part.cl))
-                         : // lift force
-                         make_force_info_in_display_units(current_part.lift, true));
+      // lift force
+      con.outlft_setText(make_force_info_in_display_units(current_part.lift, true));
+      // drag force
+      con.outDrag_setText(make_force_info_in_display_units(current_part.drag, true));
 
+      String outLD_text  = "";
+      switch (lftout) {
+      case 0: outLD_text = pprint(filter1(Math.abs(current_part.cl/current_part.cd))); break; // L/D
+      case 1: outLD_text = pprint(filter3(current_part.cl)); break;
+      case 2: outLD_text = pprint(filter3(current_part.cd)); break;
+      case 3: outLD_text = pprint(filter0(current_part.reynolds)); break;
+      }
+      con.outLD_setText(outLD_text);
 
-      con.outDrag_setText((dragOut == 1)
-                          ? // Cd
-                          pprint(filter3(current_part.cd))
-                          : // drag force
-                          make_force_info_in_display_units(current_part.drag, true));
-
-      con.outLD_setText(pprint(filter1(liftOverDrag)));
-      con.outReynolds_setText(pprint(filter0(current_part.reynolds)));
+      //con.outReynolds_setText(pprint(filter0(current_part.reynolds)));
 
       // TODO: maybe minimize re-update more? This can be placed in
       // spots that directly afftect the data (parts geom, VPP targets etc)
@@ -5486,9 +5484,9 @@ public class FoilBoard extends JApplet {
 
   class Controls extends Panel {
     FoilBoard app;
-    JLabel l1,l2,blank,pitchMomentJLabel,liftOverDrag,reynoldsJLabel,FSlabel, lbl_cg_pos;
+    JLabel l1,l2,blank,liftOverDrag,FSlabel;
     double cg_pos, cg_pos_board_level, rider_cg;
-    JComboBox outch,dragOutputCh,untch;
+    JComboBox out_CB, untch;
 
     JTextField outlft_wing, outlft_stab, outlft_strut, outlft_fuse;
     JTextField outDrag_wing, outDrag_stab, outDrag_strut, outDrag_fuse;
@@ -5497,14 +5495,14 @@ public class FoilBoard extends JApplet {
 
     JTextField[] outlft_arr, outDrag_arr, outLD_arr, outReynolds_arr;
 
-    JTextField outTotalLift, outTotalDrag, outCGPosition, outPower, outTotalLDRatio;
+    JTextField outTotalLift, outTotalDrag, out_board_NP_xpos, out_rider_CG_xpos, outPower, outTotalLDRatio;
 
-    JTextField outMoment; // add mements????
+    JTextField outMoment; // add moments????
 
-    Button bt3,ibt_flight,ibt_shape,ibt_size,ibt_sel_plot,ibt_analysis, ibt_env;
+    Button help_bt;
     Button[] all_inputs;
     Button all_outputs[];
-    ActionListener bt_wing_al, ibt_flight_al, bt_stab_al, bt_html_al;
+    ActionListener bt_wing_al, bt_stab_al;
     boolean html_render = true;
 
     void switch_to_part (Part p) {
@@ -5567,7 +5565,7 @@ public class FoilBoard extends JApplet {
       if (can_do_gui_updates) out.plot.loadPlot();
     }
 
-    JLabel addJLabel (String text, Color fg, Color bg, int align) {
+    JLabel add_label (String text, Color fg, Color bg, int align) {
       JLabel lb = new JLabel(text, align);
       if (fg != null) lb.setForeground(fg);
       if (bg != null) lb.setBackground(bg);
@@ -5642,10 +5640,10 @@ public class FoilBoard extends JApplet {
       app = target;
       setLayout(new GridLayout(9,/*ignored!*/0,5,5));
 
-      bt3 = new Button("Help");
-      bt3.setBackground(Color.red);
-      bt3.setForeground(Color.white);
-      bt3.addActionListener(new ActionListener() {
+      help_bt = new Button("Help");
+      help_bt.setBackground(Color.red);
+      help_bt.setForeground(Color.white);
+      help_bt.addActionListener(new ActionListener() {
           @Override
           public void actionPerformed(ActionEvent e) {
             // helpPopUp_html(); // pandoc README.md -f markdown -t html -s -o README.html --metadata pagetitle="README"
@@ -5670,65 +5668,58 @@ public class FoilBoard extends JApplet {
           }
         });
 
-      outch = new JComboBox();
-      outch.setBackground(Color.white);
-      outch.setForeground(color_very_dark);
-      outch.addItem("Lift ");
-      outch.addItem("  Cl ");
-      outch.addItem("Total Lift");
-      outch.setSelectedIndex(0);
-      outch.addActionListener(new ActionListener() {
+      out_CB = new JComboBox();
+      out_CB.setBackground(Color.decode("#F0F0F0"));
+      out_CB.setForeground(color_very_dark);
+      out_CB.addItem("L/D ratio");
+      out_CB.addItem("  Cl");
+      out_CB.addItem(" Cd ");
+      out_CB.addItem("Reynolds");
+      out_CB.setSelectedIndex(0);
+      out_CB.addActionListener(new ActionListener() {
           public void actionPerformed(ActionEvent arg0) {
-            lftout = outch.getSelectedIndex();
+            lftout = out_CB.getSelectedIndex();
             recomp_all_parts();
             can_do_gui_updates = true;
           }
         });
 
-      dragOutputCh = new JComboBox();
-      dragOutputCh.setBackground(Color.white);
-      dragOutputCh.setForeground(color_very_dark);
-      dragOutputCh.addItem("Drag");
-      dragOutputCh.addItem(" Cd ");
-      dragOutputCh.setSelectedIndex(0);
-      dragOutputCh.addActionListener(new ActionListener() {
-          public void actionPerformed(ActionEvent arg0) {
-            dragOut = dragOutputCh.getSelectedIndex();
-            recomp_all_parts();
-            can_do_gui_updates = true;
-          }
-        });
+      // dragOutputCh = new JComboBox();
+      // dragOutputCh.setBackground(Color.white);
+      // dragOutputCh.setForeground(color_very_dark);
+      // dragOutputCh.addItem("Drag");
+      // dragOutputCh.setSelectedIndex(0);
+      // dragOutputCh.addActionListener(new ActionListener() {
+      //     public void actionPerformed(ActionEvent arg0) {
+      //       dragOut = dragOutputCh.getSelectedIndex();
+      //       recomp_all_parts();
+      //       can_do_gui_updates = true;
+      //     }
+      //   });
 
-      pitchMomentJLabel = new JLabel("Cm",JLabel.RIGHT);
+      // pitchMomentJLabel = new JLabel("Cm",JLabel.RIGHT);
  
-      liftOverDrag = new JLabel("L/D ratio",JLabel.RIGHT);
-      liftOverDrag.setForeground(color_very_dark);
-
-      reynoldsJLabel = new JLabel("Reynolds #", JLabel.RIGHT);
-      reynoldsJLabel.setForeground(color_very_dark);
+      // liftOverDrag = new JLabel("L/D ratio",JLabel.RIGHT);
+      // liftOverDrag.setForeground(color_very_dark);
+      // 
+      // reynoldsJLabel = new JLabel("Reynolds #", JLabel.RIGHT);
+      // reynoldsJLabel.setForeground(color_very_dark);
 
 
       // row 1 
-
-
-      addJLabel("Kite/Wind Foil", Color.red, null, JLabel.RIGHT);
-      addJLabel("Simulator v1.0", Color.red, null, JLabel.LEFT);
+      add_label("Kite/Wind Foil", Color.red, null, JLabel.RIGHT);
+      add_label("Simulator v1.0", Color.red, null, JLabel.LEFT);
       // doe snot fit in 1
-      // addJLabel(t_foil_name, null, null, JLabel.RIGHT);
-      addJLabel(make_name, null, null, JLabel.RIGHT);
-      addJLabel(model_name, null, null, JLabel.RIGHT);
-      addJLabel(year_etc, null, null, JLabel.RIGHT);
-
-
-      // add(l2);
-      // add(new JLabel("Student ", JLabel.RIGHT));
-      // add(new JLabel(" Version 1.5b", JLabel.LEFT));
-      // add(l1);
+      // add_label(t_foil_name, null, null, JLabel.RIGHT);
+      add_label(make_name, null, null, JLabel.RIGHT);
+      add_label(model_name, null, null, JLabel.RIGHT);
+      add_label(year_etc, null, null, JLabel.RIGHT);
+      add(help_bt); // HELP
 
       // row 2
       {
 
-        addJLabel("Foil part:", null, null, JLabel.RIGHT);
+        add_label("Foil part:", null, null, JLabel.RIGHT);
         
         final Button bt_strut = new_button("Mast");
         part_button = bt_strut;
@@ -5769,18 +5760,22 @@ public class FoilBoard extends JApplet {
 
         add(bt_strut);
         add(bt_fuse);
+        add_label("Totals", null, null, JLabel.CENTER);
 
       }
 
+      // row 3
+      add_label("Lift : ", null, null, JLabel.RIGHT);
 
-      add(outch);
       outlft_wing = addOutput();
       outlft_stab = addOutput();
       outlft_strut = addOutput();
       outlft_fuse = addOutput();
       outlft_arr = new JTextField[]{outlft_wing, outlft_stab, outlft_strut, outlft_fuse};
+      outTotalLift = addOutput();
 
-      add(dragOutputCh);
+      // row 4
+      add_label("Drag : ", null, null, JLabel.RIGHT); // was add(dragOutputCh);
       outDrag_wing = addOutput();
       outDrag_stab = addOutput();
       outDrag_strut = addOutput();
@@ -5806,78 +5801,80 @@ public class FoilBoard extends JApplet {
       //     }
       //   });
 
-      add(liftOverDrag);
+      outTotalDrag = addOutput();
+      
+      // row 5
+      add(out_CB); // add(liftOverDrag);
       outLD_wing = addOutput();
       outLD_stab = addOutput();
       outLD_strut = addOutput();
       outLD_fuse = addOutput();
       outLD_arr  = new JTextField[]{outLD_wing,outLD_stab,outLD_strut,outLD_fuse};
+      outTotalLDRatio = addOutput();
 
       // row 6
-      add(reynoldsJLabel);
-      outReynolds_wing = addOutput();
-      outReynolds_stab = addOutput();
-      outReynolds_strut = addOutput();
-      outReynolds_fuse = addOutput();
-      outReynolds_arr  = new JTextField[]{outReynolds_wing, outReynolds_stab, outReynolds_strut, outReynolds_fuse};
+      //add(reynoldsJLabel);
+      add(new JLabel(""));
+      add(new JLabel(""));
+      add(new JLabel(""));
+      add(new JLabel(""));
+      add(new JLabel(""));
+      add(new JLabel(""));
 
+      // outReynolds_wing = addOutput();
+      // outReynolds_stab = addOutput();
+      // outReynolds_strut = addOutput();
+      // outReynolds_fuse = addOutput();
+
+      outReynolds_arr  = new JTextField[]{outReynolds_wing, outReynolds_stab, outReynolds_strut, outReynolds_fuse};
       
       // row 7. Panel tab coplot_trace_countols. output coplot_trace_countols
 
-      addJLabel("Units: ", null, null, JLabel.RIGHT);
-      add(untch);
-      add(bt3);
+      add(new JLabel(""));
+      add(new JLabel(""));
+      add(new JLabel(""));
+      add(new JLabel(""));
+      add_label("Drive Power:", null, null, JLabel.RIGHT);
+      outPower = addOutput();
 
       boolean want_matte_border = false;
 
-      if (want_matte_border) {
-        JLabel jlbl = new JLabel("Total Lift", JLabel.RIGHT);
-        jlbl.setBorder(javax.swing.BorderFactory.createMatteBorder(1, 1, 0, 0, color_very_dark));
-        add(jlbl);
-      } else
-        addJLabel("Total Lift", null, null, JLabel.RIGHT);
-
-      outTotalLift = addOutput();
-
+      // if (want_matte_border) {
+      //   JLabel jlbl = new JLabel("Total Lift", JLabel.RIGHT);
+      //   jlbl.setBorder(javax.swing.BorderFactory.createMatteBorder(1, 1, 0, 0, color_very_dark));
+      //   add(jlbl);
+      // } else
+      //   add_label("Total Lift", null, null, JLabel.RIGHT);
 
       // row 8
-      add(new JLabel("Total L/D"));
-      outTotalLDRatio = addOutput();
+      add_label("Units: ", null, null, JLabel.RIGHT);
+      add(new JLabel(""));
       add(new JLabel(""));
 
-      if (want_matte_border) {
-        JLabel jlbl = new JLabel("Total Drag", JLabel.RIGHT);
-        jlbl.setBorder(javax.swing.BorderFactory.createMatteBorder(0, 1, 1, 0, color_very_dark));
-        add(jlbl);
-      } else
-        addJLabel("Total Drag", null, null, JLabel.RIGHT);
+      add_label("Rider C.G. ", null, null, JLabel.RIGHT);
+      add_label("to Mast L.E. :", null, null, JLabel.LEFT);
+      out_rider_CG_xpos = addOutput();
 
-      outTotalDrag = addOutput();
+      // add(new JLabel("Total L/D"));
+      // add(new JLabel(""));
+      // if (want_matte_border) {
+      //   JLabel jlbl = new JLabel("Total Drag", JLabel.RIGHT);
+      //   jlbl.setBorder(javax.swing.BorderFactory.createMatteBorder(0, 1, 1, 0, color_very_dark));
+      //   add(jlbl);
+      // } else
+      //   add_label("Total Drag", null, null, JLabel.RIGHT);
+
 
       // row 9 
-      add(new JLabel("Power"));
-      outPower = addOutput();
+      add(untch);
       add(new JLabel(""));
-
-      lbl_cg_pos = addJLabel("CG to Mast LE", null, null, JLabel.RIGHT);
-      outCGPosition = addOutput();
-
-      // row 8
-      //add(ibt_env);
-      //add(ibt_sel_plot);
-      //add(bt_probe);
-      //add(bt_geom);
-      //add(bt_data);
-
-      // row 9
-      // add(ibt_analysis);
-      // addJLabel("", null, null, JLabel.RIGHT);
-      // add(bt_gages);
-      // add(bt_plot);
+      add(new JLabel(""));
+      add_label("Board N.P. ", null, null, JLabel.RIGHT);
+      add_label("to Mast L.E. :", null, null, JLabel.LEFT);
+      out_board_NP_xpos = addOutput();
     }
 
-
-  } // Con
+  } // Controls
 
   class In extends javax.swing.JTabbedPane {
     FoilBoard app;
@@ -7654,7 +7651,7 @@ public class FoilBoard extends JApplet {
         add(rightPanel);
       }
 
-      JLabel addJLabel (String text, Color fg, int align) {
+      JLabel add_label (String text, Color fg, int align) {
         JLabel lb = new JLabel(text, align);
         if (fg != null) lb.setForeground(fg);
         add(lb);
@@ -7797,7 +7794,7 @@ public class FoilBoard extends JApplet {
           app = target;
           setLayout(new GridLayout(7,2,2,10));
 
-          part_name = addJLabel("---", Color.blue, JLabel.RIGHT);
+          part_name = add_label("---", Color.blue, JLabel.RIGHT);
 
           size_lbl = new JLabel("Chord-ft", JLabel.CENTER);
 
@@ -7912,7 +7909,7 @@ public class FoilBoard extends JApplet {
           aspect_tf.setForeground(Color.yellow);
 
           add(part_name);
-          add(addJLabel("Size", Color.blue, JLabel.LEFT));
+          add(add_label("Size", Color.blue, JLabel.LEFT));
 
           add(size_lbl);
           add(size_tf);
@@ -9527,7 +9524,7 @@ public class FoilBoard extends JApplet {
 
         // draw LE and TE 
         for (i = 0; i < le.length-1; i++) {
-          off1Gg.setColor(Color.red);
+          // off1Gg.setColor(Color.red);
           to_screen_x_y(le[i],x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
           to_screen_x_y(le[i+1],x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
           to_screen_x_y(te[i],x,y,3,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
@@ -12168,7 +12165,7 @@ public class FoilBoard extends JApplet {
           off2Gg.fillRect(0,100,300,30);
           // Thermometer Lift gage
           off2Gg.setColor(Color.white);
-          if (lftout == 0) {
+          if (lftout == -1) { // not available now
             off2Gg.drawString("Lift =",70,75);
             if (lunits == IMPERIAL) off2Gg.drawString("Pounds",190,75);
             else off2Gg.drawString("Newtons",190,75);
@@ -12176,12 +12173,12 @@ public class FoilBoard extends JApplet {
           else if (lftout == 1) 
             off2Gg.drawString(" Cl  =",70,185);
           // Thermometer Drag gage
-          if (dragOut == 0) {
-            off2Gg.drawString("Drag =",70,185);
-            if (lunits == IMPERIAL) off2Gg.drawString("Pounds",190,185);
-            if (lunits == 1) off2Gg.drawString("Newtons",190,185);
-          }
-          if (dragOut == 1) off2Gg.drawString(" Cd  =",70,185);
+          //if (dragOut == -1) { // currently not available
+          //  off2Gg.drawString("Drag =",70,185);
+          //  if (lunits == IMPERIAL) off2Gg.drawString("Pounds",190,185);
+          //  if (lunits == 1) off2Gg.drawString("Newtons",190,185);
+          //}
+          else if (lftout == 2) off2Gg.drawString(" Cd  =",70,185);
 
           off2Gg.setColor(Color.yellow);
           for (index=0; index <= 10; index ++) {
@@ -12190,7 +12187,7 @@ public class FoilBoard extends JApplet {
             off2Gg.drawLine(7+index*25,130,7+index*25,140);
           }
           // Lift value
-          if (lftout == 0) {
+          if (lftout == -1) {
             liftab = current_part.lift;
             double lift_abs = Math.abs(current_part.lift);
             if (lift_abs <= 1.0) {
@@ -12256,7 +12253,7 @@ public class FoilBoard extends JApplet {
             }
           }
           // Drag value
-          if (dragOut == 0) {
+          if (dragOut == -1) { // currently, not available
             dragab = current_part.drag;
             double drag_abs = Math.abs(current_part.drag);
             if (drag_abs <= 1.0) {
