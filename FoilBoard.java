@@ -1511,6 +1511,7 @@ public class FoilBoard extends JApplet {
       double xoffs[] = new double[chord_spec.length];
       double zoffs[] = new double[chord_spec.length];
       int specs_len = 0;
+      boolean seen_zoff = false;
       double xoffs_prev = 0, zoffs_prev = 0;
       for (int ci = 0; ci < chord_spec.length; ci++) {
         String[] ch_x_z = chord_spec[ci].split("/");
@@ -1520,13 +1521,17 @@ public class FoilBoard extends JApplet {
           ((ch_x_z.length > 1) 
           ? Double.parseDouble(ch_x_z[1])
            : 0);
-        zoffs[ci] = zoffs_prev = zoffs_prev + 
-          ((ch_x_z.length > 2) 
-          ? Double.parseDouble(ch_x_z[2])
-           : 0);
+        double z_off = 0;
+        if (ch_x_z.length > 2) {
+          seen_zoff = true;
+          z_off = Double.parseDouble(ch_x_z[2]);
+        }
+        zoffs[ci] = zoffs_prev = zoffs_prev + z_off;
         p.chord_zoffs+= zoffs_prev;
       }
-      p.chord_zoffs /= chord_spec.length;
+      if (seen_zoff) p.chord_zoffs /= chord_spec.length;
+      else if (p == wing) p.chord_zoffs = -0.04; // 4cm down 
+      else if (p == stab) p.chord_zoffs = 0.03; // 3 cm up
       if (parseParamData_debug) System.out.println("-- chord_zoffs: " + p.chord_zoffs);
       
       double xoff_tip  = xoffs_prev;
@@ -1704,10 +1709,15 @@ public class FoilBoard extends JApplet {
     return val;
   }
 
+  String lang; 
+
   @Override
   public void init () {
     //setPreferredSize(new Dimension(1000, 800));
     setSize(900, 600);
+
+    lang = System.getProperty("user.language");
+    System.out.println("-- lang: " + lang);
 
     // any inputs?
     //
@@ -9543,9 +9553,9 @@ public class FoilBoard extends JApplet {
         off1Gg.setColor(color);
         if (force_labels) {
           if (start_y > end_y) // pointing up, draw on the left
-            off1Gg.drawString(label, start_x - 5 - 6*label.length(), end_y + 20);
+            off1Gg.drawString(label, start_x - 10 - 6*label.length(), end_y + 20);
           else // pointing down
-            off1Gg.drawString(label, start_x + 5, end_y - 20);
+            off1Gg.drawString(label, start_x - 15, end_y + 14);
         }
         off1Gg.drawLine(start_x, start_y, start_x, end_y);
         if (start_y <  end_y - 7) {
@@ -9567,9 +9577,9 @@ public class FoilBoard extends JApplet {
 
         off1Gg.setColor(color);
         if (force_labels) {
-          if (false) 
-            // below
-            off1Gg.drawString(label, (start_x+end_x)/2, start_y + 15);
+          if (start_x > end_x) 
+            // above
+            off1Gg.drawString(label, end_x + 10, start_y - 10);
           else // right
             off1Gg.drawString(label, Math.max(start_x,end_x) + 4, start_y+5);
         }
@@ -10041,32 +10051,43 @@ public class FoilBoard extends JApplet {
           to_screen_x_y(new Point3D(wing.xpos+wing.chord_xoffs+0.250*wing.chord,0,wing.chord_zoffs),                        x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
           //         need offx here ^^^  ? or not?
           to_screen_x_y(new Point3D(wing.xpos+wing.chord_xoffs+0.250*wing.chord,0,wing.chord_zoffs + wing.lift*force_scale),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-          drawVectorVert(wing.lift > 0 ? Color.green : Color.red, "Wing Lift", x[0], y[0], y[1]);
+          drawVectorVert(wing.lift > 0 ? Color.green : Color.red, lang=="ru" ? "\u041a\u0440\u044b\u043b\u043e" :  "Wing Lift", x[0], y[0], y[1]);
 
           to_screen_x_y(new Point3D(wing.xpos+wing.chord_xoffs+0.251*wing.chord,0,wing.chord_zoffs),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
           to_screen_x_y(new Point3D(wing.xpos+wing.chord_xoffs+0.251*wing.chord + wing.drag*force_scale,0,wing.chord_zoffs),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-          drawVectorHoriz(Color.red, "Wing Drag", y[0], x[0], x[1]);
+          drawVectorHoriz(Color.red, 
+                         lang=="ru" 
+                          ? "\u0421\u043e\u043f\u0440\u043e\u0442\u002e \u041a\u0440\u044b\u043b\u0430"
+                          : "Wing Drag", 
+                          y[0], x[0], x[1]);
 
           to_screen_x_y(new Point3D(stab.xpos+stab.chord_xoffs+0.250*stab.chord,0,stab.chord_zoffs),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
           to_screen_x_y(new Point3D(stab.xpos+stab.chord_xoffs+0.250*stab.chord,0,stab.chord_zoffs + stab.lift*force_scale),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-          drawVectorVert(stab.lift > 0 ? Color.green : Color.red, "Stab Lift", x[0], y[0], y[1]);
+          drawVectorVert(stab.lift > 0 ? Color.green : Color.red, lang=="ru" ? "\u0421\u0442\u0430\u0431\u0438\u043b\u0438\u0437\u0430\u0442\u043e\u0440" : "Stab Lift", x[0], y[0], y[1]);
 
           to_screen_x_y(new Point3D(stab.xpos+stab.chord_xoffs+0.251*stab.chord,0,stab.chord_zoffs),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
           to_screen_x_y(new Point3D(stab.xpos+stab.chord_xoffs+0.251*stab.chord+ stab.drag*force_scale,0,stab.chord_zoffs),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-          drawVectorHoriz(Color.red, "Stab Drag", y[0], x[0], x[1]);
+          drawVectorHoriz(Color.red, 
+                          lang=="ru" 
+                          ? "\u0421\u0442\u0430\u0431\u0438\u043b\u0438\u0437\u0430\u0442\u043e\u0440" 
+                          : "Stab Drag", 
+                          y[0], x[0], x[1]);
 
 
           if (force_labels) {
             to_screen_x_y(new Point3D(fuse.xpos+fuse.chord_xoffs+0.250*fuse.chord,0,fuse.chord_zoffs),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
             to_screen_x_y(new Point3D(fuse.xpos+fuse.chord_xoffs+0.250*fuse.chord,0,fuse.chord_zoffs + fuse.lift*force_scale),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-            drawVectorVert(fuse.lift > 0 ? Color.green : Color.red, "Fuse Lift", x[0], y[0], y[1]);
+            drawVectorVert(fuse.lift > 0 ? Color.green : Color.red, lang=="ru" ? "\u0424\u044e\u0437\u0435\u043b\u044f\u0436" : "Fuse Lift", x[0], y[0], y[1]);
 
             to_screen_x_y(new Point3D(fuse.xpos+fuse.chord_xoffs+0.251*fuse.chord,0,fuse.chord_zoffs),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
             to_screen_x_y(new Point3D(fuse.xpos+fuse.chord_xoffs+0.251*fuse.chord+ fuse.drag*force_scale,0,fuse.chord_zoffs),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-            drawVectorHoriz(Color.red, "Fuse Drag", y[0], x[0], x[1]);
+            drawVectorHoriz(Color.red, lang=="ru" ? "\u0424\u044e\u0437\u0435\u043b\u044f\u0436" : "Fuse Drag", y[0], x[0], x[1]);
           }
 
-          drawVectorVert(Color.red, "Effective Rider Weight Pos", 
+          drawVectorVert(Color.red, 
+                         lang=="ru" 
+                         ? "\u0412\u0435\u0441 \u0028\u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d \u043a \u0434\u043e\u0441\u043a\u0435\u0029"                         
+                         : "Effective Rider Weight Pos", 
                          screen_off_x+toInt(scalex*(cg_x_pos_rot_x)),
                          screen_off_y+toInt(scaley*(cg_x_pos_rot_y)),
                          screen_off_y+toInt(scaley*(cg_x_pos_rot_y -
@@ -10074,13 +10095,19 @@ public class FoilBoard extends JApplet {
                                                     rider_weight*force_scale
                                                     )));
 
-          drawVectorHoriz(Color.red, "Effective FWD Drive", 
+          drawVectorHoriz(Color.red, 
+                         lang=="ru" 
+                          ? "\u0422\u044f\u0433\u0430 \u0028\u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0430 \u043a \u0434\u043e\u0441\u043a\u0435\u0029"
+                          : "Effective FWD Drive", 
                           screen_off_y+toInt(scaley*(cg_x_pos_rot_y)),
                           screen_off_x+toInt(scalex*(cg_x_pos_rot_x)), 
                           screen_off_x+toInt(scalex*(cg_x_pos_rot_x - total_drag()*force_scale)));
 
           if (force_labels) {
-            drawVectorVert(Color.orange, "Rider Weight", 
+            drawVectorVert(Color.orange, 
+                         lang=="ru" 
+                           ? "\u0412\u0435\u0441 \u041c\u0430\u0442\u0440\u043e\u0441\u0430 \u0028\u0440\u0435\u0430\u043b\u044c\u043d\u0430\u044f \u0442\u043e\u0447\u043a\u0430\u0029"
+                           : "Rider Weight", 
                            screen_off_x+toInt(scalex*(rider_rot_center_x)),
                            screen_off_y+toInt(scaley* rider_drive_center_y), // wasFF (rider_rot_center_y-0.031+1.0)),
                            screen_off_y+toInt(scaley*(rider_drive_center_y - // wasFF rider_rot_center_y-0.031+1.0- 
@@ -10092,7 +10119,11 @@ public class FoilBoard extends JApplet {
             // board weight arm is 1/2 length minus mast LE to transom
             to_screen_x_y(new Point3D((-BOARD_LENGTH/2+mast_xpos+MAST_LE_TO_TRANSOM),0,strut.span+BOARD_THICKNESS/2),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
             to_screen_x_y(new Point3D((-BOARD_LENGTH/2+mast_xpos+MAST_LE_TO_TRANSOM),0,strut.span+BOARD_THICKNESS/2-BOARD_WEIGHT*force_scale),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-            drawVectorVert(Color.red, "Board Weight", x[0], y[0], y[1]);
+            drawVectorVert(Color.red, 
+                         lang=="ru" 
+                           ? "\u0412\u0435\u0441 \u0414\u043e\u0441\u043a\u0438"
+                           : "Board Weight", 
+                           x[0], y[0], y[1]);
 
             // ws rig weight
             to_screen_x_y(new Point3D((mast_xpos-WS_MASTBASE_MAST_LE),0,strut.span+2*BOARD_THICKNESS),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
@@ -10102,7 +10133,10 @@ public class FoilBoard extends JApplet {
 
 
             if (craft_type == WINDFOIL)
-              drawVectorHoriz(Color.orange, "Sail FWD Drive", 
+              drawVectorHoriz(Color.orange, 
+                              lang=="ru" 
+                              ? "\u0422\u044f\u0433\u0430 \u041f\u0430\u0440\u0443\u0441\u0430 \u0412\u043f\u0435\u0440\u0435\u0434 \u0028\u0440\u0435\u0430\u043b\u044c\u043d\u0430\u044f \u0442\u043e\u0447\u043a\u0430\u0029"
+                              : "Sail FWD Drive", 
                               screen_off_y+toInt(scaley*(rider_drive_center_y)),
                               screen_off_x+toInt(scalex*(rider_rot_center_x_real)),
                               screen_off_x+toInt(scalex*(rider_rot_center_x_real - total_drag()*force_scale)));
@@ -10119,7 +10153,11 @@ public class FoilBoard extends JApplet {
           // why -offy/2 ? because offy is negative
           to_screen_x_y(new Point3D(drag_x,0,-offy/2),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
           to_screen_x_y(new Point3D(drag_x+(strut.drag)*force_scale,0,-offy/2),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-          drawVectorHoriz(Color.red, "Mast Drag", y[0], x[0], x[1]);
+          drawVectorHoriz(Color.red, 
+                         lang=="ru" 
+                          ? "\u0421\u043e\u043f\u0440\u043e\u0442\u002e \u041f\u0438\u043b\u043e\u043d\u0430"
+                          : "Mast Drag", 
+                          y[0], x[0], x[1]);
 
         } else if (viewflg == VIEW_3D_MESH) {
           off1Gg.setColor(color_very_dark);
