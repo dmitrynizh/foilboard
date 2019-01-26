@@ -33,16 +33,19 @@
 * size arranged on a 2-by-2 grid, out of which left top is graphical,
 * left bottom is inputs, right top is outputs and right bottom is for
 * plots, data, gauges. Most code inherited from "FoilSim III" has been
-* re-architected, variables were renamed etc.
+* re-architected, variables were renamed etc. Still lots of
+* Fortranesque variables with global scope and cryptic names still
+* lurk around.
 * 
-* This simulator accurately computes lift and drag for a T-shape
-* hydrofoil having a vertical strut (a.k.a. "mast"), a main wing, a
-* horizontal stabilizer wing, and a fuselage connecting the wings and
-* the mast. Various performance goals, such as "what is the speed of
-* minimal drag?"  can be evaluated and solved. The results are
-* presented in numeric, graphical, tabular formats, and can help to
-* evaluate existing hydrofoils and predict properties and behavior of
-* new design ideas. The author used this tool extensively in the
+* This simulator sufficiently accurately (for
+* hobby/rectreational/educational use) computes lift and drag for a
+* T-shape hydrofoil having a vertical strut (a.k.a. "mast"), a main
+* wing, a horizontal stabilizer wing, and a fuselage connecting the
+* wings and the mast. Various performance goals, such as "what is the
+* speed of minimal drag?"  can be evaluated and solved. The results
+* are presented in numeric, graphical, tabular formats, and can help
+* to evaluate existing hydrofoils and predict properties and behavior
+* of new design ideas. The author used this tool extensively in the
 * design of DIY carbon windfoil built in 2017,
 * https://1drv.ms/f/s!AhpYSQuCj3vrjHeKi4Bvpnp_r7kB which came out
 * exactly as conceived, thanks to this tool's predictions.
@@ -177,10 +180,13 @@ import java.awt.event.ItemListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
+import java.awt.event.MouseWheelListener; // 3d mesh view zoom
+import java.awt.event.MouseWheelEvent;   // 3d mesh view zoom
 import java.awt.event.TextListener;
 import java.awt.event.TextEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.Cursor; // for drag/rptate etc
 
 // Swing classes. No '.*', keep track of all links.
 import javax.swing.JDialog;
@@ -198,6 +204,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JFrame;
 import javax.swing.JApplet;
 import javax.swing.JEditorPane;
+import javax.swing.SwingUtilities; // for mouse buttons
 
 // Core Java Classes. No '.*', keep track of all links.
 import java.lang.Math;
@@ -239,7 +246,7 @@ public class FoilBoard extends JApplet {
     }
   }
 
-  class Part {
+  class Part implements java.lang.Cloneable {
     /**/ String name; Foil foil; double xpos; double chord; double span; double thickness; double camber; double aoa;
     Part(String name, Foil foil, double xpos, double chord, double span, double thickness, double camber, double aoa) {
       this.name = name;
@@ -362,8 +369,29 @@ public class FoilBoard extends JApplet {
       return def;
     }
 
+    Part make_clone () { 
+      try {
+        return (Part)clone(); 
+      } catch (Exception e) {
+        System.out.println("-- e: " + e);
+        return null;
+      }
+    }
+    
   } // Part
 
+  class PartPack {
+    Part w, s, f, m;
+  }
+  PartPack withNewClones () {
+    PartPack pp = new PartPack();
+    pp.w = wing; wing = wing.make_clone();
+    pp.s = stab; stab = stab.make_clone();
+    pp.f = fuse; fuse = fuse.make_clone();
+    pp.m = strut; wing = strut.make_clone();
+    return pp;
+  }
+  void withSavedParts (PartPack pp) { wing = pp.w; stab = pp.s; fuse = pp.f; strut = pp.m; }
   
   boolean runAsApplication = false; // main() sets this to true
   boolean fix_symmetry_problem = true; // legacy
@@ -492,49 +520,7 @@ public class FoilBoard extends JApplet {
 
   class Canvas extends JPanel {
 
-    Canvas() {
-
-      this.addMouseListener(new MouseListener() {
-          @SuppressWarnings("deprecation")
-          @Override
-          public void mouseReleased (MouseEvent e) {
-            // System.out.println(":MOUSE_RELEASED_EVENT:");
-            mouseUp(new Event(e.getSource(), Event.MOUSE_UP, e), e.getX(),
-                    e.getY());
-          }
-          @SuppressWarnings("deprecation")
-          @Override
-          public void mousePressed (MouseEvent e) {
-            mouseDown(new Event(e.getSource(), Event.MOUSE_DOWN, e), e.getX(),
-                      e.getY());
-          }
-          @Override
-          public void mouseExited (MouseEvent e) {
-            // System.out.println(":MOUSE_EXITED_EVENT:");
-          }
-          @Override
-          public void mouseEntered (MouseEvent e) {
-            // System.out.println(":MOUSE_ENTER_EVENT:");
-          }
-          @Override
-          public void mouseClicked (MouseEvent e) {
-            // System.out.println(":MOUSE_CLICK_EVENT:");
-          }
-        });
-      this.addMouseMotionListener(new MouseMotionListener() {
-          @SuppressWarnings("deprecation")
-          public void mouseDragged (MouseEvent e) {
-            mouseDrag(new Event(e.getSource(), Event.MOUSE_DRAG, e), e.getX(),
-                      e.getY());
-          }
-          @SuppressWarnings("deprecation")
-          public void mouseMoved (MouseEvent e) {
-            mouseMove(new Event(e.getSource(), Event.MOUSE_MOVE, e), e.getX(),
-                      e.getY());
-          }
-
-        });
-    }
+    Canvas() { }
 
     @Override 
     public void paint (Graphics g) { update(g); }
@@ -664,7 +650,7 @@ public class FoilBoard extends JApplet {
         k *= (1-alt/100);
         // increase k by 2 because this is bottom end only, the top
         // end does not have induced drag.  Instead, for top, wave and
-        // spray adjustment apply,  see loadOutPanel()
+        // spray adjustment apply,  see forces_totals_maybe_panels()
         k *= 2; 
         // note that for 50% submerged mast teh net effect of the
         // above two corrections is 0.5*2=1 
@@ -1204,7 +1190,7 @@ public class FoilBoard extends JApplet {
   double craft_pitch = 0;
   double mast_foot_pressure_k = 0.0;
   double mast_foot_dist_from_strut_le = 1;
-  static Button part_button, bt_wing, bt_stab;
+  static Button part_button, wing_bt, stab_bt;
 
   // kitefoil or windfoil? 
   static final int KITEFOIL = 0, WINDFOIL = 1;
@@ -1228,6 +1214,8 @@ public class FoilBoard extends JApplet {
   // wing
   static double wing_chord, wing_span, wing_area;
 
+  // FoilSimIII legacy. Cryptic variables, state shared
+  // across classes Viewer, Solve, Plot, Geometry
   static double[][] rg  = new double[20][40]; 
   static double[][] thg = new double[20][40]; 
   static double[][] xg  = new double[20][40]; 
@@ -1236,7 +1224,6 @@ public class FoilBoard extends JApplet {
   static double[][] ym  = new double[20][62]; 
   static double[][] xpl  = new double[20][62]; 
   static double[][] ypl  = new double[20][62]; 
-
   static double[] plp   = new double[40];
   static double[] plv   = new double[40];
 
@@ -1266,21 +1253,6 @@ public class FoilBoard extends JApplet {
 
   int lunits, out_aux_idx, planet, dragOut;
   int display_units = METRIC;
-
-  //  foil display state
-  int displ; 
-
-  static final int DISPLAY_STREAMLINES = 0,
-    DISPLAY_ANIMATION = 1, 
-    DISPLAY_DIRECTION = 2,
-    DISPLAY_GEOMETRY = 3;
-
-  static final int VIEW_EDGE = 0,
-    VIEW_FORCES = 1,
-    VIEW_3D_MESH = 2;
-
-  int viewflg = VIEW_FORCES;
-
 
   static final int PLOT_TYPE_PRESSURE = 0, // pressure variation 
     PLOT_TYPE_VELOCITY = 1,  // velocity variation
@@ -1331,9 +1303,10 @@ public class FoilBoard extends JApplet {
 
   static double load = load_min;
 
-  /*  probe data */
-  static double prg,pthg,pxg,pyg,pxm,pym,pxpl,pypl;
+  /*  probe data */ 
+  static double prg,pthg,pxg,pyg,pxm,pym,pxpl,pypl; // Cryptic FoilSimIII names...
 
+  // Cryptic FoilSimIII names...
   int xt1,yt1,xt2,yt2;
   static double fact,xpval,ypval,pbval;
   int pboflag,xt,yt;
@@ -1805,6 +1778,9 @@ public class FoilBoard extends JApplet {
       addFoil(new RoundFoil("Spinning Ball","\n Spinning Ball"));
     }
 
+    if (getParamOrProp("LIST_FOILS", null) != null)
+      for(Object key: foils.keySet()) System.out.println(("    "+key).replace(" ", "_"));
+
     offImg1 = createImage(this.size().width,
                           this.size().height);
     off1Gg = offImg1.getGraphics();
@@ -1868,10 +1844,8 @@ public class FoilBoard extends JApplet {
     computeFlowAndRegenPlotAndAdjust();
     // make flight tab active
     //dash.ibt_flight_al.actionPerformed(new ActionEvent((Object)dash.ibt_flight, ActionEvent.ACTION_PERFORMED, ""));
-    // temporary switch to stab
-    //dash.bt_stab_al.actionPerformed(new ActionEvent((Object)bt_stab, ActionEvent.ACTION_PERFORMED, ""));
     // make wing part active
-    //dash.bt_wing_al.actionPerformed(new ActionEvent((Object)bt_wing, ActionEvent.ACTION_PERFORMED, ""));
+    //dash.wing_bt_al.actionPerformed(new ActionEvent((Object)wing_bt, ActionEvent.ACTION_PERFORMED, ""));
 
     inited = true;
 
@@ -1880,22 +1854,16 @@ public class FoilBoard extends JApplet {
     switch_to_part(wing);
     recomp_all_parts();
     computeFlowAndRegenPlotAndAdjust();
-    loadOutPanel(); // note: likely excessive as the above does it.
+
+    // note: likely excessive as the above does it.
+    // forces_totals_maybe_panels(); 
+
+
     vpp.steady_flight_at_given_speed(5, 0);
-    out_top.plot.loadPlot();
+    computeFlowAndRegenPlotAndAdjust();
 
     plot_type = PLOT_TYPE_CG_VS_SPEED;
 
-    //debug { // profiling-aiding switches
-    //debug   plot_type = PLOT_TYPE_CG_VS_SPEED;
-    //debug   plot_y_val = 0;
-    //debug   out_bottom.setSelectedIndex(0);
-    //debug   out_top.plot.loadPlot();
-    //debug   in.setSelectedIndex(1);
-    //debug }
-
-    if (getParamOrProp("LIST_FOILS", null) != null)
-      for(Object key: foils.keySet()) System.out.println(("    "+key).replace(" ", "_"));
   }
  
   public Insets insets () {
@@ -1932,7 +1900,7 @@ public class FoilBoard extends JApplet {
   // needs adjusting! a few examples: you change part geometry that
   // does not affect other parts, an no rebalancing is required etc. 
   // still, even after that is done, other routines need be called - see
-  // computeForces(), loadOutPanel() etc.
+  // computeForces(), forces_totals_maybe_panels() etc.
   public void cp_computeFlow () { 
     double effaoa = effective_aoa();
     if (!can_do_gui_updates && current_part.foil.fast_coeffs()) {
@@ -1975,10 +1943,11 @@ public class FoilBoard extends JApplet {
 
   void computeFlowAndRegenPlot () {
     cp_computeFlow();
-    loadOutPanel();
-    if (can_do_gui_updates) {
-      out_top.plot.loadPlot();
-    }
+    forces_totals_maybe_panels();
+    // commenting out because the above does it
+    // if (can_do_gui_updates) {
+    //   out_top.plot.loadPlot();
+    // }
   }
 
   double limit (double min, double val, double max) {
@@ -2419,18 +2388,22 @@ public class FoilBoard extends JApplet {
     solver.load_stall_model_cache(p.foil);
 
     cp_computeFlow(); 
-    loadOutPanel();
 
-    if (can_do_gui_updates) 
+    forces_totals_maybe_panels();
+
+    if (can_do_gui_updates) {
       in.load_selected_tab_panel();
-
+      viewer.load_drawing();
+      // what about out_top, out_bottom?
+    }
   }
 
-  int recom_all_parts_reentry_count = 0;
+  // speeds things up when recomp_all_parts is reentered
+  int recom_all_parts_reentry_count = 0; 
   void recomp_all_parts () {
     if (recom_all_parts_reentry_count > 3) {
       System.out.println("-- too deep recursive entry into recomp_all_parts, returning; ");
-      // new Exception("=== see stack ============).printStackTrace(System.out);
+      new Exception("=== see stack ============").printStackTrace(System.out);
       return;
     }
     recom_all_parts_reentry_count++;
@@ -2447,7 +2420,10 @@ public class FoilBoard extends JApplet {
     recom_all_parts_reentry_count--;  
     switch_to_part(curr_pt);
 
-    if (can_do_gui_updates) out_top.plot.loadPlot();
+    if (can_do_gui_updates) { 
+      out_top.load_selected_tab_panel(); // was: out_top.plot.loadPlot();
+        out_bottom.load_selected_tab_panel();
+    }
   }
 
   public void computeFlowAndRegenPlotAndAdjust () { 
@@ -2504,14 +2480,18 @@ public class FoilBoard extends JApplet {
     }
 
     // drive_offset/height = drive_force/weight
-    double drive_force = total_drag() * RIDER_DRIVE_HEIGHT/RIDER_CG_HEIGHT;
+    double drive_force = 
+      (in.opts.ignore_drive_moment)
+      ? 0
+      : (total_drag() * RIDER_DRIVE_HEIGHT/RIDER_CG_HEIGHT);
     double rider_countering_x_offset = (drive_force/rider_weight)* RIDER_CG_HEIGHT; // wasFF 0.86;
     // System.out.println("-- rider_countering_x_offset UT: " + rider_countering_x_offset);
     dash.cg_pos_of_rider = dash.cg_pos_board_level + rider_countering_x_offset;
 
-    if (can_do_gui_updates) {
-      dash.loadPanel();
-    }
+    // factored out to dash.loadPanel()
+    // if (can_do_gui_updates) {
+    //   dash.loadPanel();
+    // }
   }
 
   // static void track_current_part.cl_changes () {
@@ -2605,42 +2585,51 @@ public class FoilBoard extends JApplet {
   // currently it has two disinct parts:
   // 1. compute forces
   // 2. load dashboard panel
-  public void loadOutPanel () { 
+  public void forces_totals_maybe_panels () { 
     // part 1 Forces.
     cp_computeForces();
-    // part 2. update GUI
+    // part 2. totals
+    updateTotals();
+    // part 3. maybe update GUI
     if (can_do_gui_updates) {
-      // lift force
-      dash.outlft_setText(make_force_info_in_display_units(current_part.lift, true));
-      // drag force
-      dash.outDrag_setText(make_force_info_in_display_units(current_part.drag, true));
-
-      String out_aux_text  = "";
-      switch (out_aux_idx) {
-      case 0: out_aux_text = pprint(filter1(Math.abs(current_part.cl/current_part.cd))); break; // L/D
-      case 1: out_aux_text = pprint(filter3(current_part.cl)); break;
-      case 2: out_aux_text = pprint(filter3(current_part.cd)); break;
-      case 3: out_aux_text = pprint(filter0(current_part.reynolds)); break;
-      }
-      dash.out_aux_setText(out_aux_text);
-
-      //dash.outReynolds_setText(pprint(filter0(current_part.reynolds)));
-
-      // TODO: maybe minimize re-update more? This can be placed in
-      // spots that directly afftect the data (parts geom, VPP targets etc)
-      
-      out_bottom.perfweb.updateReport(); 
+      out_top.load_selected_tab_panel();
+      out_bottom.load_selected_tab_panel();
     }
 
-    // need it here? if (current_part != null) current_part.save_state();
-    // moving this to recomp_all_parts!!!!
-    // updateTotals();
-
-    //track_current_part.cl_changes();
-
-    if (recom_all_parts_reentry_count == 0 ) 
-      // save time doing incremental updates. 
-      updateTotals();
+    // moved to DashBoard.loadPanel
+    //if (can_do_gui_updates) {
+    //  // lift force
+    //  dash.outlft_setText(make_force_info_in_display_units(current_part.lift, true));
+    //  // drag force
+    //  dash.outDrag_setText(make_force_info_in_display_units(current_part.drag, true));
+    //  
+    //  String out_aux_text  = "";
+    //  switch (out_aux_idx) {
+    //  case 0: out_aux_text = pprint(filter1(Math.abs(current_part.cl/current_part.cd))); break; // L/D
+    //  case 1: out_aux_text = pprint(filter3(current_part.cl)); break;
+    //  case 2: out_aux_text = pprint(filter3(current_part.cd)); break;
+    //  case 3: out_aux_text = pprint(filter0(current_part.reynolds)); break;
+    //  }
+    //  dash.out_aux_setText(out_aux_text);
+    //  
+    //  //dash.outReynolds_setText(pprint(filter0(current_part.reynolds)));
+    //  
+    //  // TODO: maybe minimize re-update more? This can be placed in
+    //  // spots that directly afftect the data (parts geom, VPP targets etc)
+    //  
+    //  out_bottom.perfweb.updateReport(); 
+    //}
+    //
+    //
+    //// need it here? if (current_part != null) current_part.save_state();
+    //// moving this to recomp_all_parts!!!!
+    //// updateTotals();
+    //
+    ////track_current_part.cl_changes();
+    //
+    //if (recom_all_parts_reentry_count == 0 ) 
+    //  // save time doing incremental updates. 
+    //  updateTotals();
   }
 
   public void loadProbe () {   // probe output routine
@@ -2859,8 +2848,6 @@ public class FoilBoard extends JApplet {
       rval = 1.0;
       ycval = 0.0;
       xcval = 0.0;
-      displ   = DISPLAY_ANIMATION;                            
-      viewflg = VIEW_FORCES;
       current_part.cd = 0;
  
       xpval = 2.1;
@@ -5606,80 +5593,9 @@ public class FoilBoard extends JApplet {
     Button help_bt;
     Button[] all_inputs;
     Button all_outputs[];
-    ActionListener bt_wing_al, bt_stab_al;
+    ActionListener wing_bt_al;
     boolean html_render = true;
 
-    JLabel add_label (String text, Color fg, Color bg, int align) {
-      JLabel lb = new JLabel(text, align);
-      if (fg != null) lb.setForeground(fg);
-      if (bg != null) lb.setBackground(bg);
-      add(lb);
-      return lb;
-    }
-
-    JTextField addOutput () {
-      JTextField tf = new JTextField("12.5",5);
-      tf.setBackground(color_very_dark);
-      tf.setForeground(Color.yellow);
-      tf.setEditable(false);
-      add(tf);
-      return tf;
-    }
-
-    void outlft_setText (String text) {
-      JTextField tf;
-      if (current_part == wing) tf = outlft_wing;
-      else if (current_part == stab) tf = outlft_stab;
-      else if (current_part == strut) tf = outlft_strut;
-      else tf = outlft_fuse;
-      tf.setText(text);
-      for (JTextField f : outlft_arr) f.setForeground(f == tf ? Color.YELLOW : Color.WHITE);
-    }
-   
-    void outDrag_setText (String text) {
-      JTextField tf;
-      if (current_part == wing) tf = outDrag_wing;
-      else if (current_part == stab) tf = outDrag_stab;
-      else if (current_part == strut) tf = outDrag_strut;
-      else tf = outDrag_fuse;
-      tf.setText(text);
-      for (JTextField f : outDrag_arr) f.setForeground(f == tf ? Color.YELLOW : Color.WHITE);
-    }
-
-    void out_aux_setText (String text) {
-      JTextField tf;
-      if (current_part == wing) tf = out_aux_wing;
-      else if (current_part == stab) tf = out_aux_stab;
-      else if (current_part == strut) tf = out_aux_strut;
-      else tf = out_aux_fuse;
-      tf.setText(text);
-      for (JTextField f : out_aux_arr) f.setForeground(f == tf ? Color.YELLOW : Color.WHITE);
-    }
-   
-    void outReynolds_setText (String text) {
-      JTextField tf;
-      if (current_part == wing) tf = outReynolds_wing;
-      else if (current_part == stab) tf = outReynolds_stab;
-      else if (current_part == strut) tf = outReynolds_strut;
-      else tf = outReynolds_fuse;
-      tf.setText(text);
-      for (JTextField f : outReynolds_arr) f.setForeground(f == tf ? Color.YELLOW : Color.WHITE);
-    }
-
-    void bt_action_switch_to_part (Button bt, Part part) {
-      if (part_button != bt) {
-        part_button.setBackground(Color.white);
-        part_button = bt;
-        part_button.setBackground(Color.yellow);
-        switch_to_part(part);
-        current_part.foil.adjust_foil_shape_in_tab();
-        //ttbt in.load_selected_tab_panel();
-        //ttbt out_top.plot.loadPlot();
-      }    
-    }
-
-    int mast_aoa_rolodex = 0;
-   
     DashBoard (FoilBoard target) { 
       app = target;
       setLayout(new GridLayout(9,/*ignored!*/0,5,5));
@@ -5768,45 +5684,41 @@ public class FoilBoard extends JApplet {
 
         add_label("Foil part:", null, null, JLabel.RIGHT);
         
-        final Button bt_strut = new_button("Mast");
-        part_button = bt_strut;
-        bt_strut.addActionListener(new ActionListener() {
+        final Button strut_bt = new_button("Mast");
+        part_button = strut_bt;
+        strut_bt.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent arg0) {
-              bt_action_switch_to_part(bt_strut, strut);
-              can_do_gui_updates = true;
+              bt_action_switch_to_part(strut_bt, strut);
             }
           });
 
-        bt_wing = part_button = new Button ("Wing");
-        bt_wing.setBackground(Color.yellow);
-        bt_wing.setForeground(Color.blue);
-        bt_wing.addActionListener(bt_wing_al = new ActionListener() {
+        wing_bt = part_button = new Button ("Wing");
+        wing_bt.setBackground(Color.yellow);
+        wing_bt.setForeground(Color.blue);
+        wing_bt.addActionListener(wing_bt_al = new ActionListener() {
             public void actionPerformed(ActionEvent arg0) {
-              bt_action_switch_to_part(bt_wing, wing);
-              can_do_gui_updates = true;
+              bt_action_switch_to_part(wing_bt, wing);
             }
           });
-        add(bt_wing);
+        add(wing_bt);
 
-        bt_stab = new_button("Stab");
-        bt_stab.addActionListener(bt_stab_al = new ActionListener() {
+        stab_bt = new_button("Stab");
+        stab_bt.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent arg0) {
-              bt_action_switch_to_part(bt_stab, stab);
-              can_do_gui_updates = true;
+              bt_action_switch_to_part(stab_bt, stab);
             }
           });
-        add(bt_stab);
+        add(stab_bt);
 
-        final Button bt_fuse = new_button("Fuse");
-        bt_fuse.addActionListener(new ActionListener() {
+        final Button fuse_bt = new_button("Fuse");
+        fuse_bt.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent arg0) {
-              bt_action_switch_to_part(bt_fuse, fuse);
-              can_do_gui_updates = true;
+              bt_action_switch_to_part(fuse_bt, fuse);
             }
           });
 
-        add(bt_strut);
-        add(bt_fuse);
+        add(strut_bt);
+        add(fuse_bt);
         lbl = add_label("Totals", null, null, JLabel.CENTER);
         lbl.setFont(boldFont);
 
@@ -5925,25 +5837,125 @@ public class FoilBoard extends JApplet {
     // DashBoard.loadPanel
     @Override
     public void loadPanel () {
-      // new Exception("-- updateTotals in GUI  ---------------- ").printStackTrace(System.out);
+      // Part 1 from loadOutPanel
+      if (can_do_gui_updates) {
+        // display CP lift force
+        dash.outlft_setText(make_force_info_in_display_units(current_part.lift, true));
+        // display CP drag force
+        dash.outDrag_setText(make_force_info_in_display_units(current_part.drag, true));
 
-      // TODO consider (maybe) global cache for lift & drag?
-      double lift = total_lift();
-      double drag = total_drag();
+        String out_aux_text  = "";
+        switch (out_aux_idx) {
+        case 0: out_aux_text = pprint(filter1(Math.abs(current_part.cl/current_part.cd))); break; // L/D
+        case 1: out_aux_text = pprint(filter3(current_part.cl)); break;
+        case 2: out_aux_text = pprint(filter3(current_part.cd)); break;
+        case 3: out_aux_text = pprint(filter0(current_part.reynolds)); break;
+        }
+        dash.out_aux_setText(out_aux_text);
+
+        //dash.outReynolds_setText(pprint(filter0(current_part.reynolds)));
+
+        // TODO: maybe minimize re-update more? This can be placed in
+        // spots that directly afftect the data (parts geom, VPP targets etc)
+
+        // moved to loadPanel logic of out_bottom
+        // out_bottom.perfweb.updateReport(); 
+      }
+      
+      // Part 2: this used to be in updateTotals
+      if (recom_all_parts_reentry_count == 0 )  {
+        // new Exception("-- updateTotals in GUI  ---------------- ").printStackTrace(System.out);
+
+        // TODO consider (maybe) global cache for lift & drag?
+        double lift = total_lift();
+        double drag = total_drag();
                                       
-      dash.outTotalLift.setForeground(Color.yellow);
-      dash.outTotalLift.setText(make_force_info_in_display_units(lift, true));
-      dash.outTotalDrag.setForeground(Color.yellow);
-      dash.outTotalDrag.setText(make_force_info_in_display_units(drag, true));
-      dash.outPower.setText(make_power_info_in_display_units(drag, velocity, true));
-      dash.out_aux_total.setText("" + (out_aux_idx == 0 ? filter1(lift/drag) 
-                                      : filter3(dash.cg_pos_of_rider_at_drive_height)// "n/a"
-                                      ));
+        dash.outTotalLift.setForeground(Color.yellow);
+        dash.outTotalLift.setText(make_force_info_in_display_units(lift, true));
+        dash.outTotalDrag.setForeground(Color.yellow);
+        dash.outTotalDrag.setText(make_force_info_in_display_units(drag, true));
+        dash.outPower.setText(make_power_info_in_display_units(drag, velocity, true));
+        dash.out_aux_total.setText("" + (out_aux_idx == 0 ? filter1(lift/drag) 
+                                         : filter3(dash.cg_pos_of_rider_at_drive_height)// "n/a"
+                                         ));
 
-      dash.out_rider_cg_xpos.setText(niceCGPositionInfo(dash.cg_pos_of_rider));      
-      dash.out_board_NP_xpos.setText(niceCGPositionInfo(dash.cg_pos_board_level));      
+        dash.out_rider_cg_xpos.setText(niceCGPositionInfo(dash.cg_pos_of_rider));      
+        dash.out_board_NP_xpos.setText(niceCGPositionInfo(dash.cg_pos_board_level));      
+      }
     }
 
+    JLabel add_label (String text, Color fg, Color bg, int align) {
+      JLabel lb = new JLabel(text, align);
+      if (fg != null) lb.setForeground(fg);
+      if (bg != null) lb.setBackground(bg);
+      add(lb);
+      return lb;
+    }
+
+    JTextField addOutput () {
+      JTextField tf = new JTextField("12.5",5);
+      tf.setBackground(color_very_dark);
+      tf.setForeground(Color.yellow);
+      tf.setEditable(false);
+      add(tf);
+      return tf;
+    }
+
+    void outlft_setText (String text) {
+      JTextField tf;
+      if (current_part == wing) tf = outlft_wing;
+      else if (current_part == stab) tf = outlft_stab;
+      else if (current_part == strut) tf = outlft_strut;
+      else tf = outlft_fuse;
+      tf.setText(text);
+      for (JTextField f : outlft_arr) f.setForeground(f == tf ? Color.YELLOW : Color.WHITE);
+    }
+   
+    void outDrag_setText (String text) {
+      JTextField tf;
+      if (current_part == wing) tf = outDrag_wing;
+      else if (current_part == stab) tf = outDrag_stab;
+      else if (current_part == strut) tf = outDrag_strut;
+      else tf = outDrag_fuse;
+      tf.setText(text);
+      for (JTextField f : outDrag_arr) f.setForeground(f == tf ? Color.YELLOW : Color.WHITE);
+    }
+
+    void out_aux_setText (String text) {
+      JTextField tf;
+      if (current_part == wing) tf = out_aux_wing;
+      else if (current_part == stab) tf = out_aux_stab;
+      else if (current_part == strut) tf = out_aux_strut;
+      else tf = out_aux_fuse;
+      tf.setText(text);
+      for (JTextField f : out_aux_arr) f.setForeground(f == tf ? Color.YELLOW : Color.WHITE);
+    }
+   
+    void outReynolds_setText (String text) {
+      JTextField tf;
+      if (current_part == wing) tf = outReynolds_wing;
+      else if (current_part == stab) tf = outReynolds_stab;
+      else if (current_part == strut) tf = outReynolds_strut;
+      else tf = outReynolds_fuse;
+      tf.setText(text);
+      for (JTextField f : outReynolds_arr) f.setForeground(f == tf ? Color.YELLOW : Color.WHITE);
+    }
+
+    void bt_action_switch_to_part (Button bt, Part part) {
+      if (part_button != bt) {
+        can_do_gui_updates = true;
+        part_button.setBackground(Color.white);
+        part_button = bt;
+        part_button.setBackground(Color.yellow);
+        switch_to_part(part);
+        current_part.foil.adjust_foil_shape_in_tab();
+        //ttbt in.load_selected_tab_panel();
+        //ttbt out_top.plot.loadPlot();
+      }    
+    }
+
+    int mast_aoa_rolodex = 0;
+   
   } // DashBoard
 
   class In extends javax.swing.JTabbedPane {
@@ -6056,7 +6068,7 @@ public class FoilBoard extends JApplet {
         } else if (current_part.foil == FOIL_BALL) {
           current_part.span = radius;
           current_part.area = 3.1415926*radius*radius;
-          if (viewflg != VIEW_EDGE) viewflg = VIEW_EDGE;
+          if (viewer.viewflg != viewer.VIEW_EDGE) viewer.viewflg = viewer.VIEW_EDGE;
           bdragflag = 1;
           // in.opts.cbt1.setBackground(Color.yellow);
           // in.opts.cbt2.setBackground(Color.white);
@@ -6115,7 +6127,7 @@ public class FoilBoard extends JApplet {
       }
 
       // Example: Speed,km/h [ 20] <-----x---->
-      class NameBoxBar extends InputPanel{ 
+      class NameBoxBar extends InputPanel { 
         Name name;
         JTextField box;
         JScrollBar bar;
@@ -6138,6 +6150,12 @@ public class FoilBoard extends JApplet {
         }
         NameBoxBar(Flight ft, String text, String prop_name, String dflt, double min, double max) { 
           this(ft, text, getParamOrProp(prop_name, dflt), min, max);
+        }
+        @Override
+        public void setEnabled (boolean enabled) {
+          bar.setEnabled(enabled);
+          box.setEnabled(enabled);
+          name.setEnabled(enabled);
         }
       }
 
@@ -6243,7 +6261,8 @@ public class FoilBoard extends JApplet {
 
         // todo: other knobs
 
-        out_top.plot.loadPlot();
+        //was: out_top.plot.loadPlot();
+        computeFlowAndRegenPlot();
       }
 
       // later: bind it to others sliders (load?)
@@ -6400,13 +6419,26 @@ public class FoilBoard extends JApplet {
               float new_pitch = filter3(evt.getValue() * (ang_max - ang_min)/ 1000. + ang_min);
               if (new_pitch == craft_pitch) return;
 
+              // DEBUG DEBUG change pitch but not wings AoA
+              { 
+                double delta_aoa = new_pitch - craft_pitch;
+                wing.aoa -= delta_aoa;
+                stab.aoa -= delta_aoa;
+              }
+
               craft_pitch = new_pitch;
+
 
               // look as loadPanel takes care
               // fAoA.setText(String.valueOf(new_pitch));
               // we do not autobalance
-              recomp_all_parts();
-              computeFlowAndRegenPlot();
+              {
+                boolean saved_flag = out_top.plot.no_vpp_sweeps;
+                out_top.plot.no_vpp_sweeps = true;
+                recomp_all_parts();
+                computeFlowAndRegenPlot();
+                out_top.plot.no_vpp_sweeps = saved_flag;
+              }
             }});
         pitch_ctrl.box.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
@@ -6423,6 +6455,10 @@ public class FoilBoard extends JApplet {
         sAoA = pitch_ctrl.bar;
         fAoA = pitch_ctrl.box;
 
+        pitch_ctrl.setEnabled(false);
+        // pitch_ctrl.bar.setEnabled(false);
+        // pitch_ctrl.box.setEnabled(false);
+        // pitch_ctrl.name.setEnabled(false);
 
         Panel p;
         JCheckBox chb;
@@ -6445,9 +6481,9 @@ public class FoilBoard extends JApplet {
             public void itemStateChanged(ItemEvent e) {             
               autobalance = e.getStateChange() == ItemEvent.SELECTED;
               System.out.println("-- pitch auto adjustment for required load is " + (autobalance ? "ON" : "OFF"));
+              pitch_ctrl.setEnabled(autobalance == false);
             }
           });
-
         
         // p.add(new JLabel("trace"));
         rows++;
@@ -8782,7 +8818,7 @@ public class FoilBoard extends JApplet {
 
       // JLabel l1,l2,l3,l4,l5,l6;
 
-      // Button bt1,bt2,bt3,bt4_1,bt4_2,bt5,bt6,bt7,bt8,bt9,bt10, bt_stab_aoa;
+      // Button bt1,bt2,bt3,bt4_1,bt4_2,bt5,bt6,bt7,bt8,bt9,bt10, stab_bt_aoa;
       //Button foilsim_drag, aquila_9p3_drag, naca4digit_drag;
       // int foil_drag_comp_method = DRAG_COMP_NACA4SERIES;
       //Button cbt1,cbt2,cbt3;
@@ -8962,7 +8998,10 @@ public class FoilBoard extends JApplet {
       // controled by a few flag varaibles
       @Override
       public void loadPanel () {
-        out_top.plot.loadPlot();
+
+        // do we need these??
+        out_top.load_selected_tab_panel();
+        out_bottom.load_selected_tab_panel();
 
         // Q: should do setState on the checkboxes?
         // A: only if flags were changed programatically without doing that,,,,
@@ -9025,9 +9064,9 @@ public class FoilBoard extends JApplet {
         //   break;
         // }
         // if (stab_aoa_correction) 
-        //   bt_stab_aoa.setBackground(Color.yellow);
+        //   stab_bt_aoa.setBackground(Color.yellow);
         // else
-        //   bt_stab_aoa.setBackground(Color.white);
+        //   stab_bt_aoa.setBackground(Color.white);
 
         // do nto do this, ause stack overflow
         // computeFlowAndRegenPlotAndAdjust();
@@ -9104,9 +9143,9 @@ public class FoilBoard extends JApplet {
       //         System.out.println("-- stab is not in wing downwash, no corretion needed");
       //         stab_aoa_correction = false;
       //       } else
-      //         bt_stab_aoa.setBackground(Color.yellow);
+      //         stab_bt_aoa.setBackground(Color.yellow);
       //     } else 
-      //       bt_stab_aoa.setBackground(Color.white);
+      //       stab_bt_aoa.setBackground(Color.white);
       //   } 
       // 
       //   // else if (label.equals("NACA*4** foils")) {
@@ -9139,11 +9178,249 @@ public class FoilBoard extends JApplet {
     long animation_count;
     boolean color_flip;
 
+    static final int DISPLAY_STREAMLINES = 0,
+      DISPLAY_ANIMATION = 1, 
+      DISPLAY_DIRECTION = 2,
+      DISPLAY_GEOMETRY = 3;
+
+    static final int VIEW_EDGE = 0,
+      VIEW_FORCES = 1,
+      VIEW_3D_MESH = 2;
+
+    int viewflg = VIEW_FORCES;
+    int edge_view_type = DISPLAY_ANIMATION;
+
+    boolean duringDrag = false;
+    boolean dragRightMouse, dragMiddleMouse;
+
     double ball_spin_angle;
+    int xt_mpressed, yt_mpressed;
+
     Viewer (FoilBoard target) {
       setBackground(color_very_dark);
       runner = null;
-    } 
+      this.addMouseListener(new MouseListener() {
+          @SuppressWarnings("deprecation")
+          @Override
+          public void mousePressed (MouseEvent e) {
+            int x = e.getX();
+            int y = e.getY();           
+            // System.out.println("Viewer:MOUSE_DOWN_EVENT:");
+            anchor = new Point(x,y);
+            if (y >= 30) {
+              if (x < 30) 
+                zoom_widget_active = true;
+              else {
+                if (viewflg == VIEW_EDGE) {
+                  xt_mpressed = xt;
+                  yt_mpressed = yt;
+                } else if (viewflg == VIEW_FORCES && x < 60)
+                  force_scale_widget_active = true;
+                else if (viewflg == VIEW_3D_MESH) {
+                  // if (x < 60)
+                  //   mesh_x_angle_widget_active = true;
+                  // else if (x < 90)
+                  //   mesh_z_angle_widget_active = true;
+                  duringDrag = true;
+                  dragRightMouse = SwingUtilities.isRightMouseButton(e);
+                  if (dragRightMouse)
+                    setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
+                  else 
+                    setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                  dragMiddleMouse = SwingUtilities.isMiddleMouseButton(e);
+                  mesh_x_angle_on_press = mesh_x_angle;
+                  mesh_z_angle_on_press = mesh_z_angle;
+                }
+              }
+            }
+            // no! handleButton(x,y);
+          }
+          @SuppressWarnings("deprecation")
+          @Override
+          public void mouseReleased (MouseEvent e) {
+            // System.out.println("Viewer:MOUSE_RELEASED_EVENT:");
+            if (viewflg == VIEW_3D_MESH && duringDrag) {
+            duringDrag = false;
+            view_3d_shift_x += view_3d_shift_x_on_drag;
+            view_3d_shift_x_on_drag = 0;
+            view_3d_shift_y += view_3d_shift_y_on_drag;
+            view_3d_shift_y_on_drag = 0;
+            setCursor(Cursor.getDefaultCursor());
+            }
+            int x = e.getX();
+            int y = e.getY();           
+
+            if (y < 15) { 
+              if (x >= 95 && x < 130) { // edge view
+                viewflg = VIEW_EDGE;
+              } else if (x >= 130 && x < 180) { // forces view
+                if (current_part.foil != FOIL_CYLINDER && current_part.foil != FOIL_BALL) {
+                  viewflg = VIEW_FORCES;
+                  // thic collides with running cg pos plot....
+                  //vpp.steady_flight_at_given_speed(5, 0);
+                } else 
+                  viewflg = VIEW_EDGE;
+                pboflag = 0;
+              } else if (x >= 180 && x < 240) {   // 3d mesh view
+                if (current_part.foil != FOIL_CYLINDER && current_part.foil != FOIL_BALL)
+                  viewflg = VIEW_3D_MESH;
+                else 
+                  viewflg = VIEW_EDGE;
+              } else if (x >= 240 && x <= 270) {   //find
+                find_it();
+              }
+            } else if (y <= 30) { // selection depends on viewflg.
+              switch (viewflg) {
+              default:
+              case VIEW_EDGE: {
+                if (x >= 80 && x <= 154) edge_view_type = DISPLAY_STREAMLINES;
+                else if (x >= 155 && x <= 204) edge_view_type = DISPLAY_ANIMATION;
+                else if (x >= 205 && x <= 249) edge_view_type = DISPLAY_DIRECTION; 
+                else if (x >= 250 && x <= 330) {
+                  edge_view_type = DISPLAY_GEOMETRY;
+                  pboflag = 0;
+                }
+              } break;
+              case VIEW_FORCES: {
+                if (x >= 80 && x < 160)
+                  forces_aux = !forces_aux;
+                if (x >= 160 && x <= 228)
+                  forces_labels = !forces_labels;
+              } break;
+              case VIEW_3D_MESH: {
+                if (x >= 80 && x <= 154) perspective = false;
+                if (x >= 155 && x <= 204) perspective = true;
+              } break;
+              }
+            }
+            viewer.repaint();
+
+            zoom_widget_active = false;
+            force_scale_widget_active = false;
+            mesh_x_angle_widget_active = mesh_z_angle_widget_active = false;
+          }
+          @Override
+          public void mouseExited (MouseEvent e) {
+            // System.out.println("Viewer:MOUSE_EXITED_EVENT:");
+          }
+          @Override
+          public void mouseEntered (MouseEvent e) {
+            // System.out.println("Viewer:MOUSE_ENTER_EVENT:");
+          }
+          @Override
+          public void mouseClicked (MouseEvent e) {
+            // System.out.println("Viewer:MOUSE_CLICK_EVENT:");
+          }
+        });
+      this.addMouseMotionListener(new MouseMotionListener() {
+          @SuppressWarnings("deprecation")
+          public void mouseDragged (MouseEvent e) {
+            mouseDrag(new Event(e.getSource(), Event.MOUSE_DRAG, e), e.getX(),
+                      e.getY());
+            int x = e.getX();
+            int y = e.getY();           
+            if (zoom_widget_active) {  // adjust zoom widget
+              adjust_zoom(y);
+            } else if (force_scale_widget_active) { // force scale widget
+              force_scale_slider = y;
+              if (force_scale_slider < 30) force_scale_slider = 30;
+              else if (force_scale_slider > 165) force_scale_slider = 165;
+              force_scale = 0.0005 + 0.0001*(force_scale_slider-30);
+              // } else if (mesh_x_angle_widget_active) { 
+              //   mesh_x_angle_slider = Math.max(30,Math.min(165,y));
+              //   mesh_x_angle = -180 + 360*(mesh_x_angle_slider-30)/135;
+              //   //System.out.println("-- mesh_x_angle: " + mesh_x_angle);
+              // } else if (mesh_z_angle_widget_active) { 
+              //   mesh_z_angle_slider = Math.max(30,Math.min(165,y));
+              //   mesh_z_angle = -180 + 360*(mesh_z_angle_slider-30)/135;
+              //   //System.out.println("-- mesh_z_angle: " + mesh_z_angle);
+            } else if (viewflg == VIEW_3D_MESH) {
+              if (dragRightMouse) { // translate
+                view_3d_shift_x_on_drag = x - anchor.x;
+                view_3d_shift_y_on_drag = y - anchor.y;
+              } else { // rotate
+                mesh_x_angle = mesh_x_angle_on_press - 1*(y - anchor.y);
+                mesh_z_angle = mesh_z_angle_on_press - 1*(x - anchor.x);
+              }
+          
+            } else if (viewflg == VIEW_EDGE) {  // translate or force zoom
+              if (edge_view_type == DISPLAY_DIRECTION)  { // move the rake
+                locate = new Point(x,y);
+                xflow = xflow + 1*(locate.x - anchor.x);
+                if (xflow < -10.0) xflow = -10.0;
+                if (xflow > 0.0) xflow = 0.0;
+                computeFlowAndRegenPlot();
+              } else {
+                xt = xt_mpressed + (x - anchor.x);
+                yt = yt_mpressed + (y - anchor.y);
+                xt1 = xt + current_part.spanfac;
+                yt1 = yt - current_part.spanfac;
+                xt2 = xt - current_part.spanfac;
+                yt2 = yt + current_part.spanfac;
+              } 
+            }
+          }
+
+          @SuppressWarnings("deprecation")
+          public void mouseMoved (MouseEvent e) {
+            // System.out.println("Viewer:MOUSE_MOVED_EVENT:");
+          }
+
+        });
+      this.addMouseWheelListener(new MouseWheelListener() {
+          public void mouseWheelMoved (MouseWheelEvent e) {
+            e.consume();
+            int rot = e.getWheelRotation();
+            zoom_slider_pos_y += 5*rot;
+            adjust_zoom(zoom_slider_pos_y);
+          }
+        });
+    }
+
+    void adjust_zoom(int y) {
+      zoom_slider_pos_y = y;
+      if (zoom_slider_pos_y < 30) zoom_slider_pos_y = 30;
+      if (zoom_slider_pos_y > 165) zoom_slider_pos_y = 165;
+      fact = 10.0 + (zoom_slider_pos_y-30)*1.0;
+      current_part.spanfac = (int)(2.0*fact*current_part.aspect_rat*.3535);
+      xt1 = xt + current_part.spanfac;
+      yt1 = yt - current_part.spanfac;
+      xt2 = xt - current_part.spanfac;
+      yt2 = yt + current_part.spanfac;
+    }
+
+    void load_drawing () {
+      int index, ic;
+      Foil f = current_part.foil;
+
+      // load up the view image
+      for (ic = 0; ic <= STREAMLINES_COUNT; ++ ic) {
+        for (index = 0; index <= POINTS_COUNT; ++ index) {
+          if (!foil_is_cylinder_or_ball(f)) {
+            xpl[ic][index] = xm[ic][index];
+            ypl[ic][index] = ym[ic][index];
+          } else {
+            xpl[ic][index] = xg[ic][index];
+            ypl[ic][index] = yg[ic][index];
+          }
+        }
+      }
+
+      // probe
+      for (index = 0; index <= POINTS_COUNT; ++ index) {
+        if (!foil_is_cylinder_or_ball(f)) {
+          xpl[19][index] = xm[19][index];
+          ypl[19][index] = ym[19][index];
+          pxpl = pxm;
+          pypl = pym;
+        } else {
+          xpl[19][index] = xg[19][index];
+          ypl[19][index] = yg[19][index];
+          pxpl = pxg;
+          pypl = pyg;
+        }
+      }
+    }
 
     public Insets insets() {
       return new Insets(0,10,0,10);
@@ -9161,93 +9438,6 @@ public class FoilBoard extends JApplet {
     double  mesh_x_angle  = 0, mesh_x_angle_on_press = 0;
     double  mesh_z_angle = 0, mesh_z_angle_on_press = 0;
 
-    public boolean mouseDown(Event evt, int x, int y) {
-      anchor = new Point(x,y);
-      if (y >= 30 && y <= 165) {
-        if (x < 30)
-          zoom_widget_active = true;
-        else {
-          if (viewflg == VIEW_FORCES && x < 60)
-            force_scale_widget_active = true;
-          else if (viewflg == VIEW_3D_MESH) {
-            // if (x < 60)
-            //   mesh_x_angle_widget_active = true;
-            // else if (x < 90)
-            //   mesh_z_angle_widget_active = true;
-            mesh_x_angle_on_press = mesh_x_angle;
-            mesh_z_angle_on_press = mesh_z_angle;
-          }
-        }
-      }
-      // no! handleButton(x,y);
-      return true;
-    }
-
-    public boolean mouseUp(Event evt, int x, int y) {
-      handleButton(x,y);
-      zoom_widget_active = false;
-      force_scale_widget_active = false;
-      mesh_x_angle_widget_active = mesh_z_angle_widget_active = false;
-      return true;
-    }
-
-    public boolean mouseDrag(Event evt, int x, int y) {
-      handle(x,y);
-      return true;
-    }
-
-
-    public void handle(int x, int y) {
-      if (zoom_widget_active) {  // adjust zoom widget
-        zoom_slider_pos_y = y;
-        if (zoom_slider_pos_y < 30) zoom_slider_pos_y = 30;
-        if (zoom_slider_pos_y > 165) zoom_slider_pos_y = 165;
-        fact = 10.0 + (zoom_slider_pos_y-30)*1.0;
-        current_part.spanfac = (int)(2.0*fact*current_part.aspect_rat*.3535);
-        xt1 = xt + current_part.spanfac;
-        yt1 = yt - current_part.spanfac;
-        xt2 = xt - current_part.spanfac;
-        yt2 = yt + current_part.spanfac;
-      } else if (force_scale_widget_active) { // force scale widget
-        force_scale_slider = y;
-        if (force_scale_slider < 30) force_scale_slider = 30;
-        else if (force_scale_slider > 165) force_scale_slider = 165;
-        force_scale = 0.0005 + 0.0001*(force_scale_slider-30);
-        // } else if (mesh_x_angle_widget_active) { 
-        //   mesh_x_angle_slider = Math.max(30,Math.min(165,y));
-        //   mesh_x_angle = -180 + 360*(mesh_x_angle_slider-30)/135;
-        //   //System.out.println("-- mesh_x_angle: " + mesh_x_angle);
-        // } else if (mesh_z_angle_widget_active) { 
-        //   mesh_z_angle_slider = Math.max(30,Math.min(165,y));
-        //   mesh_z_angle = -180 + 360*(mesh_z_angle_slider-30)/135;
-        //   //System.out.println("-- mesh_z_angle: " + mesh_z_angle);
-      } else if (viewflg == VIEW_3D_MESH) {
-        mesh_x_angle = mesh_x_angle_on_press - 1*(y - anchor.y);
-        mesh_z_angle = mesh_z_angle_on_press - 1*(x - anchor.x);
-          
-      } else {   // translate or force zoom
-        if (displ == DISPLAY_DIRECTION)  { // move the rake
-          locate = new Point(x,y);
-          xflow = xflow + 1*(locate.x - anchor.x);
-          if (xflow < -10.0) xflow = -10.0;
-          if (xflow > 0.0) xflow = 0.0;
-          computeFlowAndRegenPlot();
-        } else {
-          locate = new Point(x,y);
-          yt =  yt + (int) (.1*(locate.y - anchor.y));
-          xt =  xt + (int) (.1*(locate.x - anchor.x));
-          if (xt > 320) xt = 320;
-          if (xt < -280) xt = -280;
-          if (yt > 300) yt = 300;
-          if (yt <-300) yt = -300;
-          xt1 = xt + current_part.spanfac;
-          yt1 = yt - current_part.spanfac;
-          xt2 = xt - current_part.spanfac;
-          yt2 = yt + current_part.spanfac;
-        } 
-      }
-    }
-    
     void find_it() {
       // System.out.println("-- centering,zooming: " + fact);
       xt = 210;  yt = 105; fact = 50.0;
@@ -9258,54 +9448,6 @@ public class FoilBoard extends JApplet {
       xt2 = xt - current_part.spanfac;
       yt2 = yt + current_part.spanfac;
       
-    }
-
-    public void handleButton (int x, int y) {
-      if (y < 15) { 
-        if (x >= 95 && x < 130) {   //edge view
-          viewflg = VIEW_EDGE;
-        } else if (x >= 130 && x < 180) {   //forces view
-          if (current_part.foil != FOIL_CYLINDER && current_part.foil != FOIL_BALL) {
-            viewflg = VIEW_FORCES;
-            // thic collides with running cg pos plot....
-            //vpp.steady_flight_at_given_speed(5, 0);
-          } else 
-            viewflg = VIEW_EDGE;
-          displ = 3;
-          pboflag = 0;
-        } else if (x >= 180 && x < 240) {   // 3d mesh view
-          if (current_part.foil != FOIL_CYLINDER && current_part.foil != FOIL_BALL)
-            viewflg = VIEW_3D_MESH;
-          else 
-            viewflg = VIEW_EDGE;
-        } else if (x >= 240 && x <= 270) {   //find
-          find_it();
-        }
-      } else if (y <= 30) { 
-        if (viewflg == VIEW_FORCES) {
-          if (x >= 80 && x < 160)
-            forces_aux = !forces_aux;
-          if (x >= 160 && x <= 228)
-            forces_labels = !forces_labels;
-        } else {
-          if (x >= 80 && x <= 154) {   //display streamlines or orthogonall view or toggle force labels & details
-            if (viewflg == VIEW_3D_MESH) perspective = false;
-            else displ = DISPLAY_STREAMLINES;
-          }
-          if (x >= 155 && x <= 204) {   //display animation
-            if (viewflg == VIEW_3D_MESH) perspective = true;
-            else displ = DISPLAY_ANIMATION;
-          }
-          if (x >= 205 && x <= 249) {   //display direction
-            displ = DISPLAY_DIRECTION;
-          }
-          if (x >= 250 && x <= 330) {   //display geometry
-            displ = DISPLAY_GEOMETRY;
-            pboflag = 0;
-          }
-        }
-      } 
-      viewer.repaint();
     }
 
     public void start() {
@@ -9612,8 +9754,11 @@ public class FoilBoard extends JApplet {
       // not now off1Gg.drawRect(30+3,26,24,144);
       off1Gg.fillRect(x_offset+5,hand_pos-3,20,6);
     }
+
+    int view_3d_shift_x = 0, view_3d_shift_y = 0;
+    int view_3d_shift_x_on_drag = 0, view_3d_shift_y_on_drag = 0;
       
-    // class Viewer
+    // Viewer.paint
     public void paint (Graphics g) {
       int i,j,k,n;
       //System.out.println("-- paint: ");
@@ -9638,7 +9783,7 @@ public class FoilBoard extends JApplet {
       if (planet == 2) col = Color.green;
       if (planet >= 3) col = Color.cyan;
 
-      if (viewflg == VIEW_FORCES) { // 3D View with force vectors
+      if (viewflg == VIEW_FORCES) { // 2D View with force vectors
         // sky/air
         // col_bg = color_sky_blue_light;
         col_bg = Color.BLUE;
@@ -9695,10 +9840,8 @@ public class FoilBoard extends JApplet {
         // note minus in front of dash.cg_pos !!!
         // -cg_pos = k*moff + (1-k)*rx -> rx = (-cgpos - k*l)/(1-k)
         //double rider_center_x = strut.xpos + (-dash.cg_pos + mast_foot_pressure_k * mast_foot_dist_from_strut_le)/(1-mast_foot_pressure_k);
-        double rider_countering_x_offset = 
-          (in.opts.ignore_drive_moment)
-          ? 0
-          : (dash.cg_pos_of_rider - dash.cg_pos_board_level);
+        // this is 0 when in.opts.ignore_drive_moment == true
+        double rider_countering_x_offset =  dash.cg_pos_of_rider - dash.cg_pos_board_level; // see updateTotals()
         // // for now, this parallels/verifies computation from updateTotals...
         // double drive_force = total_drag() * RIDER_DRIVE_HEIGHT/RIDER_CG_HEIGHT;
         // double rider_countering_x_offset_ver = (drive_force/rider_weight)* RIDER_CG_HEIGHT; // wasFF 0.86;
@@ -9735,10 +9878,17 @@ public class FoilBoard extends JApplet {
           // rider_center_x = -WS_MASTBASE_MAST_LE + dist_a * total_drag()/rider_weight;
         }
 
-        to_screen_x_y(new Point3D(rider_center_x, // just for appearance
-                                  0,strut.span+BOARD_THICKNESS),x,y,0,offx,scalex,offy,scaley,0,0);
-        double rider_rot_center_x_real = x[0]/scalex; // rotation corrected, real coords not screen
-        double rider_rot_center_x = rider_rot_center_x_real; // wasFF  - 0.04; // rotation corrected, real coords not screen
+        // Bug fix!! Do not rotate rider_center_x!! 
+        // Problem: rider pos is perpendicular to board-cg-pos, which si wrong.
+        // it must be *above* it. See bug-rider-cg-pos-on-board-is-not-above-eff-lift.png
+        // Fix: Do not rotate.
+        // to_screen_x_y(new Point3D(rider_center_x, // just for appearance
+        //                           0,strut.span+BOARD_THICKNESS),x,y,0,offx,scalex,offy,scaley,0,0);
+        // double rider_rot_center_x_real = x[0]/scalex; // rotation corrected, real coords not screen
+        // double rider_rot_center_x = rider_rot_center_x_real; // wasFF  - 0.04; // rotation corrected, real coords not screen
+        double rider_rot_center_x_real = rider_center_x;
+        double rider_rot_center_x = rider_center_x;
+
         double rider_rot_center_y = y[0]/scaley; // rotation corrected, real coords not screen
         double rider_drive_center_y = rider_rot_center_y + RIDER_DRIVE_HEIGHT; // rotation corrected, real coords not screen
         double rider_cg_center_y = rider_rot_center_y + RIDER_CG_HEIGHT; // rotation corrected, real coords not screen
@@ -10191,11 +10341,12 @@ public class FoilBoard extends JApplet {
                         : "Mast Drag", 
                         y[0], x[0], x[1]);
 
-      } else if (viewflg == VIEW_3D_MESH) {
+      } else if (viewflg == VIEW_3D_MESH) { // draw 3D mesh view
         off1Gg.setColor(color_very_dark);
         off1Gg.fillRect(0,0,panel_width, panel_height);
 
-        int screen_off_x = panel_width/2, screen_off_y = panel_height/2; // is at waterline
+        int screen_off_x = panel_width/2  + view_3d_shift_x + view_3d_shift_x_on_drag, 
+          screen_off_y   = panel_height/2 + view_3d_shift_y + view_3d_shift_y_on_drag; 
 
         // 150 pixels is 1.5m
         scalex = 4*zoom_slider_pos_y; scaley = -scalex;
@@ -10207,7 +10358,7 @@ public class FoilBoard extends JApplet {
         drawPart3D( wing,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
         drawPart3D( stab,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
           
-      } else {
+      } else { // Edge
 
         off1Gg.setColor(color_very_dark);
         off1Gg.fillRect(0,0,panel_width, panel_height);
@@ -10225,19 +10376,19 @@ public class FoilBoard extends JApplet {
               yvec = ypl[j][i] + slope * (xvec - xpl[j][i]);
               x[1] = (int) (fact*xvec) + xt;
               y[1] = (int) (fact*(-yvec)) + yt;
-              if (displ == DISPLAY_STREAMLINES) {                   /* MODS  21 JUL 99 */
+              if (edge_view_type == DISPLAY_STREAMLINES) {                   /* MODS  21 JUL 99 */
                 off1Gg.setColor(Color.yellow);
                 x[1] = (int) (fact*xpl[j][i+1]) + xt;
                 y[1] = (int) (fact*(-ypl[j][i+1])) + yt;
                 off1Gg.drawLine(x[0],y[0],x[1],y[1]);
-              } else if (displ == DISPLAY_DIRECTION  && (i/3*3 == i) ) {
+              } else if (edge_view_type == DISPLAY_DIRECTION  && (i/3*3 == i) ) {
                 off1Gg.setColor(col);
                 for (n=1; n <= 4; ++n) {
                   if (i == 6 + (n-1)*9) off1Gg.setColor(Color.yellow);
                 }
                 if (i/9*9 == i) off1Gg.setColor(Color.white);
                 off1Gg.drawLine(x[0],y[0],x[1],y[1]);
-              } else if (displ == DISPLAY_ANIMATION  && ((i-animation_count)/3*3 == (i-animation_count)) ) {
+              } else if (edge_view_type == DISPLAY_ANIMATION  && ((i-animation_count)/3*3 == (i-animation_count)) ) {
                 if (color_flip) { 
                   if ((i-animation_count)/6*6 == (i-animation_count))
                     off1Gg.setColor(Color.white);
@@ -10262,7 +10413,7 @@ public class FoilBoard extends JApplet {
             y[0] = y[1];
             x[1] = (int) (fact*xpl[STREAMLINES_COUNT_HALF][i]) + xt;
             y[1] = (int) (fact*(-ypl[STREAMLINES_COUNT_HALF][i])) + yt;
-            if (displ <= 2) {             /* MODS  21 JUL 99 */
+            if (edge_view_type <= 2) {             /* MODS  21 JUL 99 */
               off1Gg.drawLine(x[0],y[0],x[1],y[1]);
             }
           }
@@ -10273,7 +10424,7 @@ public class FoilBoard extends JApplet {
             y[0] = y[1];
             x[1] = (int) (fact*xpl[STREAMLINES_COUNT_HALF][i]) + xt;
             y[1] = (int) (fact*(-ypl[STREAMLINES_COUNT_HALF][i])) + yt;
-            if (displ <= 2) {                         /* MODS  21 JUL 99 */
+            if (edge_view_type <= 2) {                         /* MODS  21 JUL 99 */
               off1Gg.drawLine(x[0],y[0],x[1],y[1]);
             }
           }
@@ -10339,19 +10490,19 @@ public class FoilBoard extends JApplet {
               yvec = ypl[j][i] + slope * (xvec - xpl[j][i]);
               x[1] = (int) (fact*xvec) + xt;
               y[1] = (int) (fact*(-yvec)) + yt;
-              if (displ == DISPLAY_STREAMLINES) {                     /* MODS  21 JUL 99 */
+              if (edge_view_type == DISPLAY_STREAMLINES) {                     /* MODS  21 JUL 99 */
                 off1Gg.setColor(col);
                 x[1] = (int) (fact*xpl[j][i+1]) + xt;
                 y[1] = (int) (fact*(-ypl[j][i+1])) + yt;
                 off1Gg.drawLine(x[0],y[0],x[1],y[1]);
-              } else if (displ == DISPLAY_DIRECTION && (i/3*3 == i) ) {
+              } else if (edge_view_type == DISPLAY_DIRECTION && (i/3*3 == i) ) {
                 off1Gg.setColor(col);   /* MODS  27 JUL 99 */
                 for (n=1; n <= 4; ++n) {
                   if (i == 6 + (n-1)*9) off1Gg.setColor(Color.yellow);
                 }
                 if (i/9*9 == i) off1Gg.setColor(Color.white);
                 off1Gg.drawLine(x[0],y[0],x[1],y[1]);
-              } else if (displ == DISPLAY_ANIMATION && ((i-animation_count)/3*3 == (i-animation_count)) ) {
+              } else if (edge_view_type == DISPLAY_ANIMATION && ((i-animation_count)/3*3 == (i-animation_count)) ) {
                 if (color_flip) {
                   if ((i-animation_count)/6*6 == (i-animation_count))
                     off1Gg.setColor(Color.white);
@@ -10492,7 +10643,7 @@ public class FoilBoard extends JApplet {
             }
 
             // put some info on the geometry
-            if (displ == DISPLAY_GEOMETRY) {
+            if (edge_view_type == DISPLAY_GEOMETRY) {
               if (!foil_is_cylinder_or_ball(f)) {
                 off1Gg.setColor(Color.green);
                 x[0] = (int) (fact*(xpl[0][inmax])) + xt;
@@ -10564,7 +10715,7 @@ public class FoilBoard extends JApplet {
             off1Gg.fillPolygon(x,y,4);
           }
           // put some info on the geometry
-          if (displ == DISPLAY_GEOMETRY) {
+          if (edge_view_type == DISPLAY_GEOMETRY) {
             off1Gg.setColor(Color.green);
             x[1] = (int) (fact*(xpl[0][1])) + xt1 + 20;
             y[1] = (int) (fact*(-ypl[0][1])) + yt1;
@@ -10639,19 +10790,19 @@ public class FoilBoard extends JApplet {
         off1Gg.setColor(Color.red);
         off1Gg.drawString("Find",240,10);
 
-        if (displ == DISPLAY_STREAMLINES) 
+        if (edge_view_type == DISPLAY_STREAMLINES) 
           off1Gg.setColor(Color.yellow);
         else 
           off1Gg.setColor(Color.cyan);
         off1Gg.drawString("Streamlines",85,25);
 
-        if (displ == 1) off1Gg.setColor(Color.yellow);
+        if (edge_view_type == 1) off1Gg.setColor(Color.yellow);
         else off1Gg.setColor(Color.cyan);
         off1Gg.drawString("Moving",160,25);
-        if (displ == 2) off1Gg.setColor(Color.yellow);
+        if (edge_view_type == 2) off1Gg.setColor(Color.yellow);
         else off1Gg.setColor(Color.cyan);
         off1Gg.drawString("Frozen",210,25);
-        if (displ == 3) off1Gg.setColor(Color.yellow);
+        if (edge_view_type == 3) off1Gg.setColor(Color.yellow);
         else off1Gg.setColor(Color.cyan);
         off1Gg.drawString("Geometry",260,25);
       }
@@ -10699,1684 +10850,1697 @@ public class FoilBoard extends JApplet {
     } // Viewer.paint ()
   } // end Viewer
 
-    class Plot extends Canvas implements Runnable {
-      FoilBoard app;
-      Thread run2;
+  class Plot extends Canvas implements Runnable {
+    FoilBoard app;
+    Thread run2;
 
-      int axis_y_label_width, axis_x_label_width, plot_trace_count;
+    int axis_y_label_width, axis_x_label_width, plot_trace_count;
 
-      double begx,endx,begy,endy;
-      String labx,labxu,laby,labyu;
-      double[][] plotx = new double[5][50+1]; // 1 st x,y  oten used to store a current red "dot"
-      double[][] ploty = new double[5][50+1];
-      Color[] plot_colors = {Color.white, Color.magenta, Color.green};
-
-      // state shared between loadPlot and paint
-      int lines = 1;
-      int ntikx,ntiky,npt, start_pt = 1;
+    double begx,endx,begy,endy; // cryptic FoilSimIII name 
+    String labx,labxu,laby,labyu; // cryptic FoilSimIII name 
+    int ntikx,ntiky,npt, start_pt = 1; // cryptic FoilSimIII name 
+    Point locp, ancp; // cryptic FoilSimIII name 
 
 
-      Point locp,ancp;
+    double[][] plotx = new double[5][50+1]; // 1 st x,y  oten used to store a current red "dot"
+    double[][] ploty = new double[5][50+1];
+    Color[] plot_colors = {Color.white, Color.magenta, Color.green};
 
-      Solver plot_solver = new Solver();
+    // state shared between loadPlot and paint
+    int lines = 1;
 
-      Plot (FoilBoard target) { 
-        setBackground(Color.blue);
-        run2 = null;
-      }
-   
-      public boolean mouseUp(Event evt, int x, int y) {
-        handleButton(x,y);
-        return true;                                        
-      }
+    // soem controls like "Craft Pitch" in "no equilibrium" mode
+    // corrently confilct with vpp-based speed-sweep plots such as
+    // PLOT_TYPE_CURR_PART_VS_SPEED and PLOT_TYPE_CURR_PART_VS_SPEED
+    // because these currently leave the craft in equilibrium state
+    // at the speed that was in effect before the sweep.
+    boolean no_vpp_sweeps = false;
 
-      int rescale_bt_y;
-      boolean should_rescale_p = false;
 
-      public void handleButton (int x, int y) {
-        if (y >= rescale_bt_y) { 
-          if (x >= 4 && x <= 68) {   // cliked on button rescale
-            should_rescale_p = !should_rescale_p;
-            out_top.plot.loadPlot();
+    Solver plot_solver = new Solver();
+
+    Plot (FoilBoard target) { 
+      setBackground(Color.blue);
+      run2 = null;
+
+      this.addMouseListener(new MouseListener() {
+          @SuppressWarnings("deprecation")
+          @Override
+          public void mouseReleased (MouseEvent e) {
+            System.out.println("Plot:MOUSE_RELEASED_EVENT:");
+            int x = e.getX();
+            int y = e.getY();
+            if (y >= rescale_bt_y) { 
+              if (x >= 4 && x <= 68) {   // cliked on button rescale
+                should_rescale_p = !should_rescale_p;
+                out_top.plot.loadPlot();
+              }
+            }
+            // out_top.plot.repaint();
+            repaint();
           }
-        }
+          @SuppressWarnings("deprecation")
+          @Override
+          public void mousePressed (MouseEvent e) {
+            // System.out.println(":MOUSE_PRESSED_EVENT:");
+          }
+          @Override
+          public void mouseExited (MouseEvent e) {
+            // System.out.println(":MOUSE_EXITED_EVENT:");
+          }
+          @Override
+          public void mouseEntered (MouseEvent e) {
+            // System.out.println(":MOUSE_ENTER_EVENT:");
+          }
+          @Override
+          public void mouseClicked (MouseEvent e) {
+            // System.out.println(":MOUSE_CLICK_EVENT:");
+          }
+        });
+    }
+   
+    int rescale_bt_y;
+    boolean should_rescale_p = false;
+
+    public void start() {
+      if (run2 == null) {
+        run2 = new Thread(this);
+        run2.start();
+      }
+    }
+
+    //      public void run() {
+    //        int timer;
+    // 
+    //        timer = 100;
+    //        while (true) {
+    //          try { Thread.sleep(timer); }
+    //          catch (InterruptedException e) {}
+    //          out_top.plot.repaint();
+    //        }
+    //      }
+      
+    /**
+     * @j2sNative
+     * 
+     * this.repaint();
+     * var self = this; setTimeout(function() {self.run();}, 100);
+     */
+    public void run() {
+      int timer;
+ 
+      timer = 100;
+      while (true) {
+        try { Thread.sleep(timer); }
+        catch (InterruptedException e) {}
         out_top.plot.repaint();
       }
+    }
 
-      public void start() {
-        if (run2 == null) {
-          run2 = new Thread(this);
-          run2.start();
-        }
-      }
+    // Plot.loadPlot
+    public void loadPlot () {
+      // new Exception("Plot.loadPlot").printStackTrace(System.out);
 
-      //      public void run() {
-      //        int timer;
-      // 
-      //        timer = 100;
-      //        while (true) {
-      //          try { Thread.sleep(timer); }
-      //          catch (InterruptedException e) {}
-      //          out_top.plot.repaint();
-      //        }
-      //      }
-      
-      /**
-       * @j2sNative
-       * 
-       * this.repaint();
-       * var self = this; setTimeout(function() {self.run();}, 100);
-       */
-      public void run() {
-        int timer;
- 
-        timer = 100;
-        while (true) {
-          try { Thread.sleep(timer); }
-          catch (InterruptedException e) {}
-          out_top.plot.repaint();
-        }
-      }
+      // see comments for no_vpp_sweeps flag
+      if (no_vpp_sweeps && 
+          (plot_type == PLOT_TYPE_CG_VS_SPEED ||
+           plot_type == PLOT_TYPE_CURR_PART_VS_SPEED) ) 
+        return;
 
-      // Plot.loadPlot
-      public void loadPlot () {
-        // new Exception("Plot.loadPlot").printStackTrace(System.out);
-        double rad,ang,xc,yc,lftref,clref,drgref,cdref;
-        double del,spd,awng,ppl,tpl,hpl,angl;
-        int index,ic;
-        double aoa_absolute = effective_aoa();
+      // Cryptic var names is FoilSimIII legacy
+      double rad,ang,xc,yc,lftref,clref,drgref,cdref;
+      double del,spd,awng,ppl,tpl,hpl,angl;
+      int index,ic;
 
-        Foil f = current_part.foil;
+      double aoa_absolute = effective_aoa();
 
-        clref =  getCl_plot(current_part.camber/25,current_part.thickness/25,aoa_absolute);
-        if (Math.abs(clref) <= .001) clref = .001;    /* protection */
+      Foil f = current_part.foil;
 
-        lftref = clref * q0_SI * current_part.area;
+      clref =  getCl_plot(current_part.camber/25,current_part.thickness/25,aoa_absolute);
+      if (Math.abs(clref) <= .001) clref = .001;    /* protection */
+
+      lftref = clref * q0_SI * current_part.area;
         
-        double alfd = aoa_absolute;
-        //   attempt to fix symmetry problem
-        if (fix_symmetry_problem && current_part.camber < 0.0) alfd = - aoa_absolute;
-        //
-        cdref = // was: solver.get_Cd(clref, alfd, current_part.thickness, current_part.camber);
-          solver.get_Cd(alfd);
+      double alfd = aoa_absolute;
+      //   attempt to fix symmetry problem
+      if (fix_symmetry_problem && current_part.camber < 0.0) alfd = - aoa_absolute;
+      //
 
-        drgref = cdref * q0_SI * current_part.area;
+      cdref = // was: solver.get_Cd(clref, alfd, current_part.thickness, current_part.camber);
+        solver.get_Cd(alfd);
 
-        if (current_part == strut) {
-          // typically only 30% sits in water
-          drgref *= (1-alt/100);
-        }
+      drgref = cdref * q0_SI * current_part.area;
+
+      if (current_part == strut) {
+        // typically only 30% sits in water
+        drgref *= (1-alt/100);
+      }
    
-        // load up the view image
-        for (ic = 0; ic <= STREAMLINES_COUNT; ++ ic) {
-          for (index = 0; index <= POINTS_COUNT; ++ index) {
-            if (!foil_is_cylinder_or_ball(f)) {
-              xpl[ic][index] = xm[ic][index];
-              ypl[ic][index] = ym[ic][index];
-            } else {
-              xpl[ic][index] = xg[ic][index];
-              ypl[ic][index] = yg[ic][index];
-            }
-          }
-        }
-
-        // probe
-        for (index = 0; index <= POINTS_COUNT; ++ index) {
+      //  load up the current plot
+      switch (plot_type) {
+      case PLOT_TYPE_PRESSURE: { // pressure variation 
+        npt = POINTS_COUNT_HALF;
+        plot_trace_count = 3;
+        axis_y_label_width = axis_x_label_width = 2;
+        for (index = 1; index <= npt; ++ index) {
           if (!foil_is_cylinder_or_ball(f)) {
-            xpl[19][index] = xm[19][index];
-            ypl[19][index] = ym[19][index];
-            pxpl = pxm;
-            pypl = pym;
+            plotx[0][index] =100.*(xpl[0][POINTS_COUNT_HALF-index + 1]/4.0 + .5);
+            plotx[1][index] =100.*(xpl[0][POINTS_COUNT_HALF+index - 1]/4.0 + .5);
+            plotx[2][index] =100.*(xpl[0][POINTS_COUNT_HALF+index - 1]/4.0 + .5);
           } else {
-            xpl[19][index] = xg[19][index];
-            ypl[19][index] = yg[19][index];
-            pxpl = pxg;
-            pypl = pyg;
+            plotx[0][index]=100.*(xpl[0][POINTS_COUNT_HALF-index+1]/(2.0*radius/lconv)+.5);
+            plotx[1][index]=100.*(xpl[0][POINTS_COUNT_HALF+index-1]/(2.0*radius/lconv)+.5);
+            plotx[2][index]=100.*(xpl[0][POINTS_COUNT_HALF+index-1]/(2.0*radius/lconv)+.5);
           }
+          ploty[0][index] = plp[POINTS_COUNT_HALF-index + 1];
+          ploty[1][index] = plp[POINTS_COUNT_HALF+index - 1];
+          ploty[2][index] = ps0/2116. * pconv;
+          // **** Impose pstatic on surface plot for stalled foil
+          if (stall_model_type != STALL_MODEL_IDEAL_FLOW && index > 7) {
+            double apos = stall_model_type == STALL_MODEL_DFLT ? +10 : stall_model_apos;
+            double aneg = stall_model_type == STALL_MODEL_DFLT ? -10 : stall_model_aneg;
+            if (aoa_absolute > apos) ploty[0][index] = ploty[2][index];
+            if (aoa_absolute < aneg) ploty[1][index] = ploty[2][index];
+          }
+          // *******
         }
-              
-        //  load up surface plots
-        switch (plot_type) {
-        case PLOT_TYPE_PRESSURE: { // pressure variation 
-          npt = POINTS_COUNT_HALF;
-          plot_trace_count = 3;
-          axis_y_label_width = axis_x_label_width = 2;
-          for (index = 1; index <= npt; ++ index) {
-            if (!foil_is_cylinder_or_ball(f)) {
-              plotx[0][index] =100.*(xpl[0][POINTS_COUNT_HALF-index + 1]/4.0 + .5);
-              plotx[1][index] =100.*(xpl[0][POINTS_COUNT_HALF+index - 1]/4.0 + .5);
-              plotx[2][index] =100.*(xpl[0][POINTS_COUNT_HALF+index - 1]/4.0 + .5);
-            } else {
-              plotx[0][index]=100.*(xpl[0][POINTS_COUNT_HALF-index+1]/(2.0*radius/lconv)+.5);
-              plotx[1][index]=100.*(xpl[0][POINTS_COUNT_HALF+index-1]/(2.0*radius/lconv)+.5);
-              plotx[2][index]=100.*(xpl[0][POINTS_COUNT_HALF+index-1]/(2.0*radius/lconv)+.5);
-            }
-            ploty[0][index] = plp[POINTS_COUNT_HALF-index + 1];
-            ploty[1][index] = plp[POINTS_COUNT_HALF+index - 1];
-            ploty[2][index] = ps0/2116. * pconv;
-            // **** Impose pstatic on surface plot for stalled foil
-            if (stall_model_type != STALL_MODEL_IDEAL_FLOW && index > 7) {
-              double apos = stall_model_type == STALL_MODEL_DFLT ? +10 : stall_model_apos;
-              double aneg = stall_model_type == STALL_MODEL_DFLT ? -10 : stall_model_aneg;
-              if (aoa_absolute > apos) ploty[0][index] = ploty[2][index];
-              if (aoa_absolute < aneg) ploty[1][index] = ploty[2][index];
-            }
-            // *******
+        begx = 0.0;
+        endx = 100.;
+        ntikx = 5;
+        ntiky = 5;
+        //       endy=1.02 * ps0/2116. * pconv;
+        //       begy=.95 * ps0/2116. * pconv;
+        laby = String.valueOf("Press");
+        if (lunits == IMPERIAL) labyu = String.valueOf("psi");
+        if (lunits == 1) labyu = String.valueOf("k-Pa");
+        labx = String.valueOf(" X ");
+        if (!foil_is_cylinder_or_ball(f)) labxu = String.valueOf("% chord");
+        else labxu = String.valueOf("% diameter");
+        break;
+      }
+      case PLOT_TYPE_VELOCITY: {   // velocity variation
+        npt = POINTS_COUNT_HALF;
+        plot_trace_count = 3;
+        axis_y_label_width = 2;
+        axis_x_label_width = 1;
+        for (index = 1; index <= npt; ++ index) {
+          if (!foil_is_cylinder_or_ball(f)) {
+            plotx[0][index] = 100.*(xpl[0][POINTS_COUNT_HALF-index+1]/4.0+.5);
+            plotx[1][index] = 100.*(xpl[0][POINTS_COUNT_HALF+index-1]/4.0+.5);
+            plotx[2][index] = 100.*(xpl[0][POINTS_COUNT_HALF-index+1]/4.0+.5);
+          } else {
+            plotx[0][index]=100.*(xpl[0][POINTS_COUNT_HALF-index+1]/(2.0*radius/lconv)+.5);
+            plotx[1][index]=100.*(xpl[0][POINTS_COUNT_HALF+index-1]/(2.0*radius/lconv)+.5);
+            plotx[2][index]=100.*(xpl[0][POINTS_COUNT_HALF+index-1]/(2.0*radius/lconv)+.5);
           }
-          begx = 0.0;
-          endx = 100.;
-          ntikx = 5;
-          ntiky = 5;
-          //       endy=1.02 * ps0/2116. * pconv;
-          //       begy=.95 * ps0/2116. * pconv;
-          laby = String.valueOf("Press");
-          if (lunits == IMPERIAL) labyu = String.valueOf("psi");
-          if (lunits == 1) labyu = String.valueOf("k-Pa");
-          labx = String.valueOf(" X ");
-          if (!foil_is_cylinder_or_ball(f)) labxu = String.valueOf("% chord");
-          else labxu = String.valueOf("% diameter");
-          break;
+          ploty[0][index] = plv[POINTS_COUNT_HALF-index+1];
+          ploty[1][index] = plv[POINTS_COUNT_HALF+index-1];
+          ploty[2][index] = velocity;
+          // **** Impose free stream vel on surface plot for stalled foil
+          if (stall_model_type != STALL_MODEL_IDEAL_FLOW && index > 7) {
+            double apos = stall_model_type == STALL_MODEL_DFLT ? +10 : stall_model_apos;
+            double aneg = stall_model_type == STALL_MODEL_DFLT ? -10 : stall_model_aneg;
+            if (aoa_absolute > apos) ploty[0][index] = ploty[2][index];
+            if (aoa_absolute < aneg) ploty[1][index] = ploty[2][index];
+          }
+          // *******
         }
-        case PLOT_TYPE_VELOCITY: {   // velocity variation
-          npt = POINTS_COUNT_HALF;
-          plot_trace_count = 3;
-          axis_y_label_width = 2;
-          axis_x_label_width = 1;
-          for (index = 1; index <= npt; ++ index) {
-            if (!foil_is_cylinder_or_ball(f)) {
-              plotx[0][index] = 100.*(xpl[0][POINTS_COUNT_HALF-index+1]/4.0+.5);
-              plotx[1][index] = 100.*(xpl[0][POINTS_COUNT_HALF+index-1]/4.0+.5);
-              plotx[2][index] = 100.*(xpl[0][POINTS_COUNT_HALF-index+1]/4.0+.5);
-            } else {
-              plotx[0][index]=100.*(xpl[0][POINTS_COUNT_HALF-index+1]/(2.0*radius/lconv)+.5);
-              plotx[1][index]=100.*(xpl[0][POINTS_COUNT_HALF+index-1]/(2.0*radius/lconv)+.5);
-              plotx[2][index]=100.*(xpl[0][POINTS_COUNT_HALF+index-1]/(2.0*radius/lconv)+.5);
-            }
-            ploty[0][index] = plv[POINTS_COUNT_HALF-index+1];
-            ploty[1][index] = plv[POINTS_COUNT_HALF+index-1];
-            ploty[2][index] = velocity;
-            // **** Impose free stream vel on surface plot for stalled foil
-            if (stall_model_type != STALL_MODEL_IDEAL_FLOW && index > 7) {
-              double apos = stall_model_type == STALL_MODEL_DFLT ? +10 : stall_model_apos;
-              double aneg = stall_model_type == STALL_MODEL_DFLT ? -10 : stall_model_aneg;
-              if (aoa_absolute > apos) ploty[0][index] = ploty[2][index];
-              if (aoa_absolute < aneg) ploty[1][index] = ploty[2][index];
-            }
-            // *******
-          }
-          begx = 0.0;
-          endx = 100.;
-          ntikx = 5;
-          ntiky = 6;
-          //      begy = 0.0;
-          //      endy = 500.;
-          laby = String.valueOf("Vel");
-          if (lunits == IMPERIAL) labyu = String.valueOf("mph");
-          if (lunits == 1) labyu = String.valueOf("kmh");
-          labx = String.valueOf(" X ");
-          if (!foil_is_cylinder_or_ball(f)) labxu = String.valueOf("% chord");
-          else labxu = String.valueOf("% diameter");
+        begx = 0.0;
+        endx = 100.;
+        ntikx = 5;
+        ntiky = 6;
+        //      begy = 0.0;
+        //      endy = 500.;
+        laby = String.valueOf("Vel");
+        if (lunits == IMPERIAL) labyu = String.valueOf("mph");
+        if (lunits == 1) labyu = String.valueOf("kmh");
+        labx = String.valueOf(" X ");
+        if (!foil_is_cylinder_or_ball(f)) labxu = String.valueOf("% chord");
+        else labxu = String.valueOf("% diameter");
 
-          //  load up performance plots
-          break;
-        }
-        case PLOT_TYPE_ANGLE: { // lift/cl/drag/cd versus angle
-          npt = 21;
-          plot_trace_count = (plot_y_val == PLOT_OUT_DRAG) ? 3 : 1;
-          axis_x_label_width = 2;  axis_y_label_width = 3;
-          begx=-20.0; endx=20.0; ntikx=5;
-          labx = String.valueOf("Angle");
-          labxu = String.valueOf("degrees");
-          del = 40.0 / (npt-1);
+        //  load up performance plots
+        break;
+      }
+      case PLOT_TYPE_ANGLE: { // lift/cl/drag/cd versus angle
+        npt = 21;
+        plot_trace_count = (plot_y_val == PLOT_OUT_DRAG) ? 3 : 1;
+        axis_x_label_width = 2;  axis_y_label_width = 3;
+        begx=-20.0; endx=20.0; ntikx=5;
+        labx = String.valueOf("Angle");
+        labxu = String.valueOf("degrees");
+        del = 40.0 / (npt-1);
 
-          // fill array of x/y pairs
-          for (ic=1; ic <=npt; ++ic) {
-            angl = -20.0 + (ic-1)*del;
-            double clpl = getCl_plot(current_part.camber/25,current_part.thickness/25,angl);
-            alfd = angl;
-            double thkd = current_part.thickness;
-            double camd = current_part.camber;
+        // fill array of x/y pairs
+        for (ic=1; ic <=npt; ++ic) {
+          angl = -20.0 + (ic-1)*del;
+          double clpl = getCl_plot(current_part.camber/25,current_part.thickness/25,angl);
+          alfd = angl;
+          double thkd = current_part.thickness;
+          double camd = current_part.camber;
 
-            //   attempt to fix symmetry problem
-            if (fix_symmetry_problem && camd < 0.0) alfd = - angl;
-            //
+          //   attempt to fix symmetry problem
+          if (fix_symmetry_problem && camd < 0.0) alfd = - angl;
+          //
 
-            double cdpl = solver.get_Cd(clpl, alfd, thkd, camd);
-            plotx[0][ic] = angl;
+          double cdpl = solver.get_Cd(clpl, alfd, thkd, camd);
+          plotx[0][ic] = angl;
 
-            switch (plot_y_val) {
-            case PLOT_OUT_LIFT:
-              ploty[0][ic] = lftref * clpl/clref; 
-              break;
-            case PLOT_OUT_CL:
-              ploty[0][ic] = clpl; 
-              break;
-            case PLOT_OUT_DRAG: 
-              ploty[0][ic] = drgref * cdpl/cdref;
-              break;
-            case PLOT_OUT_CD:  
-              ploty[0][ic] = cdpl;
-              break;
-            case PLOT_OUT_CM:  
-              ploty[0][ic] = current_part.compute_cm(alfd); // incl AR correction
-              break;
-            default:;
-              System.out.println("missing PLOT_OUT_...: case");
-            }
-          }
-
-          // decorate
-          ntiky = 5;
-          plotx[1][0] = aoa_absolute;
           switch (plot_y_val) {
           case PLOT_OUT_LIFT:
-            laby = String.valueOf("Lift");
-            if (lunits == IMPERIAL) labyu = String.valueOf("lbs");
-            if (lunits == 1) labyu = String.valueOf("N");
-            ploty[1][0] = lftref;
+            ploty[0][ic] = lftref * clpl/clref; 
             break;
           case PLOT_OUT_CL:
-            laby = String.valueOf("Cl");
-            labyu = String.valueOf("");
-            ploty[1][0] = current_part.cl;
+            ploty[0][ic] = clpl; 
             break;
-          case PLOT_OUT_DRAG:
-            laby = String.valueOf("Drag");
-            if (lunits == IMPERIAL) labyu = String.valueOf("lbs");
-            if (lunits == 1) labyu = String.valueOf("N");
-            ploty[1][0] = drgref;
+          case PLOT_OUT_DRAG: 
+            ploty[0][ic] = drgref * cdpl/cdref;
             break;
-          case PLOT_OUT_CD:
-            laby = String.valueOf("Cd");
-            labyu = String.valueOf("");
-            ploty[1][0] = current_part.cd;
+          case PLOT_OUT_CD:  
+            ploty[0][ic] = cdpl;
             break;
-          case PLOT_OUT_CM:
-            laby = String.valueOf("Cm1");
-            labyu = String.valueOf("");
-            ploty[1][0] = current_part.cm;
+          case PLOT_OUT_CM:  
+            ploty[0][ic] = current_part.compute_cm(alfd); // incl AR correction
             break;
-          default:
-          } 
-      
+          default:;
+            System.out.println("missing PLOT_OUT_...: case");
+          }
+        }
+
+        // decorate
+        ntiky = 5;
+        plotx[1][0] = aoa_absolute;
+        switch (plot_y_val) {
+        case PLOT_OUT_LIFT:
+          laby = String.valueOf("Lift");
+          if (lunits == IMPERIAL) labyu = String.valueOf("lbs");
+          if (lunits == 1) labyu = String.valueOf("N");
+          ploty[1][0] = lftref;
           break;
-        }
-        case PLOT_TYPE_THICKNESS: { // lift/cl/drag/cd versus thickness
-            npt = 20;
-            plot_trace_count = 1;
-            axis_x_label_width = 3;  axis_y_label_width = 3;
-            begx=0.0; 
-            endx=20.0; 
-            ntikx=5;
-            labx = String.valueOf("Thickness ");
-            labxu = String.valueOf("% chord");
-            del = 1.0 / (npt);
-            for (ic=1; ic <=npt; ++ic) {
-              double thkpl = .05 + (ic-1)*del;
-              double clpl = getCl_plot(current_part.camber/25,thkpl,aoa_absolute);
-              alfd = aoa_absolute;
-              double thkd = thkpl*25.0;
-              double camd = current_part.camber;
-              //   attempt to fix symmetry problem
-              if (fix_symmetry_problem && camd < 0.0) alfd = - aoa_absolute;
-              //
-              double cdpl = solver.get_Cd(clpl, alfd, thkd, camd);
+        case PLOT_OUT_CL:
+          laby = String.valueOf("Cl");
+          labyu = String.valueOf("");
+          ploty[1][0] = current_part.cl;
+          break;
+        case PLOT_OUT_DRAG:
+          laby = String.valueOf("Drag");
+          if (lunits == IMPERIAL) labyu = String.valueOf("lbs");
+          if (lunits == 1) labyu = String.valueOf("N");
+          ploty[1][0] = drgref;
+          break;
+        case PLOT_OUT_CD:
+          laby = String.valueOf("Cd");
+          labyu = String.valueOf("");
+          ploty[1][0] = current_part.cd;
+          break;
+        case PLOT_OUT_CM:
+          laby = String.valueOf("Cm1");
+          labyu = String.valueOf("");
+          ploty[1][0] = current_part.cm;
+          break;
+        default:
+        } 
+      
+        break;
+      }
+      case PLOT_TYPE_THICKNESS: { // lift/cl/drag/cd versus thickness
+        npt = 20;
+        plot_trace_count = 1;
+        axis_x_label_width = 3;  axis_y_label_width = 3;
+        begx=0.0; 
+        endx=20.0; 
+        ntikx=5;
+        labx = String.valueOf("Thickness ");
+        labxu = String.valueOf("% chord");
+        del = 1.0 / (npt);
+        for (ic=1; ic <=npt; ++ic) {
+          double thkpl = .05 + (ic-1)*del;
+          double clpl = getCl_plot(current_part.camber/25,thkpl,aoa_absolute);
+          alfd = aoa_absolute;
+          double thkd = thkpl*25.0;
+          double camd = current_part.camber;
+          //   attempt to fix symmetry problem
+          if (fix_symmetry_problem && camd < 0.0) alfd = - aoa_absolute;
+          //
+          double cdpl = solver.get_Cd(clpl, alfd, thkd, camd);
 
-              if ( plot_y_val == PLOT_OUT_LIFT || plot_y_val == PLOT_OUT_CL) {
-                plotx[0][ic] = thkpl*25.;
-                if (plot_y_val == PLOT_OUT_LIFT)
-                  ploty[0][ic] = lftref * clpl/clref;
-                else 
-                  ploty[0][ic] = clpl;
-              }
-              else {
-                plotx[0][ic] = thkd;
-                if (plot_y_val == PLOT_OUT_DRAG)
-                  ploty[0][ic] = drgref * cdpl/cdref;
-                else
-                  ploty[0][ic] = cdpl;
-              }
-            }
-            ntiky = 5;
-            plotx[1][0] = current_part.thickness;
-            switch (plot_y_val) {
-            case PLOT_OUT_LIFT:
-              laby = String.valueOf("Lift");
-              labyu = current_display_force_unit_string();
-              ploty[1][0] = lftref;
-              break;
-            case PLOT_OUT_CL:
-              laby = String.valueOf("Cl");
-              ploty[1][0] = current_part.cl;
-              break;
-            case PLOT_OUT_DRAG:
-              laby = String.valueOf("Drag");
-              labyu = current_display_force_unit_string();
-              ploty[1][0] = drgref;
-              ploty[0][npt]= ploty[0][npt-1]= ploty[0][npt-2]=ploty[0][npt-3]=ploty[0][npt-4];
-              break;
-            case PLOT_OUT_CD:
-              laby = String.valueOf("Cd");
-              ploty[1][0] = current_part.cd;
-              ploty[0][npt] = ploty[0][npt-1] = ploty[0][npt-2]=ploty[0][npt-3]=ploty[0][npt-4];
-              break;
-            case PLOT_OUT_CM:
-              laby = String.valueOf("Cm2");
-              ploty[1][0] = current_part.cm;
-              //ploty[0][npt] = ploty[0][npt-1] = ploty[0][npt-2]=ploty[0][npt-3]=ploty[0][npt-4];
-              break;
-            default:
-            }
-            break;
-        }
-        case PLOT_TYPE_CAMBER: { // lift/cl/drag/cd versus camber
-            npt = 21;
-            plot_trace_count = 1;
-            axis_x_label_width = 4;  axis_y_label_width = 3;
-            begx=-20.; 
-            endx=20.; 
-            ntikx=5;
-            labx = String.valueOf("Camber ");
-            labxu = String.valueOf("% chord");
-            del = 2.0 / (npt-1);
-            for (ic=1; ic <=npt; ++ic) {
-              double campl = -1.0 + (ic-1)*del;
-              double clpl = getCl_plot(campl,current_part.thickness/25,aoa_absolute);
-              alfd = aoa_absolute;
-              double thkd = current_part.thickness;
-              double camd = campl * 25.0;
-              //   attempt to fix symmetry problem
-              if (fix_symmetry_problem && camd < 0.0) alfd = - aoa_absolute;
-              //
-              double cdpl = solver.get_Cd(clpl, alfd, thkd, camd);
-
-              if ( plot_y_val == PLOT_OUT_LIFT || plot_y_val == PLOT_OUT_CL) {
-                plotx[0][ic] = campl*25.0;
-                if (plot_y_val == PLOT_OUT_LIFT)
-                  ploty[0][ic] = lftref * clpl/clref;
-                else 
-                  ploty[0][ic] = clpl;
-              }
-              else {
-                plotx[0][ic] = camd;
-                if (plot_y_val == PLOT_OUT_DRAG)
-                  ploty[0][ic] = drgref * cdpl/cdref;
-                else
-                  ploty[0][ic] = cdpl;
-              }
-            }
-            ntiky = 5;
-            plotx[1][0] = current_part.camber;
-            switch (plot_y_val) {
-            case PLOT_OUT_LIFT:
-              laby = String.valueOf("Lift");
-              labyu = current_display_force_unit_string();
-              ploty[1][0] = lftref;
-              break;
-            case PLOT_OUT_CL:
-              laby = String.valueOf("Cl");
-              ploty[1][0] = current_part.cl;
-              break;
-            case PLOT_OUT_DRAG:
-              laby = String.valueOf("Drag");
-              labyu = current_display_force_unit_string();
-              ploty[1][0] = drgref;
-              ploty[0][1] = ploty[0][2]= ploty[0][3];
-              ploty[0][npt] = ploty[0][npt -1] = ploty[0][npt - 2];
-              break;
-            case PLOT_OUT_CD:
-              laby = String.valueOf("Cd");
-              ploty[1][0] = current_part.cd;
-              ploty[0][1] = ploty[0][2]= ploty[0][3];
-              ploty[0][npt] = ploty[0][npt -1] = ploty[0][npt-2];
-              break;
-            case PLOT_OUT_CM:
-              laby = String.valueOf("Cm");
-              ploty[1][0] = current_part.cm;
-              //ploty[0][1] = ploty[0][2]= ploty[0][3];
-              //ploty[0][npt] = ploty[0][npt -1] = ploty[0][npt-2];
-              break;
-            default:
-            }
-            break;
-        }
-        case PLOT_TYPE_CG_VS_SPEED: { // rider position versus speed
-          on_cg_plotting = true; // for debugging only 
-
-          ntiky = 8;
-          laby = "";
-          labyu = "";
-
-          npt = 40;
-          start_pt = 1;
-          plot_trace_count = 5;
-          axis_x_label_width = 5;  axis_y_label_width = 3;
-
-          labx = String.valueOf("Speed ");
-          // spd = Math.min(8, velocity);
-          spd = 8;
-          labxu = current_display_speed_unit_string();
-          double beg_spd = 4+load/100; //ad hoc  old: min_takeoff_speed == 0 ? 15 : min_takeoff_speed; // velocity/2; // 10;
-          double end_spd = 50;
-          del = (npt == 1) ? 0 : (end_spd-beg_spd)/(npt-1);
-
-          plotx[0][0] = plotx[1][0]  = plotx[2][0] = plotx[3][0] = plotx[4][0] = speed_kmh_to_display_units(velocity);
-          ploty[0][0] = -dash.cg_pos_board_level * 
-            ((display_units == METRIC || display_units == METRIC_2) ? 100 : 39.3701);
-          ploty[1][0] = (display_units == METRIC) 
-              ? 0.10197*total_drag() : force_n_to_display_units(total_drag());
-          ploty[2][0] = craft_pitch;
-          ploty[3][0] = total_lift()/total_drag();
-          ploty[4][0] = -dash.cg_pos_of_rider * 
-            ((display_units == METRIC || display_units == METRIC_2) ? 100 : 39.3701);
-
-          boolean saved_flag = can_do_gui_updates;
-          can_do_gui_updates = false;;
-          double saved_velocity = velocity;
-          double saved_craft_pitch = craft_pitch;
-
-          for (spd = end_spd, ic=npt; ic >= 1; ic--, spd-=del) {
-            velocity = spd;
-            //? vpp.steady_flight_at_given_speed(5, craft_pitch);
-            if (spd == end_spd)
-              vpp.steady_flight_at_given_speed(2, 0);
+          if ( plot_y_val == PLOT_OUT_LIFT || plot_y_val == PLOT_OUT_CL) {
+            plotx[0][ic] = thkpl*25.;
+            if (plot_y_val == PLOT_OUT_LIFT)
+              ploty[0][ic] = lftref * clpl/clref;
+            else 
+              ploty[0][ic] = clpl;
+          }
+          else {
+            plotx[0][ic] = thkd;
+            if (plot_y_val == PLOT_OUT_DRAG)
+              ploty[0][ic] = drgref * cdpl/cdref;
             else
-              vpp.steady_flight_at_given_speed(1, craft_pitch);
-            // recomp_all_parts(); // just in case
-            double total_drag = total_drag();
+              ploty[0][ic] = cdpl;
+          }
+        }
+        ntiky = 5;
+        plotx[1][0] = current_part.thickness;
+        switch (plot_y_val) {
+        case PLOT_OUT_LIFT:
+          laby = String.valueOf("Lift");
+          labyu = current_display_force_unit_string();
+          ploty[1][0] = lftref;
+          break;
+        case PLOT_OUT_CL:
+          laby = String.valueOf("Cl");
+          ploty[1][0] = current_part.cl;
+          break;
+        case PLOT_OUT_DRAG:
+          laby = String.valueOf("Drag");
+          labyu = current_display_force_unit_string();
+          ploty[1][0] = drgref;
+          ploty[0][npt]= ploty[0][npt-1]= ploty[0][npt-2]=ploty[0][npt-3]=ploty[0][npt-4];
+          break;
+        case PLOT_OUT_CD:
+          laby = String.valueOf("Cd");
+          ploty[1][0] = current_part.cd;
+          ploty[0][npt] = ploty[0][npt-1] = ploty[0][npt-2]=ploty[0][npt-3]=ploty[0][npt-4];
+          break;
+        case PLOT_OUT_CM:
+          laby = String.valueOf("Cm2");
+          ploty[1][0] = current_part.cm;
+          //ploty[0][npt] = ploty[0][npt-1] = ploty[0][npt-2]=ploty[0][npt-3]=ploty[0][npt-4];
+          break;
+        default:
+        }
+        break;
+      }
+      case PLOT_TYPE_CAMBER: { // lift/cl/drag/cd versus camber
+        npt = 21;
+        plot_trace_count = 1;
+        axis_x_label_width = 4;  axis_y_label_width = 3;
+        begx=-20.; 
+        endx=20.; 
+        ntikx=5;
+        labx = String.valueOf("Camber ");
+        labxu = String.valueOf("% chord");
+        del = 2.0 / (npt-1);
+        for (ic=1; ic <=npt; ++ic) {
+          double campl = -1.0 + (ic-1)*del;
+          double clpl = getCl_plot(campl,current_part.thickness/25,aoa_absolute);
+          alfd = aoa_absolute;
+          double thkd = current_part.thickness;
+          double camd = campl * 25.0;
+          //   attempt to fix symmetry problem
+          if (fix_symmetry_problem && camd < 0.0) alfd = - aoa_absolute;
+          //
+          double cdpl = solver.get_Cd(clpl, alfd, thkd, camd);
+
+          if ( plot_y_val == PLOT_OUT_LIFT || plot_y_val == PLOT_OUT_CL) {
+            plotx[0][ic] = campl*25.0;
+            if (plot_y_val == PLOT_OUT_LIFT)
+              ploty[0][ic] = lftref * clpl/clref;
+            else 
+              ploty[0][ic] = clpl;
+          }
+          else {
+            plotx[0][ic] = camd;
+            if (plot_y_val == PLOT_OUT_DRAG)
+              ploty[0][ic] = drgref * cdpl/cdref;
+            else
+              ploty[0][ic] = cdpl;
+          }
+        }
+        ntiky = 5;
+        plotx[1][0] = current_part.camber;
+        switch (plot_y_val) {
+        case PLOT_OUT_LIFT:
+          laby = String.valueOf("Lift");
+          labyu = current_display_force_unit_string();
+          ploty[1][0] = lftref;
+          break;
+        case PLOT_OUT_CL:
+          laby = String.valueOf("Cl");
+          ploty[1][0] = current_part.cl;
+          break;
+        case PLOT_OUT_DRAG:
+          laby = String.valueOf("Drag");
+          labyu = current_display_force_unit_string();
+          ploty[1][0] = drgref;
+          ploty[0][1] = ploty[0][2]= ploty[0][3];
+          ploty[0][npt] = ploty[0][npt -1] = ploty[0][npt - 2];
+          break;
+        case PLOT_OUT_CD:
+          laby = String.valueOf("Cd");
+          ploty[1][0] = current_part.cd;
+          ploty[0][1] = ploty[0][2]= ploty[0][3];
+          ploty[0][npt] = ploty[0][npt -1] = ploty[0][npt-2];
+          break;
+        case PLOT_OUT_CM:
+          laby = String.valueOf("Cm");
+          ploty[1][0] = current_part.cm;
+          //ploty[0][1] = ploty[0][2]= ploty[0][3];
+          //ploty[0][npt] = ploty[0][npt -1] = ploty[0][npt-2];
+          break;
+        default:
+        }
+        break;
+      }
+      case PLOT_TYPE_CG_VS_SPEED: {
+        // rider position versus speed
+        on_cg_plotting = true; // for debugging only 
+
+        ntiky = 8;
+        laby = "";
+        labyu = "";
+
+        npt = 40;
+        start_pt = 1;
+        plot_trace_count = 5;
+        axis_x_label_width = 5;  axis_y_label_width = 3;
+
+        labx = String.valueOf("Speed ");
+        // spd = Math.min(8, velocity);
+        spd = 8;
+        labxu = current_display_speed_unit_string();
+        double beg_spd = 4+load/100; //ad hoc  old: min_takeoff_speed == 0 ? 15 : min_takeoff_speed; // velocity/2; // 10;
+        double end_spd = 50;
+        del = (npt == 1) ? 0 : (end_spd-beg_spd)/(npt-1);
+
+        plotx[0][0] = plotx[1][0]  = plotx[2][0] = plotx[3][0] = plotx[4][0] = speed_kmh_to_display_units(velocity);
+        ploty[0][0] = -dash.cg_pos_board_level * 
+          ((display_units == METRIC || display_units == METRIC_2) ? 100 : 39.3701);
+        ploty[1][0] = (display_units == METRIC) 
+          ? 0.10197*total_drag() : force_n_to_display_units(total_drag());
+        ploty[2][0] = craft_pitch;
+        ploty[3][0] = total_lift()/total_drag();
+        ploty[4][0] = -dash.cg_pos_of_rider * 
+          ((display_units == METRIC || display_units == METRIC_2) ? 100 : 39.3701);
+
+        boolean saved_flag = can_do_gui_updates;
+        can_do_gui_updates = false;;
+        double saved_velocity = velocity;
+        double saved_craft_pitch = craft_pitch;
+
+        for (spd = end_spd, ic=npt; ic >= 1; ic--, spd-=del) {
+          velocity = spd;
+          //? vpp.steady_flight_at_given_speed(5, craft_pitch);
+          if (spd == end_spd)
+            vpp.steady_flight_at_given_speed(2, 0);
+          else
+            vpp.steady_flight_at_given_speed(1, craft_pitch);
+          // recomp_all_parts(); // just in case
+          double total_drag = total_drag();
 
 
-            double total_lift = total_lift();
-            if (total_lift < load) { // halt
-              start_pt = ic+1;
-              break;
-            }
+          double total_lift = total_lift();
+          if (total_lift < load) { // halt
+            start_pt = ic+1;
+            break;
+          }
               
-            plotx[0][ic] = 
+          plotx[0][ic] = 
             plotx[1][ic] = 
             plotx[2][ic] = 
             plotx[3][ic] = 
             plotx[4][ic] = speed_kmh_to_display_units(velocity);
 
-            ploty[0][ic] = -dash.cg_pos_board_level * 
+          ploty[0][ic] = -dash.cg_pos_board_level * 
             ((display_units == METRIC || display_units == METRIC_2) ? 100 : 39.3701);
-            ploty[1][ic] = (display_units == METRIC) 
-              ? 0.10197*total_drag : force_n_to_display_units(total_drag);
-            ploty[2][ic] = craft_pitch;
-            ploty[3][ic] = total_lift/total_drag;
-            ploty[4][ic] = -dash.cg_pos_of_rider * 
+          ploty[1][ic] = (display_units == METRIC) 
+            ? 0.10197*total_drag : force_n_to_display_units(total_drag);
+          ploty[2][ic] = craft_pitch;
+          ploty[3][ic] = total_lift/total_drag;
+          ploty[4][ic] = -dash.cg_pos_of_rider * 
             ((display_units == METRIC || display_units == METRIC_2) ? 100 : 39.3701);
-          }
-
-          velocity = saved_velocity;
-          vpp.steady_flight_at_given_speed(5, 0);
-          can_do_gui_updates = saved_flag;
-          // this is needed for imported foils so that outline is recomputed
-          solver.compute_foil_geometry(effective_aoa());
-          craft_pitch = saved_craft_pitch;
-
-          on_cg_plotting = false;
-
-          break;
         }
 
-        case PLOT_TYPE_CURR_PART_VS_SPEED: { // various drag sources versus speed
-          ntiky = 7;
-          laby = current_display_force_unit_string();
-          labyu = "";
+        velocity = saved_velocity;
 
-          npt = 40;
-          plot_trace_count = 5;
-          axis_x_label_width = 5;  axis_y_label_width = 3;
+        // instead rely on PartPack now
+        vpp.steady_flight_at_given_speed(5, 0);
+        craft_pitch = saved_craft_pitch;
 
-          labx = String.valueOf("Speed");
-          // spd = Math.min(8, velocity);
-          spd = 8;
-          labxu = current_display_speed_unit_string();
-          double beg_spd = 5;
-          double end_spd = 50;
-          del = (npt == 1) ? 0 : (end_spd-beg_spd)/(npt-1);
+        // this is needed for imported foils so that outline is recomputed
+        solver.compute_foil_geometry(effective_aoa());
 
-          boolean saved_flag = can_do_gui_updates;
-          can_do_gui_updates = false;;
-          //recomp_all_parts(); // only make sure we sync cache with saved part props
-          double saved_velocity = velocity;
+        can_do_gui_updates = saved_flag;
+        on_cg_plotting = false;
 
-          plotx[0][0] = plotx[1][0]  = plotx[2][0] = plotx[3][0] = plotx[4][0] = 
-            speed_kmh_to_display_units(velocity);
+        break;
+      }
 
-          ploty[0][0] = Math.log10(force_n_to_display_units(current_part.drag)); // total
-          ploty[1][0] = Math.log10(force_n_to_display_units(current_part.drag_profile));
-          ploty[2][0] = Math.log10(force_n_to_display_units(current_part.drag_aux));
-          ploty[3][0] = Math.log10(force_n_to_display_units(current_part.drag_junc));
-          ploty[4][0] = Math.log10(force_n_to_display_units(current_part.drag_spray));
+      case PLOT_TYPE_CURR_PART_VS_SPEED: { // various drag sources versus speed
+        ntiky = 7;
+        laby = current_display_force_unit_string();
+        labyu = "";
+
+        npt = 40;
+        plot_trace_count = 5;
+        axis_x_label_width = 5;  axis_y_label_width = 3;
+
+        labx = String.valueOf("Speed");
+        // spd = Math.min(8, velocity);
+        spd = 8;
+        labxu = current_display_speed_unit_string();
+        double beg_spd = 5;
+        double end_spd = 50;
+        del = (npt == 1) ? 0 : (end_spd-beg_spd)/(npt-1);
+
+        boolean saved_flag = can_do_gui_updates;
+        can_do_gui_updates = false;;
+        //recomp_all_parts(); // only make sure we sync cache with saved part props
+        double saved_velocity = velocity;
+
+        plotx[0][0] = plotx[1][0]  = plotx[2][0] = plotx[3][0] = plotx[4][0] = 
+          speed_kmh_to_display_units(velocity);
+
+        ploty[0][0] = Math.log10(force_n_to_display_units(current_part.drag)); // total
+        ploty[1][0] = Math.log10(force_n_to_display_units(current_part.drag_profile));
+        ploty[2][0] = Math.log10(force_n_to_display_units(current_part.drag_aux));
+        ploty[3][0] = Math.log10(force_n_to_display_units(current_part.drag_junc));
+        ploty[4][0] = Math.log10(force_n_to_display_units(current_part.drag_spray));
           
-          for (spd = end_spd, ic=npt; ic >= 1; ic--, spd-=del) {
-            velocity = spd;
-            //? vpp.steady_flight_at_given_speed(5, craft_pitch);
-            vpp.steady_flight_at_given_speed(5, 0);
-            // recomp_all_parts(); // just in case
+        for (spd = end_spd, ic=npt; ic >= 1; ic--, spd-=del) {
+          velocity = spd;
+          //? vpp.steady_flight_at_given_speed(5, craft_pitch);
+          vpp.steady_flight_at_given_speed(5, 0);
+          // recomp_all_parts(); // just in case
 
-            plotx[0][ic] = 
+          plotx[0][ic] = 
             plotx[1][ic] = 
             plotx[2][ic] = 
             plotx[3][ic] = 
             plotx[4][ic] = 
-              speed_kmh_to_display_units(velocity);
-
-            ploty[0][ic] = Math.log10(force_n_to_display_units(current_part.drag)); // total
-            ploty[1][ic] = Math.log10(force_n_to_display_units(current_part.drag_profile));
-            ploty[2][ic] = Math.log10(force_n_to_display_units(current_part.drag_aux));
-            ploty[3][ic] = Math.log10(force_n_to_display_units(current_part.drag_junc));
-            ploty[4][ic] = Math.log10(force_n_to_display_units(current_part.drag_spray));
-
-          }
-
-          velocity = saved_velocity;
-          vpp.steady_flight_at_given_speed(5, 0);
-          can_do_gui_updates = saved_flag;
-          // this is needed for imported foils so that outline is recomputed
-          solver.compute_foil_geometry(effective_aoa());
-            
-          break;
-        }
-
-        case PLOT_TYPE_DRAG_TOTALS_VS_SPEED: { // various drag sources versus speed
-          ntiky = 7;
-          laby = current_display_force_unit_string();
-          labyu = "";
-
-          npt = 40;
-          plot_trace_count = 5;
-          axis_x_label_width = 5;  axis_y_label_width = 3;
-
-          labx = String.valueOf("Speed");
-          // spd = Math.min(8, velocity);
-          spd = 8;
-          labxu = current_display_speed_unit_string();
-          double beg_spd = 5;
-          double end_spd = 50;
-          del = (npt == 1) ? 0 : (end_spd-beg_spd)/(npt-1);
-
-          boolean saved_flag = can_do_gui_updates;
-          can_do_gui_updates = false;;
-          //recomp_all_parts(); // only make sure we sync cache with saved part props
-          double saved_velocity = velocity;
-
-          plotx[0][0] = plotx[1][0]  = plotx[2][0] = plotx[3][0] = plotx[4][0] = 
             speed_kmh_to_display_units(velocity);
 
-          ploty[0][0] = Math.log10(force_n_to_display_units(wing.drag));
-          ploty[1][0] = Math.log10(force_n_to_display_units(stab.drag));
-          ploty[2][0] = Math.log10(force_n_to_display_units(strut.drag));
-          ploty[3][0] = Math.log10(force_n_to_display_units(fuse.drag));
-          ploty[4][0] = Math.log10(force_n_to_display_units
-                                   (wing.drag_junc + stab.drag_junc + strut.drag_junc + fuse.drag_junc));
+          ploty[0][ic] = Math.log10(force_n_to_display_units(current_part.drag)); // total
+          ploty[1][ic] = Math.log10(force_n_to_display_units(current_part.drag_profile));
+          ploty[2][ic] = Math.log10(force_n_to_display_units(current_part.drag_aux));
+          ploty[3][ic] = Math.log10(force_n_to_display_units(current_part.drag_junc));
+          ploty[4][ic] = Math.log10(force_n_to_display_units(current_part.drag_spray));
+
+        }
+
+        velocity = saved_velocity;
+        vpp.steady_flight_at_given_speed(5, 0);
+        can_do_gui_updates = saved_flag;
+        // this is needed for imported foils so that outline is recomputed
+        solver.compute_foil_geometry(effective_aoa());
+            
+        break;
+      }
+
+      case PLOT_TYPE_DRAG_TOTALS_VS_SPEED: { // various drag sources versus speed
+        ntiky = 7;
+        laby = current_display_force_unit_string();
+        labyu = "";
+
+        npt = 40;
+        plot_trace_count = 5;
+        axis_x_label_width = 5;  axis_y_label_width = 3;
+
+        labx = String.valueOf("Speed");
+        // spd = Math.min(8, velocity);
+        spd = 8;
+        labxu = current_display_speed_unit_string();
+        double beg_spd = 5;
+        double end_spd = 50;
+        del = (npt == 1) ? 0 : (end_spd-beg_spd)/(npt-1);
+
+        boolean saved_flag = can_do_gui_updates;
+        can_do_gui_updates = false;;
+        //recomp_all_parts(); // only make sure we sync cache with saved part props
+        double saved_velocity = velocity;
+
+        plotx[0][0] = plotx[1][0]  = plotx[2][0] = plotx[3][0] = plotx[4][0] = 
+          speed_kmh_to_display_units(velocity);
+
+        ploty[0][0] = Math.log10(force_n_to_display_units(wing.drag));
+        ploty[1][0] = Math.log10(force_n_to_display_units(stab.drag));
+        ploty[2][0] = Math.log10(force_n_to_display_units(strut.drag));
+        ploty[3][0] = Math.log10(force_n_to_display_units(fuse.drag));
+        ploty[4][0] = Math.log10(force_n_to_display_units
+                                 (wing.drag_junc + stab.drag_junc + strut.drag_junc + fuse.drag_junc));
           
 
-          for (spd = end_spd, ic=npt; ic >= 1; ic--, spd-=del) {
-            velocity = spd;
-            //? vpp.steady_flight_at_given_speed(5, craft_pitch);
-            vpp.steady_flight_at_given_speed(5, 0);
-            // recomp_all_parts(); // just in case
+        for (spd = end_spd, ic=npt; ic >= 1; ic--, spd-=del) {
+          velocity = spd;
+          //? vpp.steady_flight_at_given_speed(5, craft_pitch);
+          vpp.steady_flight_at_given_speed(5, 0);
+          // recomp_all_parts(); // just in case
 
-            plotx[0][ic] = 
+          plotx[0][ic] = 
             plotx[1][ic] = 
             plotx[2][ic] = 
             plotx[3][ic] = 
             plotx[4][ic] = 
-              speed_kmh_to_display_units(velocity);
+            speed_kmh_to_display_units(velocity);
 
-            ploty[0][ic] = Math.log10(force_n_to_display_units(wing.drag));
-            ploty[1][ic] = Math.log10(force_n_to_display_units(stab.drag));
-            ploty[2][ic] = Math.log10(force_n_to_display_units(strut.drag));
-            ploty[3][ic] = Math.log10(force_n_to_display_units(fuse.drag));
-            ploty[4][ic] = Math.log10(force_n_to_display_units
-                                   (wing.drag_junc + stab.drag_junc + strut.drag_junc + fuse.drag_junc));
-          }
+          ploty[0][ic] = Math.log10(force_n_to_display_units(wing.drag));
+          ploty[1][ic] = Math.log10(force_n_to_display_units(stab.drag));
+          ploty[2][ic] = Math.log10(force_n_to_display_units(strut.drag));
+          ploty[3][ic] = Math.log10(force_n_to_display_units(fuse.drag));
+          ploty[4][ic] = Math.log10(force_n_to_display_units
+                                    (wing.drag_junc + stab.drag_junc + strut.drag_junc + fuse.drag_junc));
+        }
 
-          velocity = saved_velocity;
-          vpp.steady_flight_at_given_speed(5, 0);
-          can_do_gui_updates = saved_flag;
-          // this is needed for imported foils so that outline is recomputed
-          solver.compute_foil_geometry(effective_aoa());
+        velocity = saved_velocity;
+        vpp.steady_flight_at_given_speed(5, 0);
+        can_do_gui_updates = saved_flag;
+        // this is needed for imported foils so that outline is recomputed
+        solver.compute_foil_geometry(effective_aoa());
             
 
-          break;
-        }
+        break;
+      }
 
-        case PLOT_TYPE_ALTITUDE: { // lift and drag versus altitude
-            npt = 20;
-            plot_trace_count = 1;
-            axis_x_label_width = 6;  axis_y_label_width = 3;
-            begx=0.0; 
-            endx=50.0; 
-            ntikx=6;
-            if (lunits == IMPERIAL) endx = 50.0;
-            if (lunits == 1) endx = 15.0;
-            labx = String.valueOf("Altitude");
-            if (lunits == IMPERIAL) labxu = String.valueOf("k-ft");
-            if (lunits == 1) labxu = String.valueOf("km");
-            del = altmax / npt;
-            for (ic=1; ic <=npt; ++ic) {
-              hpl = (ic-1)*del;
-              plotx[0][ic] = lconv*hpl/1000.;
-              tpl = 518.6;
-              ppl = 2116.;
-              if (planet == 0) {
-                if (hpl < 36152.)   {
-                  tpl = 518.6 - 3.56 * hpl /1000.;
-                  ppl = 2116. * Math.pow(tpl/518.6, 5.256);
-                }
-                else {
-                  tpl = 389.98;
-                  ppl = 2116. * .236 * Math.exp((36000.-hpl)/(53.35*tpl));
-                }
-                if (plot_y_val_2 == 0) 
-                  ploty[0][ic] = lftref * ppl/(tpl*53.3*32.17) / rho_EN;
-                else
-                  ploty[0][ic] = drgref * ppl/(tpl*53.3*32.17) / rho_EN;
-              }
-              if (planet == 1) {
-                if (hpl <= 22960.) {
-                  tpl = 434.02 - .548 * hpl/1000.;
-                  ppl = 14.62 * Math.pow(2.71828,-.00003 * hpl);
-                }
-                if (hpl > 22960.) {
-                  tpl = 449.36 - 1.217 * hpl/1000.;
-                  ppl = 14.62 * Math.pow(2.71828,-.00003 * hpl);
-                }
-                if (plot_y_val_2 == 0) 
-                  ploty[0][ic] = lftref * ppl/(tpl*1149.) / rho_EN;
-                else 
-                  ploty[0][ic] = drgref * ppl/(tpl*1149.) / rho_EN;
-              }
-              if (planet == 2) {
-                if (plot_y_val_2 == 0) 
-                  ploty[0][ic] = lftref;
-                else 
-                  ploty[0][ic] = drgref;
-              }
-            }
-            ntiky = 5;
-            if (plot_y_val_2 == 0) laby = String.valueOf("Lift");
-            if (plot_y_val_2 == 1) laby = String.valueOf("Drag");
-            plotx[1][0] = alt/100.;
-            if (plot_y_val_2 == 0) ploty[1][0] = lftref;
-            if (plot_y_val_2 == 1) ploty[1][0] = drgref;
-            if (lunits == IMPERIAL) labyu = String.valueOf("lbs");
-            if (lunits == 1) labyu = String.valueOf("N");
-          
-            break;
-        }
-        case PLOT_TYPE_WING_AREA: { // lift and drag versus area
-            npt = 2;
-            plot_trace_count = 1;
-            axis_x_label_width = 7;  axis_y_label_width = 3;
-            begx=0.0; ntikx=6;
-            labx = String.valueOf("Area ");
-            if (lunits == IMPERIAL) {
-              labxu = String.valueOf("sq ft");
-              endx = 2000.0;
-              labyu = String.valueOf("lbs");
-              plotx[0][1] = 0.0;
-              ploty[0][1] = 0.0;
-              plotx[0][2] = 2000.;
-              if (plot_y_val_2 == 0) ploty[0][2] = lftref * 2000. /current_part.area;
-              if (plot_y_val_2 == 1) ploty[0][2] = drgref * 2000. /current_part.area;
-            }
-            if (lunits == 1) {
-              labxu = String.valueOf("sq m");
-              endx = 200.;
-              labyu = String.valueOf("N");
-              plotx[0][1] = 0.0;
-              ploty[0][1] = 0.0;
-              plotx[0][2] = 200.;
-              if (plot_y_val_2 == 0) ploty[0][2] = lftref * 200. /current_part.area; 
-              if (plot_y_val_2 == 1) ploty[0][2] = drgref * 200. /current_part.area; 
-            }
-
-            ntiky = 5;
-            plotx[1][0] = current_part.area;
-            if (plot_y_val_2 == 0) {
-              laby = String.valueOf("Lift");
-              ploty[1][0] = lftref;
+      case PLOT_TYPE_ALTITUDE: { // lift and drag versus altitude
+        npt = 20;
+        plot_trace_count = 1;
+        axis_x_label_width = 6;  axis_y_label_width = 3;
+        begx=0.0; 
+        endx=50.0; 
+        ntikx=6;
+        if (lunits == IMPERIAL) endx = 50.0;
+        if (lunits == 1) endx = 15.0;
+        labx = String.valueOf("Altitude");
+        if (lunits == IMPERIAL) labxu = String.valueOf("k-ft");
+        if (lunits == 1) labxu = String.valueOf("km");
+        del = altmax / npt;
+        for (ic=1; ic <=npt; ++ic) {
+          hpl = (ic-1)*del;
+          plotx[0][ic] = lconv*hpl/1000.;
+          tpl = 518.6;
+          ppl = 2116.;
+          if (planet == 0) {
+            if (hpl < 36152.)   {
+              tpl = 518.6 - 3.56 * hpl /1000.;
+              ppl = 2116. * Math.pow(tpl/518.6, 5.256);
             }
             else {
-              laby = String.valueOf("Drag");
-              ploty[1][0] = drgref;
+              tpl = 389.98;
+              ppl = 2116. * .236 * Math.exp((36000.-hpl)/(53.35*tpl));
             }
+            if (plot_y_val_2 == 0) 
+              ploty[0][ic] = lftref * ppl/(tpl*53.3*32.17) / rho_EN;
+            else
+              ploty[0][ic] = drgref * ppl/(tpl*53.3*32.17) / rho_EN;
+          }
+          if (planet == 1) {
+            if (hpl <= 22960.) {
+              tpl = 434.02 - .548 * hpl/1000.;
+              ppl = 14.62 * Math.pow(2.71828,-.00003 * hpl);
+            }
+            if (hpl > 22960.) {
+              tpl = 449.36 - 1.217 * hpl/1000.;
+              ppl = 14.62 * Math.pow(2.71828,-.00003 * hpl);
+            }
+            if (plot_y_val_2 == 0) 
+              ploty[0][ic] = lftref * ppl/(tpl*1149.) / rho_EN;
+            else 
+              ploty[0][ic] = drgref * ppl/(tpl*1149.) / rho_EN;
+          }
+          if (planet == 2) {
+            if (plot_y_val_2 == 0) 
+              ploty[0][ic] = lftref;
+            else 
+              ploty[0][ic] = drgref;
+          }
+        }
+        ntiky = 5;
+        if (plot_y_val_2 == 0) laby = String.valueOf("Lift");
+        if (plot_y_val_2 == 1) laby = String.valueOf("Drag");
+        plotx[1][0] = alt/100.;
+        if (plot_y_val_2 == 0) ploty[1][0] = lftref;
+        if (plot_y_val_2 == 1) ploty[1][0] = drgref;
+        if (lunits == IMPERIAL) labyu = String.valueOf("lbs");
+        if (lunits == 1) labyu = String.valueOf("N");
           
-            break;
+        break;
+      }
+      case PLOT_TYPE_WING_AREA: { // lift and drag versus area
+        npt = 2;
+        plot_trace_count = 1;
+        axis_x_label_width = 7;  axis_y_label_width = 3;
+        begx=0.0; ntikx=6;
+        labx = String.valueOf("Area ");
+        if (lunits == IMPERIAL) {
+          labxu = String.valueOf("sq ft");
+          endx = 2000.0;
+          labyu = String.valueOf("lbs");
+          plotx[0][1] = 0.0;
+          ploty[0][1] = 0.0;
+          plotx[0][2] = 2000.;
+          if (plot_y_val_2 == 0) ploty[0][2] = lftref * 2000. /current_part.area;
+          if (plot_y_val_2 == 1) ploty[0][2] = drgref * 2000. /current_part.area;
         }
-        case PLOT_TYPE_DENSITY: { // lift and drag versus density
-            npt = 2;
-            plot_trace_count = 1;
-            axis_x_label_width = 7; axis_y_label_width = 3;
-            begx=0.0; ntikx=6;
-            labx = String.valueOf("Density ");
-            if (planet == 0) {
-              if (lunits == IMPERIAL) {
-                labxu = String.valueOf("x 10,000 slug/cu ft");
-                endx = 25.0;
-                plotx[0][1] = 0.0;
-                ploty[0][1] = 0.0;
-                plotx[0][2] = 23.7;
-                if (plot_y_val_2 == 0) ploty[0][2] = lftref * 23.7 /(rho_EN*10000.);
-                if (plot_y_val_2 == 1) ploty[0][2] = drgref * 23.7 /(rho_EN*10000.);
-                plotx[1][0] = rho_EN*10000.;
-              }
-              if (lunits == 1) {
-                labxu = String.valueOf("g/cu m");
-                endx = 1250.;
-                plotx[0][1] = 0.0;
-                ploty[0][1] = 0.0;
-                plotx[0][2] = 1226;
-                if (plot_y_val_2 == 0) ploty[0][2] = lftref * 23.7 /(rho_EN*10000.);
-                if (plot_y_val_2 == 1) ploty[0][2] = drgref * 23.7 /(rho_EN*10000.);
-                plotx[1][0] = rho_EN*1000.*515.4;
-              }
-            }
-
-            if (planet == 1) {
-              if (lunits == IMPERIAL) {
-                labxu = String.valueOf("x 100,000 slug/cu ft");
-                endx = 5.0;
-                plotx[0][1] = 0.0;
-                ploty[0][1] = 0.0;
-                plotx[0][2] = 2.93;
-                if (plot_y_val_2 == 0) ploty[0][2] = lftref * 2.93 /(rho_EN*100000.);
-                if (plot_y_val_2 == 1) ploty[0][2] = drgref * 2.93 /(rho_EN*100000.);
-                plotx[1][0] = rho_EN*100000.;
-              }
-              if (lunits == 1) {
-                labxu = String.valueOf("g/cu m");
-                endx = 15.;
-                plotx[0][1] = 0.0;
-                ploty[0][1] = 0.0;
-                plotx[0][2] = 15.1;
-                if (plot_y_val_2 == 0) ploty[0][2] = lftref * 2.93 /(rho_EN*100000.);
-                if (plot_y_val_2 == 1) ploty[0][2] = drgref * 2.93 /(rho_EN*100000.);
-                plotx[1][0] = rho_EN*1000.*515.4;
-              }
-            }
-            ntiky = 5;
-            if (plot_y_val_2 == PLOT_OUT_2_LIFT) {
-              laby = String.valueOf("Lift");
-              ploty[1][0] = lftref;
-            } else if (plot_y_val_2 == PLOT_OUT_2_DRAG) { 
-              laby = String.valueOf("Drag");
-              ploty[1][0] = drgref;
-            }
-
-            labyu = current_display_force_unit_string();
-            break;
+        if (lunits == 1) {
+          labxu = String.valueOf("sq m");
+          endx = 200.;
+          labyu = String.valueOf("N");
+          plotx[0][1] = 0.0;
+          ploty[0][1] = 0.0;
+          plotx[0][2] = 200.;
+          if (plot_y_val_2 == 0) ploty[0][2] = lftref * 200. /current_part.area; 
+          if (plot_y_val_2 == 1) ploty[0][2] = drgref * 200. /current_part.area; 
         }
-        case PLOT_TYPE_LIFT_DRAG_POLARS: { // lift/drag polar
-            npt = 40;
-            plot_trace_count = 3;
-            axis_x_label_width = 4;  axis_y_label_width = 3;
-            ntikx=5;
-            del = 1;
-            angl = -20;
-            for (ic=0; angl<=20; ++ic, angl+=del) {
-              double thkd = current_part.thickness;
-              double camd = current_part.camber;
 
-              // note that below is always with Reynolds correction ON which is correct.
-              boolean ar_lift_corr_saved = ar_lift_corr;
-              boolean induced_drag_on_saved = induced_drag_on;
-              // no AR correction - infinite 2D foil lift
-              induced_drag_on = false;
-              double cl_2D = ploty[0][ic] = f.get_Cl(angl); 
-              boolean skin_drag_on_saved = skin_drag_on;
-              skin_drag_on = false;
-              // plain 2D form/pressure drag - no induced drag, no skin drag              
-              plotx[0][ic] = solver.get_Cd(cl_2D, alfd, thkd, camd);
+        ntiky = 5;
+        plotx[1][0] = current_part.area;
+        if (plot_y_val_2 == 0) {
+          laby = String.valueOf("Lift");
+          ploty[1][0] = lftref;
+        }
+        else {
+          laby = String.valueOf("Drag");
+          ploty[1][0] = drgref;
+        }
+          
+        break;
+      }
+      case PLOT_TYPE_DENSITY: { // lift and drag versus density
+        npt = 2;
+        plot_trace_count = 1;
+        axis_x_label_width = 7; axis_y_label_width = 3;
+        begx=0.0; ntikx=6;
+        labx = String.valueOf("Density ");
+        if (planet == 0) {
+          if (lunits == IMPERIAL) {
+            labxu = String.valueOf("x 10,000 slug/cu ft");
+            endx = 25.0;
+            plotx[0][1] = 0.0;
+            ploty[0][1] = 0.0;
+            plotx[0][2] = 23.7;
+            if (plot_y_val_2 == 0) ploty[0][2] = lftref * 23.7 /(rho_EN*10000.);
+            if (plot_y_val_2 == 1) ploty[0][2] = drgref * 23.7 /(rho_EN*10000.);
+            plotx[1][0] = rho_EN*10000.;
+          }
+          if (lunits == 1) {
+            labxu = String.valueOf("g/cu m");
+            endx = 1250.;
+            plotx[0][1] = 0.0;
+            ploty[0][1] = 0.0;
+            plotx[0][2] = 1226;
+            if (plot_y_val_2 == 0) ploty[0][2] = lftref * 23.7 /(rho_EN*10000.);
+            if (plot_y_val_2 == 1) ploty[0][2] = drgref * 23.7 /(rho_EN*10000.);
+            plotx[1][0] = rho_EN*1000.*515.4;
+          }
+        }
+
+        if (planet == 1) {
+          if (lunits == IMPERIAL) {
+            labxu = String.valueOf("x 100,000 slug/cu ft");
+            endx = 5.0;
+            plotx[0][1] = 0.0;
+            ploty[0][1] = 0.0;
+            plotx[0][2] = 2.93;
+            if (plot_y_val_2 == 0) ploty[0][2] = lftref * 2.93 /(rho_EN*100000.);
+            if (plot_y_val_2 == 1) ploty[0][2] = drgref * 2.93 /(rho_EN*100000.);
+            plotx[1][0] = rho_EN*100000.;
+          }
+          if (lunits == 1) {
+            labxu = String.valueOf("g/cu m");
+            endx = 15.;
+            plotx[0][1] = 0.0;
+            ploty[0][1] = 0.0;
+            plotx[0][2] = 15.1;
+            if (plot_y_val_2 == 0) ploty[0][2] = lftref * 2.93 /(rho_EN*100000.);
+            if (plot_y_val_2 == 1) ploty[0][2] = drgref * 2.93 /(rho_EN*100000.);
+            plotx[1][0] = rho_EN*1000.*515.4;
+          }
+        }
+        ntiky = 5;
+        if (plot_y_val_2 == PLOT_OUT_2_LIFT) {
+          laby = String.valueOf("Lift");
+          ploty[1][0] = lftref;
+        } else if (plot_y_val_2 == PLOT_OUT_2_DRAG) { 
+          laby = String.valueOf("Drag");
+          ploty[1][0] = drgref;
+        }
+
+        labyu = current_display_force_unit_string();
+        break;
+      }
+      case PLOT_TYPE_LIFT_DRAG_POLARS: { // lift/drag polar
+        npt = 40;
+        plot_trace_count = 3;
+        axis_x_label_width = 4;  axis_y_label_width = 3;
+        ntikx=5;
+        del = 1;
+        angl = -20;
+        for (ic=0; angl<=20; ++ic, angl+=del) {
+          double thkd = current_part.thickness;
+          double camd = current_part.camber;
+
+          // note that below is always with Reynolds correction ON which is correct.
+          boolean ar_lift_corr_saved = ar_lift_corr;
+          boolean induced_drag_on_saved = induced_drag_on;
+          // no AR correction - infinite 2D foil lift
+          induced_drag_on = false;
+          double cl_2D = ploty[0][ic] = f.get_Cl(angl); 
+          boolean skin_drag_on_saved = skin_drag_on;
+          skin_drag_on = false;
+          // plain 2D form/pressure drag - no induced drag, no skin drag              
+          plotx[0][ic] = solver.get_Cd(cl_2D, alfd, thkd, camd);
               
-              // clpl is lift including AR corection
-              double clpl = getCl_plot(camd/25, thkd/25, angl);
-              ploty[1][ic] = ploty[2][ic] = clpl;
+          // clpl is lift including AR corection
+          double clpl = getCl_plot(camd/25, thkd/25, angl);
+          ploty[1][ic] = ploty[2][ic] = clpl;
 
-              alfd = angl;
-              // attempt to fix symmetry problem
-              if (fix_symmetry_problem && camd < 0.0) alfd = - angl;
+          alfd = angl;
+          // attempt to fix symmetry problem
+          if (fix_symmetry_problem && camd < 0.0) alfd = - angl;
 
-              // now, skin drag ON
-              skin_drag_on = true;
-              // thsis now includes skin drag but no induced yet
-              plotx[1][ic] = solver.get_Cd(clpl, alfd, thkd, camd);
-              // now,  with skin and induced drag on
-              induced_drag_on = true;
-              plotx[2][ic] = solver.get_Cd(clpl, alfd, thkd, camd);
+          // now, skin drag ON
+          skin_drag_on = true;
+          // thsis now includes skin drag but no induced yet
+          plotx[1][ic] = solver.get_Cd(clpl, alfd, thkd, camd);
+          // now,  with skin and induced drag on
+          induced_drag_on = true;
+          plotx[2][ic] = solver.get_Cd(clpl, alfd, thkd, camd);
 
-              // reset all flags
-              induced_drag_on = induced_drag_on_saved;
-              skin_drag_on = skin_drag_on_saved;
-            }
-            ntiky = 5;
-            plotx[1][0] = cdref;
-            ploty[1][0] = clref;
-            labx = String.valueOf("");
-            labxu = String.valueOf("");
-            laby = String.valueOf("Cl");
-            labyu = String.valueOf("");
+          // reset all flags
+          induced_drag_on = induced_drag_on_saved;
+          skin_drag_on = skin_drag_on_saved;
+        }
+        ntiky = 5;
+        plotx[1][0] = cdref;
+        ploty[1][0] = clref;
+        labx = String.valueOf("");
+        labxu = String.valueOf("");
+        laby = String.valueOf("Cl");
+        labyu = String.valueOf("");
             
-            break;
-        }
-        default:;
-        }
+        break;
+      }
+      default:;
+      }
 
-        // determine y - range, aux comp
-        switch (plot_type) {
-        case PLOT_TYPE_ANGLE: 
-          switch (plot_y_val) {
-          case PLOT_OUT_CL:
-            if (current_part == wing) {
-              begy = -1.5;
-              endy = 1.5;
-            } else if (current_part == fuse) {
-              begy = -0.2;
-              endy = 0.2;
-            } else {
-              begy = -1.2;
-              endy = 1.2;
-            }
-            break;
-          case PLOT_OUT_CD:
-            begy = 0;
-            endy = 0.3;
-            break;
-          case PLOT_OUT_CM:
-          default: // need to find min and max
-            begy = 1e9;
-            endy = -1e9;
-            for (index =1; index <= npt; ++ index) {
-              if (ploty[0][index] > endy) endy = ploty[0][index];
-              if (ploty[0][index] < begy) begy = ploty[0][index];
-            }
-          }
-          break;
-        case PLOT_TYPE_THICKNESS: 
-        case PLOT_TYPE_CAMBER: {  // determine y - range zero in middle
-         if (plot_y_val == PLOT_OUT_LIFT || plot_y_val == PLOT_OUT_CL) {
-            if (ploty[0][npt] >= ploty[0][1]) {
-              begy=0.0;
-              if (ploty[0][1]   > endy) endy = ploty[0][1];
-              if (ploty[0][npt] > endy) endy = ploty[0][npt];
-              if (endy <= 0.0) {
-                begy = ploty[0][1];
-                endy = ploty[0][npt];
-              }
-            }
-            if (ploty[0][npt] < ploty[0][1]) {
-              endy = 0.0;
-              if (ploty[0][1]   < begy) begy = ploty[0][1];
-              if (ploty[0][npt] < begy) begy = ploty[0][npt];
-              if (begy <= 0.0) {
-                begy = ploty[0][npt];
-                endy = ploty[0][1];
-              }
-            }
-          }
-          else {
-            begy = 0.0;
-            endy = 0.0;
-            for (index =1; index <= npt; ++ index) {
-              if (ploty[0][index] > endy) endy = ploty[0][index];
-            }
-          }
-          break;
-        }
-        case PLOT_TYPE_DRAG_TOTALS_VS_SPEED: 
-        case PLOT_TYPE_CURR_PART_VS_SPEED: { //
-          begx= 0;
-          switch (display_units) {
-          case IMPERIAL: endx = 40; ntikx = 9; break;
-          default:
-          case METRIC  : endx = 15; ntikx = 6; break;
-          case METRIC_2: endx = 50; ntikx = 11; break;
-          case NAVAL:    endx = 30; ntikx = 7; break;
-          }
-          if (display_units == METRIC) {
-            begy = -0.5;
-            endy = 2.5;
-          } else {
+      // determine y - range, aux comp
+      switch (plot_type) {
+      case PLOT_TYPE_ANGLE: 
+        switch (plot_y_val) {
+        case PLOT_OUT_CL:
+          if (current_part == wing) {
             begy = -1.5;
-
             endy = 1.5;
-          }
-          if (should_rescale_p) { 
-            for (int plot_idx = 0; plot_idx < plot_trace_count; plot_idx++) {
-              int start_idx = (plot_idx == 0) ? 0 : 1;
-              for (index = 0; index <= npt; ++ index) {
-                double val = ploty[plot_idx][index];
-                if (val > endy) endy = val;
-                // log scale, avoid zero or below vals
-                if (val < begy && val != Double.NEGATIVE_INFINITY) begy = val;
-                val = plotx[plot_idx][index];
-                if (val > endx) endx = val;
-                if (val < begx) begx = val;
-              }
-            }
+          } else if (current_part == fuse) {
+            begy = -0.2;
+            endy = 0.2;
           } else {
+            begy = -1.2;
+            endy = 1.2;
           }
           break;
-        }
-        case PLOT_TYPE_CG_VS_SPEED: {    //
-          begx= 0;
-          switch (display_units) {
-          case IMPERIAL: endx = 40; ntikx = 9; break;
-          default:
-          case METRIC  : endx = 15; ntikx = 6; break;
-          case METRIC_2: endx = 50; ntikx = 11; break;
-          case NAVAL:    endx = 30; ntikx = 7; break;
-          }
-          if (should_rescale_p) { // button Rescale was just pressed...
-            begy = -20;
-            endy = 50;
-            for (int plot_idx = 0; plot_idx < plot_trace_count; plot_idx++) {
-              for (index = 0; index <= npt; ++ index) {
-                if (index > 0 && index < start_pt) break;
-                double val = ploty[plot_idx][index];
-                if (val > endy) endy = val;
-                if (val < begy) begy = val;
-                val = plotx[plot_idx][index];
-                if (val > endx) endx = val;
-                if (val < begx) begx = val;
-              }
-            }
-          } else {
-            begy = -20;
-            endy = 50;
-          }
+        case PLOT_OUT_CD:
+          begy = 0;
+          endy = 0.3;
           break;
+        case PLOT_OUT_CM:
+        default: // need to find min and max
+          begy = 1e9;
+          endy = -1e9;
+          for (index =1; index <= npt; ++ index) {
+            if (ploty[0][index] > endy) endy = ploty[0][index];
+            if (ploty[0][index] < begy) begy = ploty[0][index];
+          }
         }
-        case PLOT_TYPE_ALTITUDE:
-        case PLOT_TYPE_WING_AREA:
-        case PLOT_TYPE_DENSITY: {    // determine y - range
+        break;
+      case PLOT_TYPE_THICKNESS: 
+      case PLOT_TYPE_CAMBER: {  // determine y - range zero in middle
+        if (plot_y_val == PLOT_OUT_LIFT || plot_y_val == PLOT_OUT_CL) {
           if (ploty[0][npt] >= ploty[0][1]) {
-            begy = ploty[0][1];
-            endy = ploty[0][npt];
+            begy=0.0;
+            if (ploty[0][1]   > endy) endy = ploty[0][1];
+            if (ploty[0][npt] > endy) endy = ploty[0][npt];
+            if (endy <= 0.0) {
+              begy = ploty[0][1];
+              endy = ploty[0][npt];
+            }
           }
           if (ploty[0][npt] < ploty[0][1]) {
-            begy = ploty[0][npt];
-            endy = ploty[0][1];
+            endy = 0.0;
+            if (ploty[0][1]   < begy) begy = ploty[0][1];
+            if (ploty[0][npt] < begy) begy = ploty[0][npt];
+            if (begy <= 0.0) {
+              begy = ploty[0][npt];
+              endy = ploty[0][1];
+            }
           }
-          break;
         }
-        case PLOT_TYPE_LIFT_DRAG_POLARS:  { 
-          ntikx = 7;
-          ntiky = 7;
-          // Drag Polar determine y - range and x- range
-          if (should_rescale_p) { // button Rescale was just pressed...
-            begx = 0.0;
-            endx = 0.0;
-            for (index = 1; index <= npt; ++ index) {
-              if (plotx[0][index] > endx) endx = plotx[0][index];
-            }
-            endx = ((10*(int)Math.round(endx*10))/(ntikx-1))*6/100.0;
-          
-            begy = 10;
-            endy = -10;
-            for (index =1; index <= npt; ++ index) {
-              if (ploty[0][index] < begy) begy = ploty[0][index];
-              if (ploty[0][index] > endy) endy = ploty[0][index];
-            }
-            begy = (Math.round(10*begy)-1)/10.0;
-            endy = (Math.round(10*endy)+1)/10.0;
-          } else { // predef scale
+        else {
+          begy = 0.0;
+          endy = 0.0;
+          for (index =1; index <= npt; ++ index) {
+            if (ploty[0][index] > endy) endy = ploty[0][index];
+          }
+        }
+        break;
+      }
+      case PLOT_TYPE_DRAG_TOTALS_VS_SPEED: 
+      case PLOT_TYPE_CURR_PART_VS_SPEED: { //
+        begx= 0;
+        switch (display_units) {
+        case IMPERIAL: endx = 40; ntikx = 9; break;
+        default:
+        case METRIC  : endx = 15; ntikx = 6; break;
+        case METRIC_2: endx = 50; ntikx = 11; break;
+        case NAVAL:    endx = 30; ntikx = 7; break;
+        }
+        if (display_units == METRIC) {
+          begy = -0.5;
+          endy = 2.5;
+        } else {
+          begy = -1.5;
 
-            begx = 0;
-            endx = 0.12; // we want 1st tick as 0.02 
-            if (FoilBoard.this.current_part == FoilBoard.this.wing) {
-              begy = -1; 
-              endy = 2;
+          endy = 1.5;
+        }
+        if (should_rescale_p) { 
+          for (int plot_idx = 0; plot_idx < plot_trace_count; plot_idx++) {
+            int start_idx = (plot_idx == 0) ? 0 : 1;
+            for (index = 0; index <= npt; ++ index) {
+              double val = ploty[plot_idx][index];
+              if (val > endy) endy = val;
+              // log scale, avoid zero or below vals
+              if (val < begy && val != Double.NEGATIVE_INFINITY) begy = val;
+              val = plotx[plot_idx][index];
+              if (val > endx) endx = val;
+              if (val < begx) begx = val;
+            }
+          }
+        } else {
+        }
+        break;
+      }
+      case PLOT_TYPE_CG_VS_SPEED: {    //
+        begx= 0;
+        switch (display_units) {
+        case IMPERIAL: endx = 40; ntikx = 9; break;
+        default:
+        case METRIC  : endx = 15; ntikx = 6; break;
+        case METRIC_2: endx = 50; ntikx = 11; break;
+        case NAVAL:    endx = 30; ntikx = 7; break;
+        }
+        if (should_rescale_p) { // button Rescale was just pressed...
+          begy = -20;
+          endy = 50;
+          for (int plot_idx = 0; plot_idx < plot_trace_count; plot_idx++) {
+            for (index = 0; index <= npt; ++ index) {
+              if (index > 0 && index < start_pt) break;
+              double val = ploty[plot_idx][index];
+              if (val > endy) endy = val;
+              if (val < begy) begy = val;
+              val = plotx[plot_idx][index];
+              if (val > endx) endx = val;
+              if (val < begx) begx = val;
+            }
+          }
+        } else {
+          begy = -20;
+          endy = 50;
+        }
+        break;
+      }
+      case PLOT_TYPE_ALTITUDE:
+      case PLOT_TYPE_WING_AREA:
+      case PLOT_TYPE_DENSITY: {    // determine y - range
+        if (ploty[0][npt] >= ploty[0][1]) {
+          begy = ploty[0][1];
+          endy = ploty[0][npt];
+        }
+        if (ploty[0][npt] < ploty[0][1]) {
+          begy = ploty[0][npt];
+          endy = ploty[0][1];
+        }
+        break;
+      }
+      case PLOT_TYPE_LIFT_DRAG_POLARS:  { 
+        ntikx = 7;
+        ntiky = 7;
+        // Drag Polar determine y - range and x- range
+        if (should_rescale_p) { // button Rescale was just pressed...
+          begx = 0.0;
+          endx = 0.0;
+          for (index = 1; index <= npt; ++ index) {
+            if (plotx[0][index] > endx) endx = plotx[0][index];
+          }
+          endx = ((10*(int)Math.round(endx*10))/(ntikx-1))*6/100.0;
+          
+          begy = 10;
+          endy = -10;
+          for (index =1; index <= npt; ++ index) {
+            if (ploty[0][index] < begy) begy = ploty[0][index];
+            if (ploty[0][index] > endy) endy = ploty[0][index];
+          }
+          begy = (Math.round(10*begy)-1)/10.0;
+          endy = (Math.round(10*endy)+1)/10.0;
+        } else { // predef scale
+
+          begx = 0;
+          endx = 0.12; // we want 1st tick as 0.02 
+          if (FoilBoard.this.current_part == FoilBoard.this.wing) {
+            begy = -1; 
+            endy = 2;
             // } else if (FoilBoard.this.current_part == FoilBoard.this.stab) {
             //   begy = -1.5; 
             //   endy = 1.5;
-            } else if (FoilBoard.this.current_part == FoilBoard.this.fuse) {
-              begy = -0.4; 
-              endy = 0.4;
-            } else {
-              begy = -1.5; 
-              endy = 1.5;
-            }
+          } else if (FoilBoard.this.current_part == FoilBoard.this.fuse) {
+            begy = -0.4; 
+            endy = 0.4;
+          } else {
+            begy = -1.5; 
+            endy = 1.5;
           }
-          break;
+        }
+        break;
+      }
+
+      case PLOT_TYPE_PRESSURE:
+      case PLOT_TYPE_VELOCITY: {    // determine y - range
+        if (true /*always rescale should_rescale_p*/) {
+          begy = ploty[0][1];
+          endy = ploty[0][1];
+          for (index = 1; index <= POINTS_COUNT_HALF; ++ index) {
+            if (ploty[0][index] < begy) begy = ploty[0][index];
+            if (ploty[1][index] < begy) begy = ploty[1][index];
+            if (ploty[0][index] > endy) endy = ploty[0][index];
+            if (ploty[1][index] > endy) endy = ploty[1][index];
+          }
+        }
+      }          
+      default:;
+      }         
+    } // end Plot.loadPlot
+
+
+    // camb_val and thic_val are in %/25, angl is in degrees
+    public double getCl_plot (double camb_val, double thic_val, double angl) {
+      // return new Solver(angl, thic_val*25, camb_val*25).get_Cl(angl);
+      Solver s = plot_solver;
+      s.getFreeStream ();
+      s.getCirculation(angl, thic_val*25, camb_val*25);
+      double cl = s.get_Cl(angl);
+      // System.out.println("-- s: " + s + " cl: " + cl);
+      return cl;
+    }
+      
+    // // old. this was replica of solver.getCirculation & get_Cl
+    // public double getCl_plot_(double camb, double thic, double angl) {
+    //   double number;
+    //   double yc = camb / 2.0;
+    //   double rc = thic/4.0 + Math.sqrt( thic*thic/16.0 + yc*yc + 1.0);
+    //   double xc = 1.0 - Math.sqrt(rc*rc - yc*yc);
+    //   double beta = Math.asin(yc/rc)/convdr;       /* Kutta condition */
+    //   double gamc = 2.0*rc*Math.sin((angl+beta)*convdr);
+    //   double lec = xc - Math.sqrt(rc*rc - yc*yc);
+    //   double tec = xc + Math.sqrt(rc*rc - yc*yc);
+    //   double lecm = lec + 1.0/lec;
+    //   double tecm = tec + 1.0/tec;
+    //   double crdc = tecm - lecm;
+    // 
+    //   // stall model 1
+    //   double stfact = 1.0;
+    // 
+    //   switch (stall_model_type) {
+    //   case STALL_MODEL_DFLT:
+    //     if (angl > 10 ) {
+    //       stfact = .5 + .1 * angl - .005 * angl * angl;
+    //     } else if (angl < -10 ) {
+    //       stfact = .5 - .1 * angl - .005 * angl * angl;
+    //     }
+    //     break;
+    //   case STALL_MODEL_REFINED:
+    //     // stfact = stall_model_k0 + stall_model_k1 * Math.abs(angl) + stall_model_k2 * angl * angl;
+    //     if (angl > stall_model_apos ) {
+    //       stfact = stall_model_k0 + stall_model_k1 * +angl + stall_model_k2 * angl * angl;
+    //     } else if (angl < stall_model_aneg ) {
+    //       stfact = stall_model_k0 + stall_model_k1 * -angl + stall_model_k2 * angl * angl;
+    //     }
+    //   break;
+    //   case STALL_MODEL_IDEAL_FLOW:
+    //   default:
+    //     // do nothing. stfact = 1
+    //   }
+    // 
+    //   number = stfact*gamc*4.0*3.1415926/crdc;
+    // 
+    //   if (ar_lift_corr) {  // correction for low aspect ratio
+    //     number = number /(1.0 + Math.abs(number)/(3.14159*aspect_rat));
+    //   }
+    // 
+    //   return (number);
+    // }
+   
+    public void update (Graphics g) {
+      out_top.plot.paint(g);
+    }
+
+    static final boolean GRIDLINES = true;
+
+    // class Plot
+    public void paint (Graphics g) {
+      int i,j,k,n,index;
+      int xlabel,ylabel,ind,inmax,inmin;
+      int x[] = new int[8];
+      int y[] = new int[8];
+      double offx,scalex,offy,scaley,waste,incy,incx;
+      double xl,yl;
+      double liftab,dragab;
+      Color col;
+
+
+      if (ntikx < 2) ntikx = 2;     /* protection 13June96 */
+      incx = (endx-begx)/(ntikx-1);
+      if (ntiky < 2) ntiky = 2;
+      incy = (endy-begy)/(ntiky-1);
+
+      offx = 0.0 - begx;
+      offy = 0.0 - begy;
+
+
+      // resize everything to panel size
+      //
+      // note 1 FS3 defaults: xtp = 95; ytp = 165; factp = 30.0;
+      // note 2 FS3 maintained x/y scaling as 6/4.5 or 2/1.5
+      // factp wass elected 30 so that gave pixel sizes of the plot 180/135
+      // scalex = 6.0/(endx-begx);
+      // scaley = 4.5/(endy-begy);
+
+      int panel_height = getHeight();
+      int panel_width = getWidth();
+      // System.out.println("-- panel_height: " + panel_height);
+        
+      // x0, y: screen coordinates of plot left bottom corner. 
+      int x0 = 48+ 8*Math.max(laby.length(), labyu.length()); // leave enough room for the Y axis labels
+      int y0 = panel_height - 64; /// leave space at bottom for the buttons and legend
+      int plot_h = y0 - 20; // leave space above for title etc
+      int plot_w = panel_width - x0 - 20;
+      double plot_AR = plot_w/plot_h;
+      scalex = plot_w/(endx-begx);
+      scaley = plot_h/(endy-begy);
+ 
+      if (plot_type != PLOT_TYPE_GAGES)  { /*  draw a graph */
+
+        if (GRIDLINES // let always paint on black for grid lines
+            || plot_type == PLOT_TYPE_PRESSURE ||  plot_type == PLOT_TYPE_VELOCITY)
+          off2Gg.setColor(color_very_dark);
+        else
+          off2Gg.setColor(Color.blue);
+
+        off2Gg.fillRect(0,0,panel_width,panel_height);
+
+        off2Gg.setColor(Color.white);
+        // /* draw axes */
+        // x[0] = x0;          y[0] = y0 - plot_h;  // Y axis end
+        // x[1] = x0;          y[1] = y0;           // x, y origin
+        // x[2] = x0 + plot_w; y[2] = y0;           // X axis end
+        // off2Gg.drawLine(x[0],y[0],x[1],y[1]);
+        // off2Gg.drawLine(x[1],y[1],x[2],y[2]);
+ 
+        off2Gg.drawString(laby, 2, y0 - plot_h/2); // Y axis label 1
+        off2Gg.drawString(labyu,2, y0 - plot_h/2 + 10); // Y axis label 2
+        boolean log_drag_p = plot_type == PLOT_TYPE_DRAG_TOTALS_VS_SPEED || plot_type == PLOT_TYPE_CURR_PART_VS_SPEED;
+        /* add Y axis tick values and horiz ticks or grid lines */
+        for (ind= 1; ind<= ntiky; ++ind){
+          xlabel = x0 - 40;
+          yl = begy + (ind-1) * incy;
+          int y_tick = (int) ( -scaley*(yl + offy)) + y0;
+          if (ind == 1 || ind == ntiky)  { // draw axes and bounds
+            // redundant? off2Gg.setColor(Color.WHITE);  
+            off2Gg.drawLine(x0, y_tick, x0+plot_w, y_tick);
+          } else if (!GRIDLINES) /// draw a tick
+            off2Gg.drawLine(x0-4, y_tick, x0+6, y_tick);
+          else { // drag dimmed grid line_dark
+            off2Gg.setColor(Color.GRAY);
+            off2Gg.drawLine(x0, y_tick, x0+plot_w, y_tick);
+            off2Gg.setColor(Color.WHITE);
+          }
+          ylabel = y_tick+4;//(int) ( -scaley*(yl + offy)) + y0;
+
+          // maybe log scale?
+          if (log_drag_p) 
+            yl = Math.pow(10, yl);
+
+          // old ways
+          // if (axis_y_label_width >= 2) {
+          //   if (endy >= 100.0)
+          //     off2Gg.drawString(pprint(filter0(yl)),xlabel,ylabel);
+          //   else if (endy < 100.0 && endy >= 1.0) 
+          //     off2Gg.drawString(pprint(filter1(yl)),xlabel,ylabel);
+          //   else if (endy < 1.0) 
+          //     off2Gg.drawString(pprint(filter3(yl)),xlabel,ylabel);
+          // }
+          // else {
+          //   off2Gg.drawString(pprint(filter3(yl)),xlabel,ylabel);
+          // }
+          off2Gg.drawString(pprint(filter1or3(yl)),xlabel,ylabel);
+
         }
 
-        case PLOT_TYPE_PRESSURE:
-        case PLOT_TYPE_VELOCITY: {    // determine y - range
-          if (true /*always rescale should_rescale_p*/) {
-            begy = ploty[0][1];
-            endy = ploty[0][1];
-            for (index = 1; index <= POINTS_COUNT_HALF; ++ index) {
-              if (ploty[0][index] < begy) begy = ploty[0][index];
-              if (ploty[1][index] < begy) begy = ploty[1][index];
-              if (ploty[0][index] > endy) endy = ploty[0][index];
-              if (ploty[1][index] > endy) endy = ploty[1][index];
-            }
-          }
-        }          
-        default:;
-        }         
+        if (log_drag_p) {
+          off2Gg.drawString(labx, x0 + plot_w - 40, y0 - 16);
+          off2Gg.drawString(labxu,x0 + plot_w - 40, y0 - 6);
+        } else {
+          off2Gg.drawString(labx, x0 + plot_w - 60, y0 + 30);
+          off2Gg.drawString(labxu,x0 + plot_w - 60, y0 + 40);
+        }
 
-      }
-
-
-      // camb_val and thic_val are in %/25, angl is in degrees
-      public double getCl_plot (double camb_val, double thic_val, double angl) {
-        // return new Solver(angl, thic_val*25, camb_val*25).get_Cl(angl);
-        Solver s = plot_solver;
-        s.getFreeStream ();
-        s.getCirculation(angl, thic_val*25, camb_val*25);
-        double cl = s.get_Cl(angl);
-        // System.out.println("-- s: " + s + " cl: " + cl);
-        return cl;
-      }
-      
-      // // old. this was replica of solver.getCirculation & get_Cl
-      // public double getCl_plot_(double camb, double thic, double angl) {
-      //   double number;
-      //   double yc = camb / 2.0;
-      //   double rc = thic/4.0 + Math.sqrt( thic*thic/16.0 + yc*yc + 1.0);
-      //   double xc = 1.0 - Math.sqrt(rc*rc - yc*yc);
-      //   double beta = Math.asin(yc/rc)/convdr;       /* Kutta condition */
-      //   double gamc = 2.0*rc*Math.sin((angl+beta)*convdr);
-      //   double lec = xc - Math.sqrt(rc*rc - yc*yc);
-      //   double tec = xc + Math.sqrt(rc*rc - yc*yc);
-      //   double lecm = lec + 1.0/lec;
-      //   double tecm = tec + 1.0/tec;
-      //   double crdc = tecm - lecm;
-      // 
-      //   // stall model 1
-      //   double stfact = 1.0;
-      // 
-      //   switch (stall_model_type) {
-      //   case STALL_MODEL_DFLT:
-      //     if (angl > 10 ) {
-      //       stfact = .5 + .1 * angl - .005 * angl * angl;
-      //     } else if (angl < -10 ) {
-      //       stfact = .5 - .1 * angl - .005 * angl * angl;
-      //     }
-      //     break;
-      //   case STALL_MODEL_REFINED:
-      //     // stfact = stall_model_k0 + stall_model_k1 * Math.abs(angl) + stall_model_k2 * angl * angl;
-      //     if (angl > stall_model_apos ) {
-      //       stfact = stall_model_k0 + stall_model_k1 * +angl + stall_model_k2 * angl * angl;
-      //     } else if (angl < stall_model_aneg ) {
-      //       stfact = stall_model_k0 + stall_model_k1 * -angl + stall_model_k2 * angl * angl;
-      //     }
-      //   break;
-      //   case STALL_MODEL_IDEAL_FLOW:
-      //   default:
-      //     // do nothing. stfact = 1
-      //   }
-      // 
-      //   number = stfact*gamc*4.0*3.1415926/crdc;
-      // 
-      //   if (ar_lift_corr) {  // correction for low aspect ratio
-      //     number = number /(1.0 + Math.abs(number)/(3.14159*aspect_rat));
-      //   }
-      // 
-      //   return (number);
-      // }
-   
-      public void update(Graphics g) {
-        out_top.plot.paint(g);
-      }
-
-      static final boolean GRIDLINES = true;
-
-      // class Plot
-      public void paint (Graphics g) {
-        int i,j,k,n,index;
-        int xlabel,ylabel,ind,inmax,inmin;
-        int x[] = new int[8];
-        int y[] = new int[8];
-        double offx,scalex,offy,scaley,waste,incy,incx;
-        double xl,yl;
-        double liftab,dragab;
-        Color col;
-
-
-        if (ntikx < 2) ntikx = 2;     /* protection 13June96 */
-        incx = (endx-begx)/(ntikx-1);
-        if (ntiky < 2) ntiky = 2;
-        incy = (endy-begy)/(ntiky-1);
-
-        offx = 0.0 - begx;
-        offy = 0.0 - begy;
-
-
-        // resize everything to panel size
-        //
-        // note 1 FS3 defaults: xtp = 95; ytp = 165; factp = 30.0;
-        // note 2 FS3 maintained x/y scaling as 6/4.5 or 2/1.5
-        // factp wass elected 30 so that gave pixel sizes of the plot 180/135
-        // scalex = 6.0/(endx-begx);
-        // scaley = 4.5/(endy-begy);
-
-        int panel_height = getHeight();
-        int panel_width = getWidth();
-        // System.out.println("-- panel_height: " + panel_height);
-        
-        // x0, y: screen coordinates of plot left bottom corner. 
-        int x0 = 48+ 8*Math.max(laby.length(), labyu.length()); // leave enough room for the Y axis labels
-        int y0 = panel_height - 64; /// leave space at bottom for the buttons and legend
-        int plot_h = y0 - 20; // leave space above for title etc
-        int plot_w = panel_width - x0 - 20;
-        double plot_AR = plot_w/plot_h;
-        scalex = plot_w/(endx-begx);
-        scaley = plot_h/(endy-begy);
- 
-        if (plot_type != PLOT_TYPE_GAGES)  { /*  draw a graph */
-
-          if (GRIDLINES // let always paint on black for grid lines
-              || plot_type == PLOT_TYPE_PRESSURE ||  plot_type == PLOT_TYPE_VELOCITY)
-            off2Gg.setColor(color_very_dark);
-          else
-            off2Gg.setColor(Color.blue);
-
-          off2Gg.fillRect(0,0,panel_width,panel_height);
-
-          off2Gg.setColor(Color.white);
-          // /* draw axes */
-          // x[0] = x0;          y[0] = y0 - plot_h;  // Y axis end
-          // x[1] = x0;          y[1] = y0;           // x, y origin
-          // x[2] = x0 + plot_w; y[2] = y0;           // X axis end
-          // off2Gg.drawLine(x[0],y[0],x[1],y[1]);
-          // off2Gg.drawLine(x[1],y[1],x[2],y[2]);
- 
-          off2Gg.drawString(laby, 2, y0 - plot_h/2); // Y axis label 1
-          off2Gg.drawString(labyu,2, y0 - plot_h/2 + 10); // Y axis label 2
-          boolean log_drag_p = plot_type == PLOT_TYPE_DRAG_TOTALS_VS_SPEED || plot_type == PLOT_TYPE_CURR_PART_VS_SPEED;
-          /* add Y axis tick values and horiz ticks or grid lines */
-          for (ind= 1; ind<= ntiky; ++ind){
-            xlabel = x0 - 40;
-            yl = begy + (ind-1) * incy;
-            int y_tick = (int) ( -scaley*(yl + offy)) + y0;
-            if (ind == 1 || ind == ntiky)  { // draw axes and bounds
-              // redundant? off2Gg.setColor(Color.WHITE);  
-              off2Gg.drawLine(x0, y_tick, x0+plot_w, y_tick);
-            } else if (!GRIDLINES) /// draw a tick
-              off2Gg.drawLine(x0-4, y_tick, x0+6, y_tick);
-            else { // drag dimmed grid line_dark
-              off2Gg.setColor(Color.GRAY);
-              off2Gg.drawLine(x0, y_tick, x0+plot_w, y_tick);
-              off2Gg.setColor(Color.WHITE);
-            }
-            ylabel = y_tick+4;//(int) ( -scaley*(yl + offy)) + y0;
-
-            // maybe log scale?
-            if (log_drag_p) 
-              yl = Math.pow(10, yl);
-
-            // old ways
-            // if (axis_y_label_width >= 2) {
-            //   if (endy >= 100.0)
-            //     off2Gg.drawString(pprint(filter0(yl)),xlabel,ylabel);
-            //   else if (endy < 100.0 && endy >= 1.0) 
-            //     off2Gg.drawString(pprint(filter1(yl)),xlabel,ylabel);
-            //   else if (endy < 1.0) 
-            //     off2Gg.drawString(pprint(filter3(yl)),xlabel,ylabel);
-            // }
-            // else {
-            //   off2Gg.drawString(pprint(filter3(yl)),xlabel,ylabel);
-            // }
-            off2Gg.drawString(pprint(filter1or3(yl)),xlabel,ylabel);
-
+        /* add X axis tick values and either vertical ticks or grid lines */
+        for (ind= 1; ind<= ntikx; ++ind){
+          ylabel = (int) (15.) + y0;
+          xl = begx + (ind-1) * incx;
+          int x_tick = (int) ((scalex*(xl + offx))) + x0;
+          if (ind == 1 || ind == ntikx) // draw axe and bound
+            off2Gg.drawLine(x_tick, y0, x_tick, y0-plot_h);
+          else if (!GRIDLINES) // tick
+            off2Gg.drawLine(x_tick, y0-6, x_tick, y0+4);
+          else { // drag dimmed grid line
+            off2Gg.setColor(Color.GRAY);
+            off2Gg.drawLine(x_tick, y0, x_tick, y0-plot_h);
+            off2Gg.setColor(Color.WHITE);
           }
 
-          if (log_drag_p) {
-            off2Gg.drawString(labx, x0 + plot_w - 40, y0 - 16);
-            off2Gg.drawString(labxu,x0 + plot_w - 40, y0 - 6);
-          } else {
-            off2Gg.drawString(labx, x0 + plot_w - 60, y0 + 30);
-            off2Gg.drawString(labxu,x0 + plot_w - 60, y0 + 40);
-          }
+          xlabel = xlabel = x_tick - 8;// (int) ((scalex*(xl + offx) -.05)) + x0;
 
-          /* add X axis tick values and either vertical ticks or grid lines */
-          for (ind= 1; ind<= ntikx; ++ind){
-            ylabel = (int) (15.) + y0;
-            xl = begx + (ind-1) * incx;
-            int x_tick = (int) ((scalex*(xl + offx))) + x0;
-            if (ind == 1 || ind == ntikx) // draw axe and bound
-              off2Gg.drawLine(x_tick, y0, x_tick, y0-plot_h);
-            else if (!GRIDLINES) // tick
-              off2Gg.drawLine(x_tick, y0-6, x_tick, y0+4);
-            else { // drag dimmed grid line
-              off2Gg.setColor(Color.GRAY);
-              off2Gg.drawLine(x_tick, y0, x_tick, y0-plot_h);
-              off2Gg.setColor(Color.WHITE);
-            }
+          // old ways...
+          // if (axis_x_label_width == 1) {
+          //   off2Gg.drawString(String.valueOf(xl),xlabel,ylabel);
+          // } else if (endx >= 10)
+          //   off2Gg.drawString(String.valueOf((int)xl),xlabel,ylabel);
+          // else
+          //   off2Gg.drawString(pprint(filter3(xl)),xlabel,ylabel);
+          off2Gg.drawString(pprint(filter1or3(xl)),xlabel,ylabel);            
 
-            xlabel = xlabel = x_tick - 8;// (int) ((scalex*(xl + offx) -.05)) + x0;
-
-            // old ways...
-            // if (axis_x_label_width == 1) {
-            //   off2Gg.drawString(String.valueOf(xl),xlabel,ylabel);
-            // } else if (endx >= 10)
-            //   off2Gg.drawString(String.valueOf((int)xl),xlabel,ylabel);
-            // else
-            //   off2Gg.drawString(pprint(filter3(xl)),xlabel,ylabel);
-            off2Gg.drawString(pprint(filter1or3(xl)),xlabel,ylabel);            
-
-          }
+        }
        
-          if (lines == 0) {
-            for (i=1; i<=npt; ++i) {
-              xlabel = (int) (scalex*(offx+plotx[0][i])) + x0;
-              ylabel = (int)(-scaley*(offy+ploty[0][i]) +7.)+y0;
-              off2Gg.drawString("*",xlabel,ylabel);
-            }
+        if (lines == 0) {
+          for (i=1; i<=npt; ++i) {
+            xlabel = (int) (scalex*(offx+plotx[0][i])) + x0;
+            ylabel = (int)(-scaley*(offy+ploty[0][i]) +7.)+y0;
+            off2Gg.drawString("*",xlabel,ylabel);
           }
-          else {
-            switch (plot_type) {
-            case PLOT_TYPE_PRESSURE:
-            case PLOT_TYPE_VELOCITY: {
-              for (j=0; j<= plot_trace_count-1; ++j) {
-                k = 2 -j;
-                if (k == 0) {
-                  off2Gg.setColor(Color.magenta);
-                  xlabel = x0 + 20;
-                  ylabel = y0 + 20;
-                  off2Gg.drawString("Upper",xlabel,ylabel);
-                }
-                else if (k == 1) {
-                  off2Gg.setColor(Color.yellow);
-                  xlabel = x0 + 20;
-                  ylabel = y0 + 40;
-                  off2Gg.drawString("Lower",xlabel,ylabel);
-                }
-                else if (k == 2) {
-                  off2Gg.setColor(Color.green);
-                  xlabel = x0 +  plot_w/2 - 8*"Free St".length();
-                  ylabel = y0 -  plot_h - 4;
-                  off2Gg.drawString("Free Stream",xlabel,ylabel);
-                }
-                x[1] = (int) (scalex*(offx+plotx[k][1])) + x0;
-                y[1] = (int) (-scaley*(offy+ploty[k][1]))+ y0;
-                for (i=1; i<=npt; ++i) {
-                  x[0] = x[1];
-                  y[0] = y[1];
-                  x[1] = (int)(scalex*(offx+plotx[k][i]))+x0;
-                  y[1] = (int)(-scaley*(offy+ploty[k][i]))+y0;
-                  off2Gg.drawLine(x[0],y[0],x[1],y[1]);
-                }
+        }
+        else {
+          switch (plot_type) {
+          case PLOT_TYPE_PRESSURE:
+          case PLOT_TYPE_VELOCITY: {
+            for (j=0; j<= plot_trace_count-1; ++j) {
+              k = 2 -j;
+              if (k == 0) {
+                off2Gg.setColor(Color.magenta);
+                xlabel = x0 + 20;
+                ylabel = y0 + 20;
+                off2Gg.drawString("Upper",xlabel,ylabel);
               }
-              break;
-            } // PLOT_TYPE_VELOCITY 
-            case PLOT_TYPE_CG_VS_SPEED: {
+              else if (k == 1) {
+                off2Gg.setColor(Color.yellow);
+                xlabel = x0 + 20;
+                ylabel = y0 + 40;
+                off2Gg.drawString("Lower",xlabel,ylabel);
+              }
+              else if (k == 2) {
+                off2Gg.setColor(Color.green);
+                xlabel = x0 +  plot_w/2 - 8*"Free St".length();
+                ylabel = y0 -  plot_h - 4;
+                off2Gg.drawString("Free Stream",xlabel,ylabel);
+              }
+              x[1] = (int) (scalex*(offx+plotx[k][1])) + x0;
+              y[1] = (int) (-scaley*(offy+ploty[k][1]))+ y0;
+              for (i=1; i<=npt; ++i) {
+                x[0] = x[1];
+                y[0] = y[1];
+                x[1] = (int)(scalex*(offx+plotx[k][i]))+x0;
+                y[1] = (int)(-scaley*(offy+ploty[k][i]))+y0;
+                off2Gg.drawLine(x[0],y[0],x[1],y[1]);
+              }
+            }
+            break;
+          } // PLOT_TYPE_VELOCITY 
+          case PLOT_TYPE_CG_VS_SPEED: {
 
               
-              off2Gg.drawString("Equilibrium conditions",
-                                x0 +  plot_w/2 - 50,
-                                y0 -  plot_h - 4);
+            off2Gg.drawString("Equilibrium conditions",
+                              x0 +  plot_w/2 - 50,
+                              y0 -  plot_h - 4);
 
 
-              int threshold_x = (int)(+scalex*(offx+plotx[1][start_pt])) + x0;
-              off2Gg.drawString("<--- --- Rideable speed range --- --- ", threshold_x, y0 -  plot_h + 20);
-              off2Gg.setColor(Color.red);
-              off2Gg.drawLine(threshold_x - 3, 
-                              y0 -  plot_h - 4,
-                              threshold_x - 3,
-                              y0);
-              off2Gg.drawString("Slog/Swim -->", threshold_x - 80, y0 -  plot_h + 20);
-              off2Gg.drawString("range", threshold_x - 80, y0 -  plot_h + 20+14);
+            int threshold_x = (int)(+scalex*(offx+plotx[1][start_pt])) + x0;
+            off2Gg.drawString("<--- --- Rideable speed range --- --- ", threshold_x, y0 -  plot_h + 20);
+            off2Gg.setColor(Color.red);
+            off2Gg.drawLine(threshold_x - 3, 
+                            y0 -  plot_h - 4,
+                            threshold_x - 3,
+                            y0);
+            off2Gg.drawString("Slog/Swim -->", threshold_x - 80, y0 -  plot_h + 20);
+            off2Gg.drawString("range", threshold_x - 80, y0 -  plot_h + 20+14);
               
               
-              String cg_plot_label = "";
-              for (j=0; j< plot_trace_count; ++j) {
-                int cg_plot_label_x = x0 + 24;
-                int cg_plot_label_y = y0;
-                switch (j) {
-                case 0:
+            String cg_plot_label = "";
+            for (j=0; j< plot_trace_count; ++j) {
+              int cg_plot_label_x = x0 + 24;
+              int cg_plot_label_y = y0;
+              switch (j) {
+              case 0:
+                off2Gg.setColor(Color.yellow);
+                cg_plot_label = (display_units == METRIC || display_units == METRIC_2) 
+                  ? "Eff.CG pos, cm"
+                  : "Eff.CG pos, inch";
+                cg_plot_label_x += 110;
+                cg_plot_label_y += 32;
+                break;
+              case 1:
+                off2Gg.setColor(Color.red);
+                cg_plot_label = (display_units == METRIC)
+                  ? "Drag, kg (or 9.8*N), to fit the screen"
+                  : ("Drag, " + current_display_force_unit_string());
+                cg_plot_label_x += 4;
+                cg_plot_label_y += 32+14;
+                break;
+              case 2: 
+                off2Gg.setColor(Color.green);
+                cg_plot_label = "Pitch, Degr";
+                cg_plot_label_x += 4;
+                cg_plot_label_y += 32+14+14;
+                break;
+              case 3: 
+                off2Gg.setColor(Color.cyan);
+                cg_plot_label = "Total L/D ratio";
+                cg_plot_label_x += 104;
+                cg_plot_label_y += 32+14+14;
+                break;
+              case 4:
+                off2Gg.setColor(Color.magenta);
+                cg_plot_label = (display_units == METRIC || display_units == METRIC_2) 
+                  ? "Rider CG pos, cm"
+                  : "Rider CG pos, inch";
+                cg_plot_label_x += 4;
+                cg_plot_label_y += 32;
+                break;
+              default:
+              }
+              off2Gg.drawString(cg_plot_label, cg_plot_label_x, cg_plot_label_y);
+
+              x[1] = (int) (+scalex*(offx+plotx[j][start_pt])) + x0;
+              y[1] = (int) (-scaley*(offy+ploty[j][start_pt])) + y0;
+              for (i=start_pt+1; i<=npt; ++i) {
+                x[0] = x[1];
+                y[0] = y[1];
+                x[1] = (int) (+scalex*(offx+plotx[j][i])) + x0;
+                y[1] = (int) (-scaley*(offy+ploty[j][i])) + y0;
+                // for debugging off2Gg.drawLine(x[1],y[1]-1, x[1],y[1]+1);
+                off2Gg.drawLine(x[0],y[0],x[1],y[1]);
+              }
+              xlabel = (int)(+scalex*(offx+plotx[j][0])) + x0;
+              ylabel = (int)(-scaley*(offy+ploty[j][0])) + y0;
+              //off2Gg.drawLine(xlabel, ylabel-4, xlabel, ylabel+4);
+              off2Gg.drawOval(xlabel-2,ylabel-2,4,4);
+            }
+            break;
+          } // PLOT_TYPE_CG_VS_SPEED
+          case PLOT_TYPE_CURR_PART_VS_SPEED: 
+            off2Gg.drawString("Drag Components for " + current_part.name,
+                              x0 +  plot_w/2 - 50,
+                              y0 -  plot_h - 4);
+            // fall down
+          case PLOT_TYPE_DRAG_TOTALS_VS_SPEED: {
+
+            String drag_plot_label = "";
+            for (j=0; j< plot_trace_count; ++j) {
+              int drag_plot_label_x = x0 + 48;
+              int drag_plot_label_y = y0;
+              switch (j) {
+              case 0:
+                if (plot_type == PLOT_TYPE_DRAG_TOTALS_VS_SPEED) {
                   off2Gg.setColor(Color.yellow);
-                  cg_plot_label = (display_units == METRIC || display_units == METRIC_2) 
-                    ? "Eff.CG pos, cm"
-                    : "Eff.CG pos, inch";
-                  cg_plot_label_x += 110;
-                  cg_plot_label_y += 32;
-                  break;
-                case 1:
+                  drag_plot_label = "Drag of Wing";
+                } else { // PLOT_TYPE_CURR_PART_VS_SPEED
                   off2Gg.setColor(Color.red);
-                  cg_plot_label = (display_units == METRIC)
-                    ? "Drag, kg (or 9.8*N), to fit the screen"
-                    : ("Drag, " + current_display_force_unit_string());
-                  cg_plot_label_x += 4;
-                  cg_plot_label_y += 32+14;
-                  break;
-                case 2: 
-                  off2Gg.setColor(Color.green);
-                  cg_plot_label = "Pitch, Degr";
-                  cg_plot_label_x += 4;
-                  cg_plot_label_y += 32+14+14;
-                  break;
-                case 3: 
-                  off2Gg.setColor(Color.cyan);
-                  cg_plot_label = "Total L/D ratio";
-                  cg_plot_label_x += 104;
-                  cg_plot_label_y += 32+14+14;
-                  break;
-                case 4:
-                  off2Gg.setColor(Color.magenta);
-                  cg_plot_label = (display_units == METRIC || display_units == METRIC_2) 
-                    ? "Rider CG pos, cm"
-                    : "Rider CG pos, inch";
-                  cg_plot_label_x += 4;
-                  cg_plot_label_y += 32;
-                  break;
-                default:
+                  drag_plot_label = "Total Drag";
                 }
-                off2Gg.drawString(cg_plot_label, cg_plot_label_x, cg_plot_label_y);
-
-                x[1] = (int) (+scalex*(offx+plotx[j][start_pt])) + x0;
-                y[1] = (int) (-scaley*(offy+ploty[j][start_pt])) + y0;
-                for (i=start_pt+1; i<=npt; ++i) {
-                  x[0] = x[1];
-                  y[0] = y[1];
-                  x[1] = (int) (+scalex*(offx+plotx[j][i])) + x0;
-                  y[1] = (int) (-scaley*(offy+ploty[j][i])) + y0;
-                  // for debugging off2Gg.drawLine(x[1],y[1]-1, x[1],y[1]+1);
-                  off2Gg.drawLine(x[0],y[0],x[1],y[1]);
+                drag_plot_label_x += 4;
+                drag_plot_label_y += 32;
+                break;
+              case 1:
+                off2Gg.setColor(Color.magenta);
+                if (plot_type == PLOT_TYPE_DRAG_TOTALS_VS_SPEED)
+                  drag_plot_label = "Drag of Stab";
+                else
+                  drag_plot_label = "Profile Darg";
+                drag_plot_label_x += 4;
+                drag_plot_label_y += 32+14;
+                break;
+              case 2: 
+                off2Gg.setColor(Color.green);
+                if (plot_type == PLOT_TYPE_DRAG_TOTALS_VS_SPEED)
+                  drag_plot_label = "Drag of Mast";
+                else
+                  drag_plot_label = "Induced Drag";
+                drag_plot_label_x += 4;
+                drag_plot_label_y += 32+14+14;
+                break;
+              case 3: 
+                off2Gg.setColor(Color.cyan);
+                if (plot_type == PLOT_TYPE_DRAG_TOTALS_VS_SPEED)
+                  drag_plot_label = "Drag of Fuse";
+                else
+                  drag_plot_label = "Junction Drag";
+                drag_plot_label_x += 114;
+                drag_plot_label_y += 32;
+                break;
+              case 4: 
+                if (plot_type == PLOT_TYPE_DRAG_TOTALS_VS_SPEED) {
+                  off2Gg.setColor(Color.red);
+                  drag_plot_label = "All Parts Junction+Spray Drag";
+                } else {
+                  off2Gg.setColor(Color.yellow);
+                  drag_plot_label = "Spray Drag";
                 }
-                xlabel = (int)(+scalex*(offx+plotx[j][0])) + x0;
-                ylabel = (int)(-scaley*(offy+ploty[j][0])) + y0;
-                //off2Gg.drawLine(xlabel, ylabel-4, xlabel, ylabel+4);
-                off2Gg.drawOval(xlabel-2,ylabel-2,4,4);
+                drag_plot_label_x += 114;
+                drag_plot_label_y += 32+14;
+                break;
+              default:
               }
-              break;
-            } // PLOT_TYPE_CG_VS_SPEED
-            case PLOT_TYPE_CURR_PART_VS_SPEED: 
-              off2Gg.drawString("Drag Components for " + current_part.name,
-                                x0 +  plot_w/2 - 50,
-                                y0 -  plot_h - 4);
-              // fall down
-            case PLOT_TYPE_DRAG_TOTALS_VS_SPEED: {
+              off2Gg.drawString(drag_plot_label, drag_plot_label_x, drag_plot_label_y);
 
-              String drag_plot_label = "";
-              for (j=0; j< plot_trace_count; ++j) {
-                int drag_plot_label_x = x0 + 48;
-                int drag_plot_label_y = y0;
-                switch (j) {
-                case 0:
-                  if (plot_type == PLOT_TYPE_DRAG_TOTALS_VS_SPEED) {
-                      off2Gg.setColor(Color.yellow);
-                      drag_plot_label = "Drag of Wing";
-                  } else { // PLOT_TYPE_CURR_PART_VS_SPEED
-                      off2Gg.setColor(Color.red);
-                      drag_plot_label = "Total Drag";
-                  }
-                  drag_plot_label_x += 4;
-                  drag_plot_label_y += 32;
-                  break;
-                case 1:
-                  off2Gg.setColor(Color.magenta);
-                  if (plot_type == PLOT_TYPE_DRAG_TOTALS_VS_SPEED)
-                    drag_plot_label = "Drag of Stab";
-                  else
-                    drag_plot_label = "Profile Darg";
-                  drag_plot_label_x += 4;
-                  drag_plot_label_y += 32+14;
-                  break;
-                case 2: 
-                  off2Gg.setColor(Color.green);
-                  if (plot_type == PLOT_TYPE_DRAG_TOTALS_VS_SPEED)
-                    drag_plot_label = "Drag of Mast";
-                  else
-                    drag_plot_label = "Induced Drag";
-                  drag_plot_label_x += 4;
-                  drag_plot_label_y += 32+14+14;
-                  break;
-                case 3: 
-                  off2Gg.setColor(Color.cyan);
-                  if (plot_type == PLOT_TYPE_DRAG_TOTALS_VS_SPEED)
-                    drag_plot_label = "Drag of Fuse";
-                  else
-                    drag_plot_label = "Junction Drag";
-                  drag_plot_label_x += 114;
-                  drag_plot_label_y += 32;
-                  break;
-                case 4: 
-                  if (plot_type == PLOT_TYPE_DRAG_TOTALS_VS_SPEED) {
-                    off2Gg.setColor(Color.red);
-                    drag_plot_label = "All Parts Junction+Spray Drag";
-                  } else {
-                    off2Gg.setColor(Color.yellow);
-                    drag_plot_label = "Spray Drag";
-                  }
-                  drag_plot_label_x += 114;
-                  drag_plot_label_y += 32+14;
-                  break;
-                default:
-                }
-                off2Gg.drawString(drag_plot_label, drag_plot_label_x, drag_plot_label_y);
-
-                x[1] = (int) (+scalex*(offx+plotx[j][1])) + x0;
-                y[1] = (int) (-scaley*(offy+ploty[j][1])) + y0;
-                for (i=1; i<=npt; ++i) {
-                  x[0] = x[1];
-                  y[0] = y[1];
-                  x[1] = (int) (+scalex*(offx+plotx[j][i])) + x0;
-                  y[1] = (int) (-scaley*(offy+ploty[j][i])) + y0;
-                  // for debugging off2Gg.drawLine(x[1],y[1]-1, x[1],y[1]+1);
-                  off2Gg.drawLine(x[0],y[0],x[1],y[1]);
-                }
-                xlabel = (int)(+scalex*(offx+plotx[j][0])) + x0;
-                ylabel = (int)(-scaley*(offy+ploty[j][0])) + y0;
-                //off2Gg.drawLine(xlabel, ylabel-4, xlabel, ylabel+4);
-                off2Gg.drawOval(xlabel-2,ylabel-2,4,4);
+              x[1] = (int) (+scalex*(offx+plotx[j][1])) + x0;
+              y[1] = (int) (-scaley*(offy+ploty[j][1])) + y0;
+              for (i=1; i<=npt; ++i) {
+                x[0] = x[1];
+                y[0] = y[1];
+                x[1] = (int) (+scalex*(offx+plotx[j][i])) + x0;
+                y[1] = (int) (-scaley*(offy+ploty[j][i])) + y0;
+                // for debugging off2Gg.drawLine(x[1],y[1]-1, x[1],y[1]+1);
+                off2Gg.drawLine(x[0],y[0],x[1],y[1]);
               }
-              break;
+              xlabel = (int)(+scalex*(offx+plotx[j][0])) + x0;
+              ylabel = (int)(-scaley*(offy+ploty[j][0])) + y0;
+              //off2Gg.drawLine(xlabel, ylabel-4, xlabel, ylabel+4);
+              off2Gg.drawOval(xlabel-2,ylabel-2,4,4);
             }
-            case PLOT_TYPE_LIFT_DRAG_POLARS: // fall through here
-              off2Gg.setColor(plot_colors[0]);
-              off2Gg.drawString("Cl/Cd of a 2D (infinite) foil", x0+plot_w/3, y0+32);
-              off2Gg.setColor(plot_colors[1]);
-              off2Gg.drawString("Cl reduced for AR, Cd with skin friction added", x0+plot_w/3, y0+32+14);
-              off2Gg.setColor(plot_colors[2]);
-              off2Gg.drawString("that, and Cd with induced drag added", x0+plot_w/3, y0+32+14+14);
-              // fall through! no break!
-            default: 
-              for (j=0; j<= plot_trace_count-1; ++j) {
-                x[1] = (int) (scalex*(offx+plotx[j][1])) + x0;
-                y[1] = (int) (-scaley*(offy+ploty[j][1])) + y0;
-                off2Gg.setColor(plot_colors[j]);
-                for (i=2; i<=npt; ++i) {
-                  x[0] = x[1];
-                  y[0] = y[1];
-                  x[1] = (int) (scalex*(offx+plotx[j][i])) + x0;
-                  y[1] = (int) (-scaley*(offy+ploty[j][i])) + y0;
-                  off2Gg.drawLine(x[0],y[0],x[1],y[1]);
-                }
+            break;
+          }
+          case PLOT_TYPE_LIFT_DRAG_POLARS: // fall through here
+            off2Gg.setColor(plot_colors[0]);
+            off2Gg.drawString("Cl/Cd of a 2D (infinite) foil", x0+plot_w/3, y0+32);
+            off2Gg.setColor(plot_colors[1]);
+            off2Gg.drawString("Cl reduced for AR, Cd with skin friction added", x0+plot_w/3, y0+32+14);
+            off2Gg.setColor(plot_colors[2]);
+            off2Gg.drawString("that, and Cd with induced drag added", x0+plot_w/3, y0+32+14+14);
+            // fall through! no break!
+          default: 
+            for (j=0; j<= plot_trace_count-1; ++j) {
+              x[1] = (int) (scalex*(offx+plotx[j][1])) + x0;
+              y[1] = (int) (-scaley*(offy+ploty[j][1])) + y0;
+              off2Gg.setColor(plot_colors[j]);
+              for (i=2; i<=npt; ++i) {
+                x[0] = x[1];
+                y[0] = y[1];
+                x[1] = (int) (scalex*(offx+plotx[j][i])) + x0;
+                y[1] = (int) (-scaley*(offy+ploty[j][i])) + y0;
+                off2Gg.drawLine(x[0],y[0],x[1],y[1]);
               }
-              // draw curr value as red dot
-              xlabel = (int) (scalex*(offx+plotx[1][0])) + x0;
-              ylabel = (int)(-scaley*(offy+ploty[1][0]))+y0 -4;
-              off2Gg.setColor(Color.red);
-              off2Gg.fillOval(xlabel,ylabel,5,5);
             }
+            // draw curr value as red dot
+            xlabel = (int) (scalex*(offx+plotx[1][0])) + x0;
+            ylabel = (int)(-scaley*(offy+ploty[1][0]))+y0 -4;
+            off2Gg.setColor(Color.red);
+            off2Gg.fillOval(xlabel,ylabel,5,5);
           }
+        }
 
-          // Rescale button
-          off2Gg.setColor(should_rescale_p ? Color.yellow : Color.white);
-          off2Gg.fillRect(4, (rescale_bt_y = panel_height -24), 68, 20);
-          off2Gg.setColor(Color.red);
-          off2Gg.drawString("Rescale",8,panel_height-8);
+        // Rescale button
+        off2Gg.setColor(should_rescale_p ? Color.yellow : Color.white);
+        off2Gg.fillRect(4, (rescale_bt_y = panel_height -24), 68, 20);
+        off2Gg.setColor(Color.red);
+        off2Gg.drawString("Rescale",8,panel_height-8);
 
-        } else { /*  draw the lift and drag gauge */
-          off2Gg.setColor(color_very_dark);
-          off2Gg.fillRect(0,0,350,350);
-          off2Gg.setColor(Color.white);
-          off2Gg.drawString("Output",10,10);
-          off2Gg.setColor(color_very_dark);
-          off2Gg.fillRect(0,100,300,30);
-          // Thermometer Lift gage
-          off2Gg.setColor(Color.white);
-          if (out_aux_idx == -1) { // not available now
-            off2Gg.drawString("Lift =",70,75);
-            if (lunits == IMPERIAL) off2Gg.drawString("Pounds",190,75);
-            else off2Gg.drawString("Newtons",190,75);
+      } else { /*  draw the lift and drag gauge */
+        off2Gg.setColor(color_very_dark);
+        off2Gg.fillRect(0,0,350,350);
+        off2Gg.setColor(Color.white);
+        off2Gg.drawString("Output",10,10);
+        off2Gg.setColor(color_very_dark);
+        off2Gg.fillRect(0,100,300,30);
+        // Thermometer Lift gage
+        off2Gg.setColor(Color.white);
+        if (out_aux_idx == -1) { // not available now
+          off2Gg.drawString("Lift =",70,75);
+          if (lunits == IMPERIAL) off2Gg.drawString("Pounds",190,75);
+          else off2Gg.drawString("Newtons",190,75);
+        }
+        else if (out_aux_idx == 1) 
+          off2Gg.drawString(" Cl  =",70,185);
+        // Thermometer Drag gage
+        //if (dragOut == -1) { // currently not available
+        //  off2Gg.drawString("Drag =",70,185);
+        //  if (lunits == IMPERIAL) off2Gg.drawString("Pounds",190,185);
+        //  if (lunits == 1) off2Gg.drawString("Newtons",190,185);
+        //}
+        else if (out_aux_idx == 2) off2Gg.drawString(" Cd  =",70,185);
+
+        off2Gg.setColor(Color.yellow);
+        for (index=0; index <= 10; index ++) {
+          off2Gg.drawLine(7+index*25,100,7+index*25,110);
+          off2Gg.drawString(String.valueOf(index),5+index*25,125);
+          off2Gg.drawLine(7+index*25,130,7+index*25,140);
+        }
+        // Lift value
+        if (out_aux_idx == -1) {
+          liftab = current_part.lift;
+          double lift_abs = Math.abs(current_part.lift);
+          if (lift_abs <= 1.0) {
+            liftab *=10.0;
+            off2Gg.setColor(Color.cyan);
+            off2Gg.fillRect(0,100,7 + (int) (25*Math.abs(liftab)),10);
+            off2Gg.drawString("-1",180,70);
           }
-          else if (out_aux_idx == 1) 
-            off2Gg.drawString(" Cl  =",70,185);
-          // Thermometer Drag gage
-          //if (dragOut == -1) { // currently not available
-          //  off2Gg.drawString("Drag =",70,185);
-          //  if (lunits == IMPERIAL) off2Gg.drawString("Pounds",190,185);
-          //  if (lunits == 1) off2Gg.drawString("Newtons",190,185);
-          //}
-          else if (out_aux_idx == 2) off2Gg.drawString(" Cd  =",70,185);
-
-          off2Gg.setColor(Color.yellow);
-          for (index=0; index <= 10; index ++) {
-            off2Gg.drawLine(7+index*25,100,7+index*25,110);
-            off2Gg.drawString(String.valueOf(index),5+index*25,125);
-            off2Gg.drawLine(7+index*25,130,7+index*25,140);
+          else if (lift_abs > 1.0 && lift_abs <= 10.0) {
+            off2Gg.setColor(Color.yellow);
+            off2Gg.fillRect(0,100,7 + (int) (25*Math.abs(liftab)),10);
+            off2Gg.drawString("0",180,70);
           }
-          // Lift value
-          if (out_aux_idx == -1) {
-            liftab = current_part.lift;
-            double lift_abs = Math.abs(current_part.lift);
-            if (lift_abs <= 1.0) {
-              liftab *=10.0;
-              off2Gg.setColor(Color.cyan);
-              off2Gg.fillRect(0,100,7 + (int) (25*Math.abs(liftab)),10);
-              off2Gg.drawString("-1",180,70);
-            }
-            else if (lift_abs > 1.0 && lift_abs <= 10.0) {
-              off2Gg.setColor(Color.yellow);
-              off2Gg.fillRect(0,100,7 + (int) (25*Math.abs(liftab)),10);
-              off2Gg.drawString("0",180,70);
-            }
-            else if (lift_abs > 10.0 && lift_abs <=100.0) {
-              liftab /=10.0;
-              off2Gg.setColor(Color.green);
-              off2Gg.fillRect(0,100,7 + (int) (25*Math.abs(liftab)),10);
-              off2Gg.drawString("1",180,70);
-            }
-            else if (lift_abs > 100.0 && lift_abs <=1000.0) {
-              liftab /= 100.0;
-              off2Gg.setColor(Color.red);
-              off2Gg.fillRect(0,100,7 + (int) (25*Math.abs(liftab)),10);
-              off2Gg.drawString("2",180,70);
-            }
-            else if (lift_abs > 1000.0 && lift_abs <=10000.0) {
-              liftab /= 1000.0;
-              off2Gg.setColor(Color.magenta);
-              off2Gg.fillRect(0,100,7 + (int) (25*Math.abs(liftab)),10);
-              off2Gg.drawString("3",180,70);
-            }
-            else if (lift_abs > 10000.0 && lift_abs <=100000.0) {
-              liftab /= 10000.0;
-              off2Gg.setColor(Color.orange);
-              off2Gg.fillRect(0,100,7 + (int) (25*Math.abs(liftab)),10);
-              off2Gg.drawString("4",180,70);
-            }
-            else if (lift_abs > 100000.0 && lift_abs <=1000000.0) {
-              liftab /= 100000.0;
-              off2Gg.setColor(Color.white);
-              off2Gg.fillRect(0,100,7 + (int) (25*Math.abs(liftab)),10);
-              off2Gg.drawString("5",180,70);
-            }
-            else if (lift_abs > 1000000.0) {
-              liftab /= 1000000.0;
-              off2Gg.setColor(Color.white);
-              off2Gg.fillRect(0,100,7 + (int) (25*Math.abs(liftab)),10);
-              off2Gg.drawString("6",180,70);
-            }
-          } else {
+          else if (lift_abs > 10.0 && lift_abs <=100.0) {
+            liftab /=10.0;
+            off2Gg.setColor(Color.green);
+            off2Gg.fillRect(0,100,7 + (int) (25*Math.abs(liftab)),10);
+            off2Gg.drawString("1",180,70);
+          }
+          else if (lift_abs > 100.0 && lift_abs <=1000.0) {
+            liftab /= 100.0;
+            off2Gg.setColor(Color.red);
+            off2Gg.fillRect(0,100,7 + (int) (25*Math.abs(liftab)),10);
+            off2Gg.drawString("2",180,70);
+          }
+          else if (lift_abs > 1000.0 && lift_abs <=10000.0) {
+            liftab /= 1000.0;
+            off2Gg.setColor(Color.magenta);
+            off2Gg.fillRect(0,100,7 + (int) (25*Math.abs(liftab)),10);
+            off2Gg.drawString("3",180,70);
+          }
+          else if (lift_abs > 10000.0 && lift_abs <=100000.0) {
+            liftab /= 10000.0;
+            off2Gg.setColor(Color.orange);
+            off2Gg.fillRect(0,100,7 + (int) (25*Math.abs(liftab)),10);
+            off2Gg.drawString("4",180,70);
+          }
+          else if (lift_abs > 100000.0 && lift_abs <=1000000.0) {
+            liftab /= 100000.0;
+            off2Gg.setColor(Color.white);
+            off2Gg.fillRect(0,100,7 + (int) (25*Math.abs(liftab)),10);
+            off2Gg.drawString("5",180,70);
+          }
+          else if (lift_abs > 1000000.0) {
+            liftab /= 1000000.0;
+            off2Gg.setColor(Color.white);
+            off2Gg.fillRect(0,100,7 + (int) (25*Math.abs(liftab)),10);
+            off2Gg.drawString("6",180,70);
+          }
+        } else {
+          liftab = current_part.cl;
+          if (Math.abs(current_part.cl) <= 1.0) {
+            liftab = current_part.cl*10.0;
+            off2Gg.setColor(Color.cyan);
+            off2Gg.fillRect(0,100,7 + (int) (25*Math.abs(liftab)),10);
+            off2Gg.drawString("-1",180,70);
+          }
+          if (Math.abs(current_part.cl) > 1.0 && Math.abs(current_part.cl) <= 10.0) {
             liftab = current_part.cl;
-            if (Math.abs(current_part.cl) <= 1.0) {
-              liftab = current_part.cl*10.0;
-              off2Gg.setColor(Color.cyan);
-              off2Gg.fillRect(0,100,7 + (int) (25*Math.abs(liftab)),10);
-              off2Gg.drawString("-1",180,70);
-            }
-            if (Math.abs(current_part.cl) > 1.0 && Math.abs(current_part.cl) <= 10.0) {
-              liftab = current_part.cl;
-              off2Gg.setColor(Color.yellow);
-              off2Gg.fillRect(0,100,7 + (int) (25*Math.abs(liftab)),10);
-              off2Gg.drawString("0",180,70);
-            }
+            off2Gg.setColor(Color.yellow);
+            off2Gg.fillRect(0,100,7 + (int) (25*Math.abs(liftab)),10);
+            off2Gg.drawString("0",180,70);
           }
-          // Drag value
-          if (dragOut == -1) { // currently, not available
-            dragab = current_part.drag;
-            double drag_abs = Math.abs(current_part.drag);
-            if (drag_abs <= 1.0) {
-              dragab *= 10.0;
-              off2Gg.setColor(Color.cyan);
-              off2Gg.fillRect(0,130,7 + (int) (25*Math.abs(dragab)),10);
-              off2Gg.drawString("-1",180,180);
-            } else if (drag_abs > 1.0 && drag_abs <= 10.0) {
-              off2Gg.setColor(Color.yellow);
-              off2Gg.fillRect(0,130,7 + (int) (25*Math.abs(dragab)),10);
-              off2Gg.drawString("0",180,180);
-            } else if (drag_abs > 10.0 && drag_abs <=100.0) {
-              dragab /= 10.0;
-              off2Gg.setColor(Color.green);
-              off2Gg.fillRect(0,130,7 + (int) (25*Math.abs(dragab)),10);
-              off2Gg.drawString("1",180,180);
-            } else if (drag_abs > 100.0 && drag_abs <=1000.0) {
-              dragab /= 100.0;
-              off2Gg.setColor(Color.red);
-              off2Gg.fillRect(0,130,7 + (int) (25*Math.abs(dragab)),10);
-              off2Gg.drawString("2",180,180);
-            } else if (drag_abs > 1000.0 && drag_abs <=10000.0) {
-              dragab /= 1000.0;
-              off2Gg.setColor(Color.magenta);
-              off2Gg.fillRect(0,130,7 + (int) (25*Math.abs(dragab)),10);
-              off2Gg.drawString("3",180,180);
-            } else if (drag_abs > 10000.0 && drag_abs <=100000.0) {
-              dragab /= 10000.0;
-              off2Gg.setColor(Color.orange);
-              off2Gg.fillRect(0,130,7 + (int) (25*Math.abs(dragab)),10);
-              off2Gg.drawString("4",180,180);
-            } else if (drag_abs > 100000.0 && drag_abs <=1000000.0) {
-              dragab /= 100000.0;
-              off2Gg.setColor(Color.white);
-              off2Gg.fillRect(0,130,7 + (int) (25*Math.abs(dragab)),10);
-              off2Gg.drawString("5",180,180);
-            } else if (drag_abs > 1000000.0) {
-              dragab /= 1000000.0;
-              off2Gg.setColor(Color.white);
-              off2Gg.fillRect(0,130,7 + (int) (25*Math.abs(dragab)),10);
-              off2Gg.drawString("6",180,180);
-            }
-          } else {
+        }
+        // Drag value
+        if (dragOut == -1) { // currently, not available
+          dragab = current_part.drag;
+          double drag_abs = Math.abs(current_part.drag);
+          if (drag_abs <= 1.0) {
+            dragab *= 10.0;
+            off2Gg.setColor(Color.cyan);
+            off2Gg.fillRect(0,130,7 + (int) (25*Math.abs(dragab)),10);
+            off2Gg.drawString("-1",180,180);
+          } else if (drag_abs > 1.0 && drag_abs <= 10.0) {
+            off2Gg.setColor(Color.yellow);
+            off2Gg.fillRect(0,130,7 + (int) (25*Math.abs(dragab)),10);
+            off2Gg.drawString("0",180,180);
+          } else if (drag_abs > 10.0 && drag_abs <=100.0) {
+            dragab /= 10.0;
+            off2Gg.setColor(Color.green);
+            off2Gg.fillRect(0,130,7 + (int) (25*Math.abs(dragab)),10);
+            off2Gg.drawString("1",180,180);
+          } else if (drag_abs > 100.0 && drag_abs <=1000.0) {
+            dragab /= 100.0;
+            off2Gg.setColor(Color.red);
+            off2Gg.fillRect(0,130,7 + (int) (25*Math.abs(dragab)),10);
+            off2Gg.drawString("2",180,180);
+          } else if (drag_abs > 1000.0 && drag_abs <=10000.0) {
+            dragab /= 1000.0;
+            off2Gg.setColor(Color.magenta);
+            off2Gg.fillRect(0,130,7 + (int) (25*Math.abs(dragab)),10);
+            off2Gg.drawString("3",180,180);
+          } else if (drag_abs > 10000.0 && drag_abs <=100000.0) {
+            dragab /= 10000.0;
+            off2Gg.setColor(Color.orange);
+            off2Gg.fillRect(0,130,7 + (int) (25*Math.abs(dragab)),10);
+            off2Gg.drawString("4",180,180);
+          } else if (drag_abs > 100000.0 && drag_abs <=1000000.0) {
+            dragab /= 100000.0;
+            off2Gg.setColor(Color.white);
+            off2Gg.fillRect(0,130,7 + (int) (25*Math.abs(dragab)),10);
+            off2Gg.drawString("5",180,180);
+          } else if (drag_abs > 1000000.0) {
+            dragab /= 1000000.0;
+            off2Gg.setColor(Color.white);
+            off2Gg.fillRect(0,130,7 + (int) (25*Math.abs(dragab)),10);
+            off2Gg.drawString("6",180,180);
+          }
+        } else {
+          dragab = current_part.cd;
+          if (Math.abs(current_part.cd) <= .1) {
+            dragab = current_part.cd*100.0;
+            off2Gg.setColor(Color.magenta);
+            off2Gg.fillRect(0,130,7 + (int) (25*Math.abs(dragab)),10);
+            off2Gg.drawString("-2",180,180);
+          }
+          if (Math.abs(current_part.cd) > .1 && Math.abs(current_part.cd) <= 1.0) {
+            dragab = current_part.cd*10.0;
+            off2Gg.setColor(Color.cyan);
+            off2Gg.fillRect(0,130,7 + (int) (25*Math.abs(dragab)),10);
+            off2Gg.drawString("-1",180,180);
+          }
+          if (Math.abs(current_part.cd) > 1.0 && Math.abs(current_part.cd) <= 10.0) {
             dragab = current_part.cd;
-            if (Math.abs(current_part.cd) <= .1) {
-              dragab = current_part.cd*100.0;
-              off2Gg.setColor(Color.magenta);
-              off2Gg.fillRect(0,130,7 + (int) (25*Math.abs(dragab)),10);
-              off2Gg.drawString("-2",180,180);
-            }
-            if (Math.abs(current_part.cd) > .1 && Math.abs(current_part.cd) <= 1.0) {
-              dragab = current_part.cd*10.0;
-              off2Gg.setColor(Color.cyan);
-              off2Gg.fillRect(0,130,7 + (int) (25*Math.abs(dragab)),10);
-              off2Gg.drawString("-1",180,180);
-            }
-            if (Math.abs(current_part.cd) > 1.0 && Math.abs(current_part.cd) <= 10.0) {
-              dragab = current_part.cd;
-              off2Gg.setColor(Color.yellow);
-              off2Gg.fillRect(0,130,7 + (int) (25*Math.abs(dragab)),10);
-              off2Gg.drawString("0",180,180);
-            }
+            off2Gg.setColor(Color.yellow);
+            off2Gg.fillRect(0,130,7 + (int) (25*Math.abs(dragab)),10);
+            off2Gg.drawString("0",180,180);
           }
+        }
 
-          off2Gg.setColor(Color.white);
-          off2Gg.drawString(pprint(filter3(liftab)),110,75);
-          off2Gg.drawString(" X 10 ",150,75);
-          off2Gg.drawString(pprint(filter3(dragab)),110,185);
-          off2Gg.drawString(" X 10 ",150,185);
-        }  
-        g.drawImage(offImg2,0,0,this);   
-      }
-    } // end class Plot 
+        off2Gg.setColor(Color.white);
+        off2Gg.drawString(pprint(filter3(liftab)),110,75);
+        off2Gg.drawString(" X 10 ",150,75);
+        off2Gg.drawString(pprint(filter3(dragab)),110,185);
+        off2Gg.drawString(" X 10 ",150,185);
+      }  
+      g.drawImage(offImg2,0,0,this);   
+    }
+  } // end class Plot 
 
   class Out extends javax.swing.JTabbedPane {
     FoilBoard app;
@@ -12463,6 +12627,12 @@ public class FoilBoard extends JApplet {
 
         add(l);
         add(r);
+      }
+
+      // Geometry.loadPanel
+      @Override
+      public void loadPanel () {
+        // paint?
       }
 
       class L extends Panel {
@@ -12696,6 +12866,12 @@ public class FoilBoard extends JApplet {
         text = new GeometryText(this);
       }
 
+      // Geometry.loadPanel
+      @Override
+      public void loadPanel () {
+        // paint?
+      }
+
       class GeometryText extends JTextArea {
         GeometryText(Panel panel) { 
           this.setEditable(false);
@@ -12811,7 +12987,7 @@ public class FoilBoard extends JApplet {
         if (lunits == IMPERIAL) text.append( " cu ft " );
         else /*METRIC*/         text.append( " cu m " );
 
-        // needed?? computeFlowAndRegenPlotAndAdjust();
+        // needed ?? computeFlowAndRegenPlotAndAdjust();
       }
 
     }  // Geometry
@@ -12827,6 +13003,12 @@ public class FoilBoard extends JApplet {
         text.setEditable(false);
         text.append("Kite/Windsurf Hydrofoil Simulator V1.0.\nDerived from FoilSim III 1.5b beta");
         add(new JScrollPane(text));
+      }
+
+      // Geometry.loadPanel
+      @Override
+      public void loadPanel () {
+        // do we change data on load?
       }
 
       public void paint (Graphics g) {
@@ -12960,6 +13142,12 @@ public class FoilBoard extends JApplet {
         add(prnt);
       }
 
+      // PerfWeb.loadPanel
+      @Override
+      public void loadPanel () { 
+        updateReport();
+      }
+
       public void paint (Graphics g) {
         // System.out.println("-- paint " + this);
         updateReport();
@@ -13090,6 +13278,14 @@ public class FoilBoard extends JApplet {
       PlotPanel pp = new PlotPanel(plot);
       addTab("Dash-board", null, dash, "Performance DashBoard");
       addTab("Plot", null, pp, "Show Plot");
+
+      this.addChangeListener(new javax.swing.event.ChangeListener() {
+          @Override
+          public void stateChanged(javax.swing.event.ChangeEvent e) {
+            DashBoardOrPlot p = (DashBoardOrPlot) e.getSource();
+            System.out.println("Selected pane No: " + p.getSelectedIndex());
+            p.load_selected_tab_panel();
+          } });
     }
 
     public void load_selected_tab_panel () {
