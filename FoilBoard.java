@@ -325,6 +325,50 @@ public class FoilBoard extends JApplet {
         ta.append("\n\n *** " + header + " ***");
       }
       ta.append(toString());
+      ta.append("\nSPEC:\n");
+      ta.append(make_spec());
+    }
+
+    String make_spec () {
+      Point3D[] le  = this.mesh_LE;
+      Point3D[] te  = this.mesh_TE;
+      String spec = this.foil.descr.replace(" ", "_");
+      int le_len = le.length;
+      if (this == strut) {
+        double xpos = this.xpos, zpos = 0;
+        for (int i = 0; i < le_len; i++) {
+          double chord = te[i].x - le[i].x;
+          spec += (i == 0 ? " " : ";") +
+            filter4(chord) + "/" + 
+            filter4(le[i].x - xpos);
+          xpos = le[i].x;
+        }
+      } else {
+        if (le_len < 3) // rectangle
+          spec += " " + filter4(te[0].x - le[0].x);
+        else {
+          double xpos = this.xpos, zpos = 0;
+          for (int i = le_len/2; i < le_len; i++) {
+            double chord = te[i].x - le[i].x;
+            spec += (i == le_len/2 ? " " : ";") +
+              filter4(chord) + "/" + 
+              filter4(le[i].x - xpos) + "/" + 
+              filter4(le[i].z - zpos);
+            xpos = le[i].x;
+            zpos = le[i].z;
+          }
+        }
+      }
+      spec += " " + filter3(this.span);
+      spec += " " + filter1(this.thickness);
+      spec += " " + filter1(this.camber);
+      spec += " " + filter1(this.aoa);
+      spec += " " + filter3(this.xpos);
+
+      if (html_param_syntax) 
+        return "<PARAM NAME=\"" + name + "\" VALUE=\"" + spec + "\"/>";
+      else 
+        return name + "=" +spec;
     }
 
     @Override
@@ -407,6 +451,7 @@ public class FoilBoard extends JApplet {
 
   double FRONT_FOOTSTRAP_XPOS = Double.NaN; // This is signed. NaN: not defined
   double  BACK_FOOTSTRAP_XPOS = Double.NaN; // This is signed. NaN: not defined
+  static boolean html_param_syntax = false;
 
   static Properties props;
   static JFrame frame;
@@ -430,6 +475,7 @@ public class FoilBoard extends JApplet {
       String dirpath = path_last_sep_idx > -1 ? path.substring(0, path_last_sep_idx+1) : "";
 
       if (params_file.endsWith(".html") || params_file.endsWith(".htm")) { // apllet html file
+        html_param_syntax = true;
         try {
           javax.xml.parsers.DocumentBuilderFactory dbFactory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
           javax.xml.parsers.DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
@@ -1299,7 +1345,7 @@ public class FoilBoard extends JApplet {
 
   boolean  ar_lift_corr = true, re_corr = true, induced_drag_on = true, skin_drag_on = true;
 
-  /* units data */
+  /* Value Ranges */
   static double v_min,alt_min,ang_min,v_max,alt_max,ang_max;
   static double ca_min,thk_min,ca_max,thk_max;
   static double chrd_min,span_min,ar_min,chrd_max,span_max,ar_max;
@@ -2904,8 +2950,8 @@ public class FoilBoard extends JApplet {
       ang_min = -20.0; ang_max = 20.0;
       ca_min = -20.0;  ca_max = 20.0;
       thk_min = 1; // do not make it less than 1, or some Cl?Cd calcs fail, see Solver
-      thk_max = 20.0;
-      chrd_min = .01;  chrd_max = 1;
+      thk_max = 20.0; // this is 20%
+      chrd_min = .01;  chrd_max = 1.4; // why >1: chord is also fuse length.
       span_min = .01;  span_max = 2.5;
       ar_min = chrd_min*span_min;  ar_max = span_max*chrd_max;
       spin_min = -1500.0;   spin_max = 1500.0;
@@ -7767,7 +7813,7 @@ public class FoilBoard extends JApplet {
       LeftPanel leftPanel;
       RightPanel rightPanel;
 
-      double xpos_min = -1, xpos_max = 1; // in meters
+      double xpos_min = -1, xpos_max = 2; // in meters
 
       Size (FoilBoard target) {
 
@@ -9203,6 +9249,9 @@ public class FoilBoard extends JApplet {
       VIEW_FORCES = 1,
       VIEW_3D_MESH = 2;
 
+    static final int VIEW_SLIDERS_MAX_Y = 230;
+    boolean help_draw_details = false;
+
     int viewflg = VIEW_FORCES;
     int edge_view_type = DISPLAY_ANIMATION;
 
@@ -9213,7 +9262,7 @@ public class FoilBoard extends JApplet {
     int xt_mpressed, yt_mpressed;
 
     boolean mesh_edit_mode = false;
-    int mesh_active_chord = -1;
+    int mesh_active_chord = 0;
     int mesh_edit_le_metaseq_anchor, mesh_edit_te_metaseq_anchor;
     double mesh_edit_on_press_x0;
 
@@ -9243,6 +9292,9 @@ public class FoilBoard extends JApplet {
               dragMiddleMouse = SwingUtilities.isMiddleMouseButton(e);
               mesh_x_angle_on_press = mesh_x_angle; 
               mesh_z_angle_on_press = mesh_z_angle;
+
+              if (y < 35 && x >= getWidth() - 30) help_draw_details = !help_draw_details;
+
               if (mesh_edit_mode) {
                 // ..._on_press = current_part.xpos - current_part.mesh_LE[mesh_active_chord].x;
                 // ..._on_press = current_part.xpos - current_part.mesh_TE[mesh_active_chord].x;
@@ -9262,7 +9314,7 @@ public class FoilBoard extends JApplet {
               }
             }
 
-            if (y >= 30 && y <= 165) { // Slider widget's zone
+            if (y >= 30 && y <= VIEW_SLIDERS_MAX_Y) { // Slider widget's zone
               if (x < 30) 
                 zoom_widget_active = true;
               else {
@@ -9372,17 +9424,17 @@ public class FoilBoard extends JApplet {
               } else if (force_scale_widget_active) { // force scale widget
                 force_scale_slider = y;
                 if (force_scale_slider < 30) force_scale_slider = 30;
-                else if (force_scale_slider > 165) force_scale_slider = 165;
+                else if (force_scale_slider > VIEW_SLIDERS_MAX_Y) force_scale_slider = VIEW_SLIDERS_MAX_Y;
                 force_scale = 0.0005 + 0.0001*(force_scale_slider-30);
               }
             } else if (viewflg == VIEW_3D_MESH) {
               if (zoom_widget_active) {  // adjust zoom widget
                 adjust_zoom(y);
               } else if (mesh_active_chord_le_xpos_widget_active) { 
-                mesh_active_chord_le_xpos_slider = Math.max(30,Math.min(165,y));
+                mesh_active_chord_le_xpos_slider = Math.max(30,Math.min(VIEW_SLIDERS_MAX_Y,y));
                 current_part.mesh_LE[mesh_active_chord].x = current_part.xpos + ((mesh_active_chord_le_xpos_slider-30) - 67.5)/500.0 ;
               } else if (mesh_active_chord_te_xpos_widget_active) { 
-                mesh_active_chord_te_xpos_slider = Math.max(30,Math.min(165,y));
+                mesh_active_chord_te_xpos_slider = Math.max(30,Math.min(VIEW_SLIDERS_MAX_Y,y));
                 current_part.mesh_TE[mesh_active_chord].x = current_part.xpos + ((mesh_active_chord_te_xpos_slider-30) - 67.5)/500.0;
              } else if (mesh_edit_le_on_press) { // metaseq style le point drag
                 double delta = x - anchor.x; // in mm
@@ -9437,15 +9489,14 @@ public class FoilBoard extends JApplet {
           public void mouseWheelMoved (MouseWheelEvent e) {
             e.consume();
             int rot = e.getWheelRotation();
-            // scale is Ctrl+Wheel
+            // BG image scale is Ctrl+Wheel
             if ((e.getModifiers() & KeyEvent.CTRL_MASK) != 0) {
               IMG_SCALE = rot>0 ? IMG_SCALE/1.1 : IMG_SCALE*1.1;
               viewer.repaint();
-              return;
+            } else { // Wheel is mesh scale
+              zoom_slider_pos_y += 5*rot;
+              adjust_zoom(zoom_slider_pos_y);
             }
-
-            zoom_slider_pos_y += 5*rot;
-            adjust_zoom(zoom_slider_pos_y);
           }
         });
       this.addKeyListener(new KeyListener() {
@@ -9455,7 +9506,7 @@ public class FoilBoard extends JApplet {
           public void keyReleased(KeyEvent e) {}
           @Override
           public void keyPressed(KeyEvent e) {
-            System.out.println("Pressed " + e.getKeyChar());
+            // System.out.println("Pressed " + e.getKeyChar());
             int code = e.getKeyCode();
             if ((e.getModifiers() & KeyEvent.CTRL_MASK) != 0) {
               switch (code) {
@@ -9490,37 +9541,8 @@ public class FoilBoard extends JApplet {
               case KeyEvent.VK_SPACE: // toggle edit mode
                 if (mesh_edit_mode) {
                   // dump part chords spec
-                  Part part = current_part;
-                  Point3D[] le  = part.mesh_LE;
-                  Point3D[] te  = part.mesh_TE;
-                  String spec = part.name + " chords: ";
-                  if (current_part == strut) {
-                    int le_len = le.length;
-                    double xpos = part.xpos, zpos = 0;
-                    for (int i = 0; i < le_len; i++) {
-                      double chord = te[i].x - le[i].x;
-                      spec += (i == 0 ? "" : ";") +
-                        filter4(chord) + "/" + 
-                        filter4(le[i].x - xpos);
-                      xpos = le[i].x;
-                    }
-                  } else {
-                    int le_len = le.length;
-                    if (le_len < 3) 
-                      spec += filter4(te[0].x - le[0].x);
-                    else {
-                      double xpos = part.xpos, zpos = 0;
-                      for (int i = le_len/2; i < le_len; i++) {
-                        double chord = te[i].x - le[i].x;
-                        spec += (i == 0 ? "" : ";") +
-                          filter4(chord) + "/" + 
-                          filter4(le[i].x - xpos) + "/" + 
-                          filter4(le[i].z - zpos);
-                        xpos = le[i].x;
-                        zpos = le[i].z;
-                      }
-                    }
-                  }
+                  String spec = current_part.name + ":" + 
+                    current_part.make_spec();
                   System.out.println(spec);
                 }
                 mesh_edit_mode = !mesh_edit_mode;
@@ -9553,7 +9575,7 @@ public class FoilBoard extends JApplet {
     void adjust_zoom (int y) {
       zoom_slider_pos_y = y;
       if (zoom_slider_pos_y < 30) zoom_slider_pos_y = 30;
-      if (zoom_slider_pos_y > 165) zoom_slider_pos_y = 165;
+      if (zoom_slider_pos_y > VIEW_SLIDERS_MAX_Y) zoom_slider_pos_y = VIEW_SLIDERS_MAX_Y;
       fact = 10.0 + (zoom_slider_pos_y-30)*1.0;
       current_part.spanfac = (int)(2.0*fact*current_part.aspect_rat*.3535);
       xt1 = xt + current_part.spanfac;
@@ -9932,8 +9954,8 @@ public class FoilBoard extends JApplet {
 
     void drawSliderWidget (String label, int x_offset, int hand_pos, boolean active_p) {
       off1Gg.setColor(active_p ? Color.white : Color.green);
-      off1Gg.drawString(label,x_offset+2,182);
-      off1Gg.drawLine(x_offset+15,30,x_offset+15,165);
+      off1Gg.drawString(label,x_offset+2,VIEW_SLIDERS_MAX_Y+17);
+      off1Gg.drawLine(x_offset+15,30,x_offset+15,VIEW_SLIDERS_MAX_Y);
       // frame 
       // not now off1Gg.drawRect(30+3,26,24,144);
       off1Gg.fillRect(x_offset+5,hand_pos-3,20,6);
@@ -10973,7 +10995,30 @@ public class FoilBoard extends JApplet {
         off1Gg.setColor(perspective ? Color.yellow : Color.cyan);
         off1Gg.drawString("Perspective",160,25);
         off1Gg.setColor(Color.white);
-        off1Gg.drawString("Help",panel_width-30,25);
+        if (help_draw_details) {
+          off1Gg.drawString("Hide", panel_width-30,25);
+          int h_x = panel_width-164, h_y = 37;
+          off1Gg.drawString("Zoom: drag slider or", h_x, h_y); h_y+=12;
+          off1Gg.drawString("roll mouse wheel", h_x, h_y); h_y+=12;
+          off1Gg.drawString("Rotate 3D mesh: press and", h_x, h_y); h_y+=12;
+          off1Gg.drawString("drag mouse left button", h_x, h_y); h_y+=12;
+          off1Gg.drawString("or mouse wheel button", h_x, h_y); h_y+=12;
+          off1Gg.drawString("Move 3D mesh: press and", h_x, h_y); h_y+=12;
+          off1Gg.drawString("drag mouse right button", h_x, h_y); h_y+=12;
+          off1Gg.drawString("Insert BG image: copy it to", h_x, h_y); h_y+=12;
+          off1Gg.drawString("clipboard, click Viewer, Ctrl-v", h_x, h_y); h_y+=12;
+          off1Gg.drawString("Move BG image: ", h_x, h_y); h_y+=12;
+          off1Gg.drawString("drag Ctrl + mouse right button", h_x, h_y); h_y+=12;
+          off1Gg.drawString("Aligned/Projection views:", h_x, h_y); h_y+=12;
+          off1Gg.drawString("press f for front, s for side,", h_x, h_y); h_y+=12;
+          off1Gg.drawString("t for top view", h_x, h_y); h_y+=12;
+          off1Gg.drawString("Mesh Editing: press t or f or s,", h_x, h_y); h_y+=12;
+          off1Gg.drawString("press SPACE to enter/exit,", h_x, h_y); h_y+=12;
+          off1Gg.drawString("up/down arrows to select chord", h_x, h_y); h_y+=12; 
+          off1Gg.drawString("LE, TE boxes or sliders move", h_x, h_y); h_y+=12; 
+          off1Gg.drawString("LE/TE of the selected chord", h_x, h_y); h_y+=12;
+        } else 
+          off1Gg.drawString("Help", panel_width-30,25);
       } else {
         off1Gg.setColor(Color.red);
         off1Gg.drawString("Find",240,10);
@@ -10997,19 +11042,11 @@ public class FoilBoard extends JApplet {
 
       // Controls 
 
-      //off1Gg.setColor(col_bg);
-      //off1Gg.fillRect(0,30,30,150);
-      // off1Gg.setColor(zoom_widget_active ? Color.white : Color.green);
-      // off1Gg.drawString("Zoom",2,182);
-      // off1Gg.drawLine(15,30,15,165);
-      // //frame
-      // // not nowoff1Gg.drawRect(3,26,24,144);
-      // off1Gg.fillRect(5,zoom_slider_pos_y-3,20,6);
       drawSliderWidget("Zoom", 0, zoom_slider_pos_y, zoom_widget_active);
 
       Font currentFont = off1Gg.getFont();
       if (viewflg == VIEW_FORCES) {
-        drawSliderWidget("Forces", 32, force_scale_slider, force_scale_widget_active);
+        drawSliderWidget(" Forces", 32, force_scale_slider, force_scale_widget_active);
 
         off1Gg.setFont(largeFont);
         off1Gg.setColor(Color.yellow);
@@ -12270,15 +12307,6 @@ public class FoilBoard extends JApplet {
       offx = 0.0 - begx;
       offy = 0.0 - begy;
 
-
-      // resize everything to panel size
-      //
-      // note 1 FS3 defaults: xtp = 95; ytp = 165; factp = 30.0;
-      // note 2 FS3 maintained x/y scaling as 6/4.5 or 2/1.5
-      // factp wass elected 30 so that gave pixel sizes of the plot 180/135
-      // scalex = 6.0/(endx-begx);
-      // scaley = 4.5/(endy-begy);
-
       int panel_height = getHeight();
       int panel_width = getWidth();
       // System.out.println("-- panel_height: " + panel_height);
@@ -13281,6 +13309,8 @@ public class FoilBoard extends JApplet {
         current_part.save_state(); 
 
         JTextArea ta = text;
+
+        ta.setText("");
 
         if (!t_foil_name.equals("Test"))
           ta.append("\n\nHydrofoil: " + t_foil_name);
