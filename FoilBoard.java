@@ -187,6 +187,14 @@ import java.awt.event.TextEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.Cursor; // for drag/rptate etc
+import java.awt.Toolkit; // for BG image pastinng
+import java.awt.datatransfer.Clipboard; // same
+import java.awt.datatransfer.DataFlavor; //same
+import java.awt.datatransfer.Transferable; //same
+import java.awt.image.BufferedImage; // BG image
+import java.awt.geom.AffineTransform; // same 
+import java.awt.Graphics2D; // same
+
 
 // Swing classes. No '.*', keep track of all links.
 import javax.swing.JDialog;
@@ -1523,8 +1531,8 @@ public class FoilBoard extends JApplet {
       int segment_count = chord_spec.length -1;
       // compute MAC value. this is silly straightfoward
       // also approxinate MAC xpos... 
-      // the idea is that mac_xpos*MAC*segment_count(segment_width = SUM each segement xpos * area...
-      // which because width is the same for ech segement becomes
+      // the idea is that mac_xpos*MAC*segment_count*segment_width = SUM each segement xpos * area...
+      // which because width is the same for each segement becomes
       // mac_xpos*MAC*segment_count = SUM each segement xpos * median chord
       double MAC = 0, segment_moments = 0;
       for (int ci = 0; ci < segment_count; ci++) {
@@ -1986,6 +1994,16 @@ public class FoilBoard extends JApplet {
  
     intermed = (int) (inumbr * 1000.);
     number = (float) (intermed / 1000. );
+    return number;
+  }
+ 
+  public float filter4 (double inumbr) {
+    //  output only to .0001
+    float number;
+    int intermed;
+ 
+    intermed = (int) (inumbr * 10000.);
+    number = (float) (intermed / 10000. );
     return number;
   }
  
@@ -7828,6 +7846,7 @@ public class FoilBoard extends JApplet {
           rightPanel.xpos_SB.setValue((int) (((current_part.xpos - xpos_min)/(xpos_max-xpos_min))*1000.));
           if (false) // temporarily disabing area_SB because if cross-editing event collisions..
             rightPanel.area_SB.setValue((int) (((current_part.area - ar_min)/(ar_max-ar_min))*1000.));
+          // rightPanel.tilt_mast_SB.setValue((int) (((current_part.xoff_tip - xpos_min)/(xpos_max-xpos_min))*1000.));
 
           leftPanel.size_tf.setText(make_size_info_in_display_units(current_part.chord, false));
           leftPanel.span_tf.setText(make_size_info_in_display_units(current_part.span, false));
@@ -7839,12 +7858,15 @@ public class FoilBoard extends JApplet {
         on_loadPanel = false;
       }
 
-      void scale_chords (Part part, double chord) {
-        double scale = chord/part.chord;
+      void scale_chords (Part part, double chord, boolean recompute) {
+        double scale = recompute ? 1 : chord/part.chord;
         Point3D[] le  = part.mesh_LE;
         Point3D[] te  = part.mesh_TE;
         double xpos = part.xpos;
-        for (int i = 0; i < le.length; i++) {
+        double xoffs = 0, new_mac = 0;
+        int le_len = le.length;
+        int le_seg_count = le_len - 1;
+        for (int i = 0; i < le_len; i++) {
           // new le-te = scale*(le-te)
           double old_xoffset =  le[i].x - xpos;
           double old_chord = te[i].x - le[i].x;
@@ -7852,11 +7874,24 @@ public class FoilBoard extends JApplet {
           double new_chord = scale * old_chord;
           le[i].x = new_xoffset + xpos;
           te[i].x = le[i].x + new_chord;
+          if (i == 0 || i == le_seg_count) {
+            xoffs += new_xoffset/2;
+            new_mac += new_chord/2;
+          } else {
+          xoffs += new_xoffset;
+          new_mac += new_chord;
+          }
         }
-        part.chord = chord;
+        part.chord = recompute ? new_mac/le_seg_count : chord;
+        part.chord_xoffs = xoffs/le_seg_count;
+        part.area = part.span * chord;
+        part.aspect_rat = part.span/chord;
+        part.spanfac = (int)(2.0*fact*part.aspect_rat*.3535);
+        if (recompute)
+          part.xoff_tip = le[le_seg_count].x - le[0].x;
       }
 
-      void scale_span(Part part, double span) {
+      void scale_span (Part part, double span) {
         double scale = span/part.span;
         Point3D[] le  = part.mesh_LE;
         Point3D[] te  = part.mesh_TE;
@@ -7868,7 +7903,7 @@ public class FoilBoard extends JApplet {
         part.span = span;
       }
 
-      void scale_xpos(Part part, double xpos) {
+      void scale_xpos (Part part, double xpos) {
         double delta = xpos - part.xpos;
         Point3D[] le  = part.mesh_LE;
         Point3D[] te  = part.mesh_TE;
@@ -7879,7 +7914,7 @@ public class FoilBoard extends JApplet {
         part.xpos = xpos;
       }
 
-      void scale_xpos_shear_top(Part part, double tilt) {
+      void scale_xpos_shear_top (Part part, double tilt) {
         Point3D[] le  = part.mesh_LE;
         Point3D[] te  = part.mesh_TE;
         int last_idx = le.length - 1;
@@ -7892,7 +7927,7 @@ public class FoilBoard extends JApplet {
           le[i].x = le[i].x + i * step;
           te[i].x = te[i].x + i * step;
         }
-        part.xoff_tip = te[last_idx].x - te[0].x;
+        part.xoff_tip = le[last_idx].x - le[0].x;
       }
 
       class LeftPanel extends Panel {
@@ -7931,16 +7966,7 @@ public class FoilBoard extends JApplet {
                 // parseParamData(current_part, current_part.name, current_part.toDefString());
 
                 // update mesh... 
-                scale_chords(current_part, chord);
-
-                current_part.area = current_part.span * chord;
-
-                current_part.aspect_rat = current_part.span/chord;
-                current_part.spanfac = (int)(2.0*fact*current_part.aspect_rat*.3535);
-
-                // no need - loadPanel does it...
-                // sync up slider, this fires up event
-                // rightPanel.chord_SB.setValue((int) (((current_part.chord - chrd_min)/(chrd_max-chrd_min))*1000.));
+                scale_chords(current_part, chord, false);
                 
                 computeFlowAndRegenPlot();
                 size.loadPanel();
@@ -8122,17 +8148,7 @@ public class FoilBoard extends JApplet {
                   // parseParamData(current_part, current_part.name, current_part.toDefString());
 
                   // update mesh... 
-                  scale_chords(current_part, chord);
-
-                  // rounded up text box value
-                  //// leftPanel.size_tf.setText(make_size_info_in_display_units(current_part.chord, false));
-                  
-                  // recalc area, move slider, update text
-                  current_part.area = current_part.span * current_part.chord;
-                  //// rightPanel.area_SB.setValue((int) (((current_part.area - ar_min)/(ar_max-ar_min))*1000.));
-                  
-                  current_part.aspect_rat = current_part.span*current_part.span/current_part.area;
-                  current_part.spanfac = (int)(2.0*fact*current_part.aspect_rat*.3535);
+                  scale_chords(current_part, chord, false);
 
                   computeFlowAndRegenPlot();
                   size.loadPanel();
@@ -9196,6 +9212,11 @@ public class FoilBoard extends JApplet {
     double ball_spin_angle;
     int xt_mpressed, yt_mpressed;
 
+    boolean mesh_edit_mode = false;
+    int mesh_active_chord = -1;
+    int mesh_edit_le_metaseq_anchor, mesh_edit_te_metaseq_anchor;
+    double mesh_edit_on_press_x0;
+
     Viewer (FoilBoard target) {
       setBackground(color_very_dark);
       runner = null;
@@ -9203,33 +9224,57 @@ public class FoilBoard extends JApplet {
           @SuppressWarnings("deprecation")
           @Override
           public void mousePressed (MouseEvent e) {
+            // System.out.println("Viewer:MOUSE_DOWN_EVENT:");
+            viewer.requestFocus();
             int x = e.getX();
             int y = e.getY();           
-            // System.out.println("Viewer:MOUSE_DOWN_EVENT:");
+            xt_mpressed = xt; // mostly, for Edge
+            yt_mpressed = yt; // mostly, for Edge
             anchor = new Point(x,y);
-            if (y >= 30) {
+
+            // drag setup for 3D mesh view
+            if (viewflg == VIEW_3D_MESH) {
+              duringDrag = true;
+              dragRightMouse = SwingUtilities.isRightMouseButton(e);
+              if (dragRightMouse)
+                setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
+              else 
+                setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+              dragMiddleMouse = SwingUtilities.isMiddleMouseButton(e);
+              mesh_x_angle_on_press = mesh_x_angle; 
+              mesh_z_angle_on_press = mesh_z_angle;
+              if (mesh_edit_mode) {
+                // ..._on_press = current_part.xpos - current_part.mesh_LE[mesh_active_chord].x;
+                // ..._on_press = current_part.xpos - current_part.mesh_TE[mesh_active_chord].x;
+
+                // top view or side view ? ==>  edit alone x
+                if (mesh_z_angle == 0 && (mesh_x_angle == -90 || mesh_x_angle == 0)) { 
+                  if (y >= 30 && y <= 50) {
+                    if (x >= mesh_edit_le_metaseq_anchor && x <= mesh_edit_le_metaseq_anchor+20) {
+                      mesh_edit_le_on_press = true;
+                      mesh_edit_on_press_x0 = current_part.mesh_LE[mesh_active_chord].x;
+                    } else if (x >= mesh_edit_te_metaseq_anchor && x <= mesh_edit_te_metaseq_anchor+20) {
+                      mesh_edit_te_on_press = true;
+                      mesh_edit_on_press_x0 = current_part.mesh_TE[mesh_active_chord].x;
+                    }
+                  }
+                }
+              }
+            }
+
+            if (y >= 30 && y <= 165) { // Slider widget's zone
               if (x < 30) 
                 zoom_widget_active = true;
               else {
-                if (viewflg == VIEW_EDGE) {
-                  xt_mpressed = xt;
-                  yt_mpressed = yt;
-                } else if (viewflg == VIEW_FORCES && x < 60)
+                if (viewflg == VIEW_FORCES && x < 60)
                   force_scale_widget_active = true;
                 else if (viewflg == VIEW_3D_MESH) {
-                  // if (x < 60)
-                  //   mesh_x_angle_widget_active = true;
-                  // else if (x < 90)
-                  //   mesh_z_angle_widget_active = true;
-                  duringDrag = true;
-                  dragRightMouse = SwingUtilities.isRightMouseButton(e);
-                  if (dragRightMouse)
-                    setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
-                  else 
-                    setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-                  dragMiddleMouse = SwingUtilities.isMiddleMouseButton(e);
-                  mesh_x_angle_on_press = mesh_x_angle;
-                  mesh_z_angle_on_press = mesh_z_angle;
+                  if (mesh_edit_mode) {
+                    if (x < 60)
+                      mesh_active_chord_le_xpos_widget_active = true;
+                    else if (x < 90)
+                      mesh_active_chord_te_xpos_widget_active = true;
+                  }
                 }
               }
             }
@@ -9293,11 +9338,13 @@ public class FoilBoard extends JApplet {
               } break;
               }
             }
-            viewer.repaint();
 
             zoom_widget_active = false;
             force_scale_widget_active = false;
-            mesh_x_angle_widget_active = mesh_z_angle_widget_active = false;
+            mesh_active_chord_le_xpos_widget_active = mesh_active_chord_te_xpos_widget_active = false;
+            mesh_edit_le_on_press = mesh_edit_te_on_press = false;
+
+            viewer.repaint();
           }
           @Override
           public void mouseExited (MouseEvent e) {
@@ -9318,29 +9365,48 @@ public class FoilBoard extends JApplet {
             mouseDrag(new Event(e.getSource(), Event.MOUSE_DRAG, e), e.getX(),
                       e.getY());
             int x = e.getX();
-            int y = e.getY();           
-            if (zoom_widget_active) {  // adjust zoom widget
-              adjust_zoom(y);
-            } else if (force_scale_widget_active) { // force scale widget
-              force_scale_slider = y;
-              if (force_scale_slider < 30) force_scale_slider = 30;
-              else if (force_scale_slider > 165) force_scale_slider = 165;
-              force_scale = 0.0005 + 0.0001*(force_scale_slider-30);
-              // } else if (mesh_x_angle_widget_active) { 
-              //   mesh_x_angle_slider = Math.max(30,Math.min(165,y));
-              //   mesh_x_angle = -180 + 360*(mesh_x_angle_slider-30)/135;
-              //   //System.out.println("-- mesh_x_angle: " + mesh_x_angle);
-              // } else if (mesh_z_angle_widget_active) { 
-              //   mesh_z_angle_slider = Math.max(30,Math.min(165,y));
-              //   mesh_z_angle = -180 + 360*(mesh_z_angle_slider-30)/135;
-              //   //System.out.println("-- mesh_z_angle: " + mesh_z_angle);
+            int y = e.getY();
+            if (viewflg == VIEW_FORCES) {
+              if (zoom_widget_active) {  // adjust zoom widget
+                adjust_zoom(y);
+              } else if (force_scale_widget_active) { // force scale widget
+                force_scale_slider = y;
+                if (force_scale_slider < 30) force_scale_slider = 30;
+                else if (force_scale_slider > 165) force_scale_slider = 165;
+                force_scale = 0.0005 + 0.0001*(force_scale_slider-30);
+              }
             } else if (viewflg == VIEW_3D_MESH) {
-              if (dragRightMouse) { // translate
+              if (zoom_widget_active) {  // adjust zoom widget
+                adjust_zoom(y);
+              } else if (mesh_active_chord_le_xpos_widget_active) { 
+                mesh_active_chord_le_xpos_slider = Math.max(30,Math.min(165,y));
+                current_part.mesh_LE[mesh_active_chord].x = current_part.xpos + ((mesh_active_chord_le_xpos_slider-30) - 67.5)/500.0 ;
+              } else if (mesh_active_chord_te_xpos_widget_active) { 
+                mesh_active_chord_te_xpos_slider = Math.max(30,Math.min(165,y));
+                current_part.mesh_TE[mesh_active_chord].x = current_part.xpos + ((mesh_active_chord_te_xpos_slider-30) - 67.5)/500.0;
+             } else if (mesh_edit_le_on_press) { // metaseq style le point drag
+                double delta = x - anchor.x; // in mm
+                current_part.mesh_LE[mesh_active_chord].x  = mesh_edit_on_press_x0 + delta/1000.0;
+                if (current_part != strut)
+                  current_part.mesh_LE[current_part.mesh_LE.length-1-mesh_active_chord].x = current_part.mesh_LE[mesh_active_chord].x;
+                in.size.scale_chords(current_part, 0, true); // this recalcs MAC and chord_xoffs
+                computeFlowAndRegenPlot();
+                in.size.loadPanel();
+             } else if (mesh_edit_te_on_press) { // metaseq style te point drag
+                double delta = x - anchor.x; // in mm
+                current_part.mesh_TE[mesh_active_chord].x  = mesh_edit_on_press_x0 + delta/1000.0;
+                if (current_part != strut)
+                  current_part.mesh_TE[current_part.mesh_TE.length-1-mesh_active_chord].x = current_part.mesh_TE[mesh_active_chord].x;
+                in.size.scale_chords(current_part, 0, true); // this recalcs MAC and chord_xoffs
+                computeFlowAndRegenPlot();
+                in.size.loadPanel();
+             } else if (dragRightMouse) { // translate
                 view_3d_shift_x_on_drag = x - anchor.x;
                 view_3d_shift_y_on_drag = y - anchor.y;
               } else { // rotate
                 mesh_x_angle = mesh_x_angle_on_press - 1*(y - anchor.y);
                 mesh_z_angle = mesh_z_angle_on_press - 1*(x - anchor.x);
+                // System.out.println("-- mesh_z_angle: " + mesh_z_angle + "-- mesh_x_angle: " + mesh_x_angle);
               }
           
             } else if (viewflg == VIEW_EDGE) {  // translate or force zoom
@@ -9371,13 +9437,120 @@ public class FoilBoard extends JApplet {
           public void mouseWheelMoved (MouseWheelEvent e) {
             e.consume();
             int rot = e.getWheelRotation();
+            // scale is Ctrl+Wheel
+            if ((e.getModifiers() & KeyEvent.CTRL_MASK) != 0) {
+              IMG_SCALE = rot>0 ? IMG_SCALE/1.1 : IMG_SCALE*1.1;
+              viewer.repaint();
+              return;
+            }
+
             zoom_slider_pos_y += 5*rot;
             adjust_zoom(zoom_slider_pos_y);
           }
         });
+      this.addKeyListener(new KeyListener() {
+          @Override
+          public void keyTyped(KeyEvent e) {}
+          @Override
+          public void keyReleased(KeyEvent e) {}
+          @Override
+          public void keyPressed(KeyEvent e) {
+            System.out.println("Pressed " + e.getKeyChar());
+            int code = e.getKeyCode();
+            if ((e.getModifiers() & KeyEvent.CTRL_MASK) != 0) {
+              switch (code) {
+              case KeyEvent.VK_V:  // Ctrl-v or Ctrl-V
+                System.out.println("-- CTRL-V" );
+                paste_image();
+                viewer.repaint();                
+                break;
+              default:
+              }
+            } else if ((e.getModifiers() & KeyEvent.SHIFT_MASK) != 0) {
+            } else {
+              switch (code) {
+              case KeyEvent.VK_T: // top view
+                mesh_z_angle = 0;
+                mesh_x_angle = -90;
+                perspective = false;
+                viewer.repaint();
+                break;
+              case KeyEvent.VK_F: // front view
+                mesh_z_angle = -90;
+                mesh_x_angle = 0;
+                perspective = false;
+                viewer.repaint();
+                break;
+              case KeyEvent.VK_S: // side view
+                mesh_z_angle = 0;
+                mesh_x_angle = 0;
+                perspective = false;
+                viewer.repaint();
+                break;
+              case KeyEvent.VK_SPACE: // toggle edit mode
+                if (mesh_edit_mode) {
+                  // dump part chords spec
+                  Part part = current_part;
+                  Point3D[] le  = part.mesh_LE;
+                  Point3D[] te  = part.mesh_TE;
+                  String spec = part.name + " chords: ";
+                  if (current_part == strut) {
+                    int le_len = le.length;
+                    double xpos = part.xpos, zpos = 0;
+                    for (int i = 0; i < le_len; i++) {
+                      double chord = te[i].x - le[i].x;
+                      spec += (i == 0 ? "" : ";") +
+                        filter4(chord) + "/" + 
+                        filter4(le[i].x - xpos);
+                      xpos = le[i].x;
+                    }
+                  } else {
+                    int le_len = le.length;
+                    if (le_len < 3) 
+                      spec += filter4(te[0].x - le[0].x);
+                    else {
+                      double xpos = part.xpos, zpos = 0;
+                      for (int i = le_len/2; i < le_len; i++) {
+                        double chord = te[i].x - le[i].x;
+                        spec += (i == 0 ? "" : ";") +
+                          filter4(chord) + "/" + 
+                          filter4(le[i].x - xpos) + "/" + 
+                          filter4(le[i].z - zpos);
+                        xpos = le[i].x;
+                        zpos = le[i].z;
+                      }
+                    }
+                  }
+                  System.out.println(spec);
+                }
+                mesh_edit_mode = !mesh_edit_mode;
+                break;
+              case KeyEvent.VK_UP:
+                mesh_edit_mode = true;
+                mesh_active_chord++;
+                mesh_active_chord %= current_part.mesh_LE.length;
+                // handle up 
+                break;
+              case KeyEvent.VK_DOWN:
+                mesh_edit_mode = true;
+                mesh_active_chord += current_part.mesh_LE.length-1;
+                mesh_active_chord %= current_part.mesh_LE.length;
+                // handle down 
+                break;
+              case KeyEvent.VK_LEFT:
+                break;
+              case KeyEvent.VK_RIGHT :
+                break;
+              default:
+              }
+            }
+          }
+        });
+      this.setFocusable(true);
+      // this.requestFocusInWindow();
     }
 
-    void adjust_zoom(int y) {
+    void adjust_zoom (int y) {
       zoom_slider_pos_y = y;
       if (zoom_slider_pos_y < 30) zoom_slider_pos_y = 30;
       if (zoom_slider_pos_y > 165) zoom_slider_pos_y = 165;
@@ -9428,17 +9601,19 @@ public class FoilBoard extends JApplet {
 
     boolean zoom_widget_active = false;
     boolean force_scale_widget_active = false;
-    boolean mesh_x_angle_widget_active = false;
-    boolean mesh_z_angle_widget_active = false;
+    boolean mesh_active_chord_le_xpos_widget_active = false;
+    boolean mesh_active_chord_te_xpos_widget_active = false;
+    boolean mesh_edit_le_on_press = false;
+    boolean mesh_edit_te_on_press = false;
 
     double force_scale = craft_type == WINDFOIL ? 0.0008 : 0.0012;
     int force_scale_slider = 50;
-    int mesh_x_angle_slider = 50;
-    int mesh_z_angle_slider = 50;
-    double  mesh_x_angle  = 0, mesh_x_angle_on_press = 0;
-    double  mesh_z_angle = 0, mesh_z_angle_on_press = 0;
+    double mesh_active_chord_le_xpos_slider = 30 + 67.5;
+    double mesh_active_chord_te_xpos_slider = 30 + 67.5;
+    double mesh_x_angle = 0, mesh_x_angle_on_press = 0;
+    double mesh_z_angle = 0, mesh_z_angle_on_press = 0;
 
-    void find_it() {
+    void find_it () {
       // System.out.println("-- centering,zooming: " + fact);
       xt = 210;  yt = 105; fact = 50.0;
       if (viewflg != VIEW_FORCES) zoom_slider_pos_y = 50;
@@ -9450,7 +9625,7 @@ public class FoilBoard extends JApplet {
       
     }
 
-    public void start() {
+    public void start () {
       if (runner == null) {
         runner = new Thread(this);
         runner.start();
@@ -9535,7 +9710,7 @@ public class FoilBoard extends JApplet {
     }
 
     // rotation transform, see https://en.wikipedia.org/wiki/Rotation_matrix
-    void to_screen_x_y(Point3D p, int[] x, int[] y, int i, double offx, double scalex, double offy, double scaley, int screen_off_x, int screen_off_y)  { 
+    void to_screen_x_y (Point3D p, int[] x, int[] y, int i, double offx, double scalex, double offy, double scaley, int screen_off_x, int screen_off_y)  { 
       double rp = Math.toRadians(craft_pitch); 
       double space_x = scalex*(offx+p.x);
       double space_y = scaley*(offy+p.z);
@@ -9544,7 +9719,14 @@ public class FoilBoard extends JApplet {
 
       x[i] = screen_off_x + toInt(space_x);
       y[i] = screen_off_y + toInt(space_y);
+    }
 
+    // scale and translate but but no rotation
+    void to_screen_x_y_norot (Point3D p, int[] x, int[] y, int i, double offx, double scalex, double offy, double scaley, int screen_off_x, int screen_off_y)  { 
+      double space_x = scalex*(offx+p.x);
+      double space_y = scaley*(offy+p.z);
+      x[i] = screen_off_x + toInt(space_x);
+      y[i] = screen_off_y + toInt(space_y);
     }
 
     void drawPart (Part p, double offx, double scalex, double offy, double scaley, int screen_off_x, int screen_off_y) {
@@ -9589,10 +9771,8 @@ public class FoilBoard extends JApplet {
       int x[] = new int[8];
       int y[] = new int[8];
 
-      if (current_part == p)
-        off1Gg.setColor(Color.yellow);
-      else
-        off1Gg.setColor(Color.white);
+      Color color = (current_part == p) ? Color.yellow : Color.white;
+      off1Gg.setColor(color);
 
       Point3D[] le0 = p.mesh_LE;
       Point3D[] te0 = p.mesh_TE;
@@ -9616,7 +9796,7 @@ public class FoilBoard extends JApplet {
       Point3D[] bot1 = new Point3D[p.mesh_TE.length];
 
       // here we swap y and z extracting them from le0 and te0 (see sail-3d)
-      // and swap them in le te too (see to_screen_x_y)
+      // and swap them in le te too (see to_screen_x_y_norot)
       for (i = 0; i < le.length; i++) {
         Point3D v = le0[i]; // 'v' is mesh vertex
         double z =((offx+v.x)*RMX3)+((offy+v.z)*RMY3)+(v.y*RMZ3);
@@ -9667,10 +9847,13 @@ public class FoilBoard extends JApplet {
 
       // draw the chords
       for (i = 0; i < le.length; i++) {
-        to_screen_x_y( le[i],x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-        to_screen_x_y(top1[i],x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-        to_screen_x_y( te[i],x,y,2,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-        to_screen_x_y(bot1[i],x,y,3,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+        if (current_part == p && mesh_edit_mode) { // active chord is green
+          off1Gg.setColor(mesh_active_chord == i ? Color.green : color);
+        }
+        to_screen_x_y_norot( le[i],x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+        to_screen_x_y_norot(top1[i],x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+        to_screen_x_y_norot( te[i],x,y,2,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+        to_screen_x_y_norot(bot1[i],x,y,3,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
         off1Gg.drawLine(x[0], y[0], x[1], y[1]);
         off1Gg.drawLine(x[1], y[1], x[2], y[2]);
         off1Gg.drawLine(x[2], y[2], x[3], y[3]);
@@ -9678,12 +9861,13 @@ public class FoilBoard extends JApplet {
       }
 
       // draw LE and TE 
+      off1Gg.setColor(color);
       for (i = 0; i < le.length-1; i++) {
         // off1Gg.setColor(Color.red);
-        to_screen_x_y(le[i],x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-        to_screen_x_y(le[i+1],x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-        to_screen_x_y(te[i],x,y,3,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-        to_screen_x_y(te[i+1],x,y,2,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+        to_screen_x_y_norot(le[i],x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+        to_screen_x_y_norot(le[i+1],x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+        to_screen_x_y_norot(te[i],x,y,3,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+        to_screen_x_y_norot(te[i+1],x,y,2,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
 
         // off1Gg.setColor(Color.white);
         //off1Gg.drawPolygon(x, y, 4);
@@ -10344,6 +10528,13 @@ public class FoilBoard extends JApplet {
       } else if (viewflg == VIEW_3D_MESH) { // draw 3D mesh view
         off1Gg.setColor(color_very_dark);
         off1Gg.fillRect(0,0,panel_width, panel_height);
+        
+        if (bg_image != null) {
+          if (IMG_ROT != 0 || IMG_SHEAR != 0 || IMG_SCALE != 1.0)
+            draw_transformed_mage(off1Gg);
+          else
+            off1Gg.drawImage(bg_image, IMG_X, IMG_Y, this);
+        }
 
         int screen_off_x = panel_width/2  + view_3d_shift_x + view_3d_shift_x_on_drag, 
           screen_off_y   = panel_height/2 + view_3d_shift_y + view_3d_shift_y_on_drag; 
@@ -10549,7 +10740,6 @@ public class FoilBoard extends JApplet {
             }
           }
         }
- 
         if (viewflg == VIEW_EDGE) {
           // draw the airfoil geometry
           if (f.geometry != null) { // use xm, ym directly
@@ -10755,9 +10945,6 @@ public class FoilBoard extends JApplet {
         }
       }
 
-      // JLabels
-      // off1Gg.setColor(col_bg);
-      // off1Gg.fillRect(0,0,350,30);
       off1Gg.setColor(Color.white);
       off1Gg.drawString("View:",35,10);
       if (viewflg == VIEW_EDGE) off1Gg.setColor(Color.yellow);
@@ -10785,8 +10972,9 @@ public class FoilBoard extends JApplet {
         off1Gg.drawString("Ortographic",85,25);
         off1Gg.setColor(perspective ? Color.yellow : Color.cyan);
         off1Gg.drawString("Perspective",160,25);
+        off1Gg.setColor(Color.white);
+        off1Gg.drawString("Help",panel_width-30,25);
       } else {
-
         off1Gg.setColor(Color.red);
         off1Gg.drawString("Find",240,10);
 
@@ -10806,7 +10994,8 @@ public class FoilBoard extends JApplet {
         else off1Gg.setColor(Color.cyan);
         off1Gg.drawString("Geometry",260,25);
       }
-      // controls 
+
+      // Controls 
 
       //off1Gg.setColor(col_bg);
       //off1Gg.fillRect(0,30,30,150);
@@ -10820,22 +11009,34 @@ public class FoilBoard extends JApplet {
 
       Font currentFont = off1Gg.getFont();
       if (viewflg == VIEW_FORCES) {
-        //off1Gg.setColor(force_scale_widget_active ? Color.white : Color.green);
-        //off1Gg.drawString("Forces",30+2,182);
-        //off1Gg.drawLine(30+15,30,30+15,165);
-        //// frame 
-        //// not now off1Gg.drawRect(30+3,26,24,144);
-        //off1Gg.fillRect(30+5,force_scale_slider-3,20,6);
         drawSliderWidget("Forces", 32, force_scale_slider, force_scale_widget_active);
 
         off1Gg.setFont(largeFont);
         off1Gg.setColor(Color.yellow);
         off1Gg.drawString(t_foil_name, 20, panel_height-24);
         off1Gg.setFont(currentFont);
-        // } else if (viewflg == VIEW_3D_MESH) {
-        //   drawSliderWidget("   X", 30, mesh_x_angle_slider, mesh_x_angle_widget_active);
-        //   drawSliderWidget("   Y", 60, mesh_z_angle_slider, mesh_z_angle_widget_active);
-      } else {
+      } else if (viewflg == VIEW_3D_MESH) {
+        if (mesh_edit_mode) {
+          // work around part swithcing, stay into edit mode
+          if (!(mesh_active_chord < current_part.mesh_LE.length)) mesh_active_chord = current_part.mesh_LE.length-1;
+          mesh_active_chord_le_xpos_slider = current_part.mesh_LE[mesh_active_chord].x - current_part.xpos;
+          // from meters to slider pos
+          mesh_active_chord_le_xpos_slider = 30 + (mesh_active_chord_le_xpos_slider*500.0 + 67.5);
+          drawSliderWidget("  LE", 30, (int)mesh_active_chord_le_xpos_slider, mesh_active_chord_le_xpos_widget_active);
+          mesh_active_chord_te_xpos_slider = current_part.mesh_TE[mesh_active_chord].x - current_part.xpos;
+          // from meters to slider pos
+          mesh_active_chord_te_xpos_slider = 30 + (mesh_active_chord_te_xpos_slider*500.0 + 67.5);
+          drawSliderWidget("  TE", 60, (int)mesh_active_chord_te_xpos_slider, mesh_active_chord_te_xpos_widget_active);
+          if (mesh_z_angle == 0 && (mesh_x_angle == -90 || mesh_x_angle == 0)) { // top view or side view
+            mesh_edit_le_metaseq_anchor =  (panel_width-40)/2;
+            mesh_edit_te_metaseq_anchor =  (panel_width+40)/2;
+            off1Gg.drawRect(mesh_edit_le_metaseq_anchor, 30, 20, 20);
+            off1Gg.drawRect(mesh_edit_te_metaseq_anchor, 30, 20, 20);
+            off1Gg.drawString("LE", mesh_edit_le_metaseq_anchor, 22);
+            off1Gg.drawString("TE", mesh_edit_te_metaseq_anchor, 22);
+          }
+        }
+      } else { // VIEW_EDGE
         // display model and part in bold
         off1Gg.setFont(largeFont);
         off1Gg.setColor(Color.yellow);
@@ -10844,10 +11045,66 @@ public class FoilBoard extends JApplet {
           off1Gg.drawString("Part: " + part_button.getLabel(), 300, 30);
         off1Gg.setFont(currentFont);
       }
-      off1Gg.drawString("V: " + speed_kts_mph_kmh_ms_info, 20, panel_height-4);
 
+      // Draw Speed Footer
+      off1Gg.drawString("V: " + speed_kts_mph_kmh_ms_info, 20, panel_height-4);
+      // Done! make visible
       g.drawImage(offImg1,0,0,this);   
     } // Viewer.paint ()
+
+    // background image manipulation
+    int IMG_X = 0, IMG_Y = 0;
+    double IMG_ROT = 0.0, IMG_SHEAR = 0.0, IMG_SCALE = 1.0;
+
+    BufferedImage bg_image;
+    Clipboard clipboard;
+    void paste_image ()  {
+      //create clipboard object
+      if (clipboard == null)
+        clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+      try {
+        Transferable clipData = clipboard.getContents(clipboard);
+        if (clipData != null) {
+          if (clipData.isDataFlavorSupported(DataFlavor.imageFlavor)) {
+            System.out.println("-- pasting an image...");
+            BufferedImage image =  (BufferedImage)  clipboard.getData(DataFlavor.imageFlavor);
+            bg_image = image;
+            // not yet
+            // IMG_INVERTED = false; IMG_SCALE = IMG_CONTRAST = 1.0; IMG_ROT = IMG_SHEAR = IMG_BRIGHTNESS = IMG_X = IMG_Y = 0;
+          } else if (clipData.isDataFlavorSupported(DataFlavor.stringFlavor) ||
+                     clipData.isDataFlavorSupported(DataFlavor.plainTextFlavor)) {
+            String data =  (String)   clipboard.getData(DataFlavor.stringFlavor);
+            System.out.println("clipboard stringFlavor data not yet supported: " + data);
+            // parseSpiceModelUpdateParams(data);
+          }
+        
+        }
+        return;
+      }
+      // catch(UnsupportedFlavorException ufe) { //getData throws this.
+      //   //ufe.printStackTrace();
+      // }
+      // catch(IOException ioe) {
+      //   //ioe.printStackTrace();
+      // }
+      catch (Exception e) {
+        e.printStackTrace();
+      }
+    }
+
+    void draw_transformed_mage (Graphics g) {
+      BufferedImage image = bg_image;
+      AffineTransform at = new AffineTransform();
+
+      at.shear(IMG_SHEAR, 0);
+      at.translate(IMG_X, IMG_Y);
+      at.scale(IMG_SCALE, IMG_SCALE);
+      at.rotate(IMG_ROT, image.getWidth()/2, image.getHeight()/2);
+          
+      Graphics2D g2d = (Graphics2D) g;
+      g2d.drawImage(image, at, null);
+    }
+    
   } // end Viewer
 
   class Plot extends Canvas implements Runnable {
@@ -12538,6 +12795,7 @@ public class FoilBoard extends JApplet {
         off2Gg.drawString(pprint(filter3(dragab)),110,185);
         off2Gg.drawString(" X 10 ",150,185);
       }  
+
       g.drawImage(offImg2,0,0,this);   
     }
   } // end class Plot 
@@ -13309,5 +13567,4 @@ public class FoilBoard extends JApplet {
     }
 
   } // DashBoardOrPlot
-
 }
