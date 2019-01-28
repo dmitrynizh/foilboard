@@ -252,6 +252,13 @@ public class FoilBoard extends JApplet {
       this.y = y;
       this.z = z;
     }
+    @Override
+    public String toString () { 
+      return "{"+
+        FoilBoard.filter3(x)+","+
+        FoilBoard.filter3(y)+","+
+        +FoilBoard.filter3(z)+"}"; 
+    }
   }
 
   class Part implements java.lang.Cloneable {
@@ -428,6 +435,90 @@ public class FoilBoard extends JApplet {
         System.out.println("-- e: " + e);
         return null;
       }
+    }
+
+    // use cubic interpolation to re-map the LE, TE arrays
+    // from current sizes to size n.
+    void reinterpolate (int n) {
+      if (current_part == strut) {
+        mesh_LE = reinterpolate_alone_z(n, mesh_LE);
+        mesh_TE = reinterpolate_alone_z(n, mesh_TE);
+      } else {
+        mesh_LE = reinterpolate_alone_y(n, mesh_LE);
+        mesh_TE = reinterpolate_alone_y(n, mesh_TE);
+      }
+    }
+
+    // chords are equally spced alone the Y axis; interpolate x and z offsets
+    Point3D[] reinterpolate_alone_y (int n, Point3D[] a) {
+      if (n < 2) n = 2;
+      int len = a.length;
+      if (n == len) return a; // nothing to do
+      int idx_last = len -1;
+      int seg_count = idx_last;
+      double y0 = a[0].y;
+      double seg = span/seg_count;
+      Point3D bottom = new Point3D(a[0].x - (a[1].x - a[0].x),
+                                   a[0].y - (a[1].y - a[0].y),
+                                   a[0].z - (a[1].z - a[0].z));
+        Point3D top = new Point3D(a[idx_last].x + (a[idx_last].x - a[idx_last-1].x),
+                                  a[idx_last].y + (a[idx_last].y - a[idx_last-1].y),
+                                  a[idx_last].z + (a[idx_last].z - a[idx_last-1].z));
+      Point3D[] new_a = new Point3D[n];
+      double new_seg = span/(n-1);
+      for (int i = 0; i < new_a.length; i++) {
+        double offs = new_seg * i;
+        double y = y0 + offs;
+        int  prev_idx = (int)Math.floor(offs/seg);
+        if (prev_idx == idx_last) { // last point
+          new_a[i] = a[idx_last];          
+          continue; // really a break....
+        }
+        Point3D p1 = a[prev_idx];
+        Point3D p2 = a[prev_idx+1];
+        Point3D p0 = prev_idx > 0 ? a[prev_idx-1] : bottom;
+        Point3D p3 = prev_idx < idx_last-1 ? a[prev_idx+2] : top;
+        double mu = (y-p1.y)/seg; /// mu spans the range of 0...1
+        // double new_x  = solver.LinearInterpolate(p1.x, p2.x, mu);
+        double new_x  = solver.CubicInterpolate(p0.x, p1.x, p2.x, p3.x, mu);
+        // double new_z  = solver.LinearInterpolate(p1.z, p2.z, mu);
+        double new_z  = solver.CubicInterpolate(p0.z, p1.z, p2.z, p3.z, mu);
+        new_a[i] = new Point3D(new_x, y, new_z);
+      }
+      return new_a;
+    }
+
+    // chords are equally spced alone the Z axis; interpolate x offsets
+    Point3D[] reinterpolate_alone_z (int n, Point3D[] a) {
+      if (n < 2) n = 2;
+      int len = a.length;
+      if (n == len) return a; // nothing to do
+      int idx_last = len -1;
+      int seg_count = idx_last;
+      double z0 = a[0].z;
+      double seg = span/seg_count;
+      double bottom = a[0].x - (a[1].x - a[0].x);
+      double top = a[idx_last].x + (a[idx_last].x - a[idx_last-1].x);
+      Point3D[] new_a = new Point3D[n];
+      double new_seg = span/(n-1);
+      for (int i = 0; i < new_a.length; i++) {
+        double offs = new_seg * i;
+        double z = z0 + offs;
+        int  prev_idx = (int)Math.floor(offs/seg);
+        if (prev_idx == idx_last) { // last point
+          new_a[i] = a[idx_last];          
+          continue; // really a break....
+        }
+        double p1 = a[prev_idx].x;
+        double p2 = a[prev_idx+1].x;
+        double p0 = prev_idx > 0 ? a[prev_idx-1].x : bottom;
+        double p3 = prev_idx < idx_last-1 ? a[prev_idx+2].x : top;
+        double mu = (z-a[prev_idx].z)/seg; /// mu spans the range of 0...1
+        // double new_x  = solver.LinearInterpolate(p1, p2, mu);
+        double new_x  = solver.CubicInterpolate(p0, p1, p2, p3, mu);
+        new_a[i] = new Point3D(new_x, 0, z);
+      }
+      return new_a;
     }
     
   } // Part
@@ -2031,11 +2122,11 @@ public class FoilBoard extends JApplet {
       return String.valueOf(val);
   }
 
-  public int filter0 (double inumbr) {
+  static public int filter0 (double inumbr) {
     return (int) (Math.round(inumbr));
   }
 
-  public float filter1 (double inumbr) {
+  static public float filter1 (double inumbr) {
     //  output only to .1
     float number;
     int intermed;
@@ -2045,7 +2136,7 @@ public class FoilBoard extends JApplet {
     return number;
   }
  
-  public float filter3 (double inumbr) {
+  static public float filter3 (double inumbr) {
     //  output only to .001
     float number;
     int intermed;
@@ -2055,7 +2146,7 @@ public class FoilBoard extends JApplet {
     return number;
   }
  
-  public float filter4 (double inumbr) {
+  static public float filter4 (double inumbr) {
     //  output only to .0001
     float number;
     int intermed;
@@ -2065,7 +2156,7 @@ public class FoilBoard extends JApplet {
     return number;
   }
  
-  public float filter5 (double inumbr) {
+  static public float filter5 (double inumbr) {
     //  output only to .00001
     float number;
     int intermed;
@@ -2075,7 +2166,7 @@ public class FoilBoard extends JApplet {
     return number;
   }
  
-  public float filter9 (double inumbr) {
+  static public float filter9 (double inumbr) {
     //  output only to .000000001
     float number;
     int intermed;
@@ -3491,11 +3582,18 @@ public class FoilBoard extends JApplet {
     // from http://paulbourke.net/miscellaneous/interpolation/ 
     double LinearInterpolate (double y1,double y2, double mu) {
       double res = (y1*(1-mu)+y2*mu);
-      System.out.println("-- y1: " + y1);
-      System.out.println("-- y2: " + y2);
-      System.out.println("-- res: " + res);
+      // System.out.println("-- y1: " + y1);
+      // System.out.println("-- y2: " + y2);
+      // System.out.println("-- res: " + res);
       return res;
     }
+
+    // from http://paulbourke.net/miscellaneous/interpolation/ 
+    double CosineInterpolate (double y1,double y2, double mu) {
+      double mu2 = (1-Math.cos(mu*Math.PI))/2;
+      return(y1*(1-mu2)+y2*mu2);
+    }
+
 
     // from http://paulbourke.net/miscellaneous/interpolation/ 
     // The
@@ -4322,7 +4420,7 @@ public class FoilBoard extends JApplet {
       also see M-x edit-named-kbd-macro
 
     */
-    double ci15(double[] tab, double aoa) {
+    double ci15 (double[] tab, double aoa) {
       if (tab.length != 15) 
         System.out.println(" *** WARNING  ci15 cubic interpolates arrays of 15. got tab.length: " + tab.length);
       int aoa_4 = (int)Math.floor(aoa/4);
@@ -9406,7 +9504,20 @@ public class FoilBoard extends JApplet {
               } break;
               case VIEW_3D_MESH: {
                 if (x >= 80 && x <= 154) perspective = false;
-                if (x >= 155 && x <= 204) perspective = true;
+                else if (x >= 160 && x <= 220) perspective = true;
+                else if (mesh_edit_mode 
+                         &&
+                         (mesh_z_angle == 0 && (mesh_x_angle == -90 || mesh_x_angle == 0))) { // top view or side view
+                  if (x >= 230 && x <= 250) { // more chords
+                    int len = current_part.mesh_LE.length;
+                    len += (current_part == strut || len % 2 == 0) ? 1 : 2; // convert to odd
+                    current_part.reinterpolate(len);
+                  } else if (x >= 260 && x <= 270) { // less chords
+                    int len = current_part.mesh_LE.length;
+                    len -= (current_part == strut || len % 2 == 0) ? 1 : 2; // convert to odd
+                    current_part.reinterpolate(current_part.mesh_LE.length - 2);
+                  }
+                }                
               } break;
               }
             }
@@ -9571,9 +9682,8 @@ public class FoilBoard extends JApplet {
               case KeyEvent.VK_SPACE: // toggle edit mode
                 if (mesh_edit_mode) {
                   // dump part chords spec
-                  String spec = current_part.name + ":" + 
-                    current_part.make_spec();
-                  System.out.println(spec);
+                  // String spec = current_part.name + ":" + current_part.make_spec();
+                  // System.out.println(spec);
                 }
                 mesh_edit_mode = !mesh_edit_mode;
                 break;
@@ -11098,6 +11208,12 @@ public class FoilBoard extends JApplet {
           mesh_active_chord_te_xpos_slider = 30 + (mesh_active_chord_te_xpos_slider*500.0 + 67.5);
           drawSliderWidget("  TE", 60, (int)mesh_active_chord_te_xpos_slider, mesh_active_chord_te_xpos_widget_active);
           if (mesh_z_angle == 0 && (mesh_x_angle == -90 || mesh_x_angle == 0)) { // top view or side view
+            off1Gg.setColor(Color.yellow);
+            off1Gg.drawString("CH+",230,25);
+            off1Gg.setColor(Color.yellow);
+            off1Gg.drawString("CH-",260,25);
+
+            off1Gg.setColor(Color.green);
             mesh_edit_le_metaseq_anchor =  (panel_width-40)/2;
             mesh_edit_te_metaseq_anchor =  (panel_width+40)/2;
             off1Gg.drawRect(mesh_edit_le_metaseq_anchor, 30, 20, 20);
