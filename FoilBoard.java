@@ -505,10 +505,22 @@ public class FoilBoard extends JApplet {
         
     frame = new JFrame();
     final FoilBoard  foilboard = new FoilBoard();
+    Runtime.getRuntime().addShutdownHook(new Thread() { 
+        public void run() { 
+          System.out.println(foilboard.wing.make_spec());
+          System.out.println(foilboard.stab.make_spec());
+          System.out.println(foilboard.fuse.make_spec());
+          System.out.println(foilboard.strut.make_spec());
+        }}); 
     foilboard.runAsApplication = true; // not as  Applet
     frame.getContentPane().add(foilboard);
     frame.addWindowListener(new java.awt.event.WindowAdapter() {
         public void windowClosing(java.awt.event.WindowEvent we) {
+          // / above shutdown hook takes care of these
+          // System.out.println(foilboard.wing.make_spec());
+          // System.out.println(foilboard.stab.make_spec());
+          // System.out.println(foilboard.strut.make_spec());
+          // System.out.println(foilboard.fuse.make_spec());
           foilboard.stop();
           foilboard.destroy();
           System.exit(0);
@@ -9263,7 +9275,8 @@ public class FoilBoard extends JApplet {
 
     boolean mesh_edit_mode = false;
     int mesh_active_chord = 0;
-    int mesh_edit_le_metaseq_anchor, mesh_edit_te_metaseq_anchor;
+    int mesh_edit_le_metaseq_anchor, mesh_edit_te_metaseq_anchor, 
+      mesh_edit_z_metaseq_anchor_x, mesh_edit_z_metaseq_anchor_y;
     double mesh_edit_on_press_x0;
 
     Viewer (FoilBoard target) {
@@ -9310,6 +9323,13 @@ public class FoilBoard extends JApplet {
                       mesh_edit_on_press_x0 = current_part.mesh_TE[mesh_active_chord].x;
                     }
                   }
+                } else if (mesh_x_angle == 0 && mesh_z_angle == -90) { // front view ==> z offset editing
+                  if (x >= mesh_edit_z_metaseq_anchor_x && x <= mesh_edit_z_metaseq_anchor_x+20 &&
+                      y >= mesh_edit_z_metaseq_anchor_y && y <= mesh_edit_z_metaseq_anchor_y+20) {
+                    // pressed the Z metasequoia button
+                    mesh_edit_z_on_press = true;
+                    mesh_edit_on_press_x0 = current_part.mesh_LE[mesh_active_chord].z;
+                  }                  
                 }
               }
             }
@@ -9394,7 +9414,7 @@ public class FoilBoard extends JApplet {
             zoom_widget_active = false;
             force_scale_widget_active = false;
             mesh_active_chord_le_xpos_widget_active = mesh_active_chord_te_xpos_widget_active = false;
-            mesh_edit_le_on_press = mesh_edit_te_on_press = false;
+            mesh_edit_le_on_press = mesh_edit_te_on_press = mesh_edit_z_on_press  = false;
 
             viewer.repaint();
           }
@@ -9452,6 +9472,16 @@ public class FoilBoard extends JApplet {
                 in.size.scale_chords(current_part, 0, true); // this recalcs MAC and chord_xoffs
                 computeFlowAndRegenPlot();
                 in.size.loadPanel();
+             } else if (mesh_edit_z_on_press) { // metaseq style z direction chord drag
+                if (current_part != strut) {
+                  double delta = -(y - anchor.y)/4; // in 1/4 mm
+                  double val = mesh_edit_on_press_x0 + delta/1000.0;
+                  current_part.mesh_LE[mesh_active_chord].z  = val;
+                  current_part.mesh_TE[mesh_active_chord].z = val;
+                  current_part.mesh_LE[current_part.mesh_LE.length-1-mesh_active_chord].z = val;
+                  current_part.mesh_TE[current_part.mesh_TE.length-1-mesh_active_chord].z = val;
+                  // so far this is cosmetic so no recomp required.
+                }
              } else if (dragRightMouse) { // translate
                 view_3d_shift_x_on_drag = x - anchor.x;
                 view_3d_shift_y_on_drag = y - anchor.y;
@@ -9548,12 +9578,14 @@ public class FoilBoard extends JApplet {
                 mesh_edit_mode = !mesh_edit_mode;
                 break;
               case KeyEvent.VK_UP:
+              case KeyEvent.VK_A: // so the left hand can press it
                 mesh_edit_mode = true;
                 mesh_active_chord++;
                 mesh_active_chord %= current_part.mesh_LE.length;
                 // handle up 
                 break;
               case KeyEvent.VK_DOWN:
+              case KeyEvent.VK_Z: // so the left hand can press it
                 mesh_edit_mode = true;
                 mesh_active_chord += current_part.mesh_LE.length-1;
                 mesh_active_chord %= current_part.mesh_LE.length;
@@ -9617,7 +9649,7 @@ public class FoilBoard extends JApplet {
       }
     }
 
-    public Insets insets() {
+    public Insets insets () {
       return new Insets(0,10,0,10);
     }
 
@@ -9627,6 +9659,7 @@ public class FoilBoard extends JApplet {
     boolean mesh_active_chord_te_xpos_widget_active = false;
     boolean mesh_edit_le_on_press = false;
     boolean mesh_edit_te_on_press = false;
+    boolean mesh_edit_z_on_press = false;
 
     double force_scale = craft_type == WINDFOIL ? 0.0008 : 0.0012;
     int force_scale_slider = 50;
@@ -11071,6 +11104,11 @@ public class FoilBoard extends JApplet {
             off1Gg.drawRect(mesh_edit_te_metaseq_anchor, 30, 20, 20);
             off1Gg.drawString("LE", mesh_edit_le_metaseq_anchor, 22);
             off1Gg.drawString("TE", mesh_edit_te_metaseq_anchor, 22);
+          } else if (mesh_x_angle == 0 && mesh_z_angle == -90) { // front view ==> Z offset editing
+            mesh_edit_z_metaseq_anchor_x =  panel_width-60;
+            mesh_edit_z_metaseq_anchor_y =  panel_height/2;
+            off1Gg.drawRect(mesh_edit_z_metaseq_anchor_x, mesh_edit_z_metaseq_anchor_y, 20, 20);
+            off1Gg.drawString("Z", mesh_edit_z_metaseq_anchor_x+22, mesh_edit_z_metaseq_anchor_y);
           }
         }
       } else { // VIEW_EDGE

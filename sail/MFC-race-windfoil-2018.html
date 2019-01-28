@@ -6,8 +6,8 @@
 </HEAD>
 <BODY>
 <P><APPLET CODE="FoilBoard.class" WIDTH='900' HEIGHT='600' ALIGN='bottom'>
-  <PARAM NAME="Make"  VALUE="F4"/>
-  <PARAM NAME="Model" VALUE="LW Windfoil"/>
+  <PARAM NAME="Make"  VALUE="MFC"/>
+  <PARAM NAME="Model" VALUE="Race/ONE7"/>
   <PARAM NAME="Year"  VALUE="2018"/>
 <!-- Params Wing, Stab, Fuse, Mast have these VALUE formats: 
   (1) simple:  VALUE="FOIL CHORD SPAN THICKNESS CAMBER ANGLE POS*"
@@ -19,10 +19,11 @@
     Each chord spec  can be either L or L/X or L/X/Z, where L is chord length, 
     X is longitudinal relative offset from the prev chord, Z is same for vertical direction
  -->
-  <PARAM NAME="Wing"  VALUE="NACA_4_Series 0.12;0.103;0.085;0.065;0.04 0.80 12 3.34 0.0"/>
-  <PARAM NAME="Stab"  VALUE="NACA_4_Series 0.065 0.39 12 -3  -2.5"/>
-  <PARAM NAME="Mast"  VALUE="NACA_4_Series 0.12 0.95 12 0 0 0.3"/>
-  <PARAM NAME="Fuse"  VALUE="NACA_4_Series 0.75 0.02 4 0 -1"/>
+<PARAM NAME="Wing" VALUE="NACA_4_Series 0.1125/0.001/-0.015;0.108/0.0014/-0.0018;0.097/0.0055/-0.001;0.0869/0.0079/-0.002;0.079/0.0093/-0.0049;0.0656/0.016/-0.011;0.0268/0.0399/-0.024 0.78 8.0 3.0 -0.5 -0.016"/>
+<PARAM NAME="Stab" VALUE="NACA_4_Series 0.0776/0.0/-0.012;0.0649/0.015/0.0;0.0559/0.016/-1.0E-4;0.044/0.02/0.0038;0.019/0.0349/0.013 0.38 8.0 -2.0 -1.0 0.839"/>
+<PARAM NAME="Fuse" VALUE="NACA_4_Series 0.92 0.02 4.0 0.0 1.0 0.0"/>
+<PARAM NAME="Mast" VALUE="NACA_4_Series 0.1069/0.0;0.115/-0.0035;0.119/-5.0E-4;0.128/-0.0055;0.137/-0.0045 0.94 11.0 0.0 0.0 0.338"/>
+
   <!-- slalom setup -->
   <PARAM NAME="TKD"  VALUE="90"/>
   <PARAM NAME="WSMAST2MASTLE"  VALUE="1.15"/>
