@@ -2109,6 +2109,8 @@ public class FoilBoard extends JApplet {
     // if (can_do_gui_updates) {
     //   out_top.plot.loadPlot();
     // }
+    viewer.load_drawing();
+
   }
 
   double limit (double min, double val, double max) {
@@ -2966,7 +2968,7 @@ public class FoilBoard extends JApplet {
    * cp_computeForces Solver operates on current_part only.
    *
    * TODO: pass current_part into solver and make it disconnected from
-   * current_part, re-instantiate it when required. Thsi way, calling 
+   * current_part, re-instantiate it when required. This way, calling 
    *
    *       solver.getFreeStream();
    *       solver.getCirculation(effaoa, current_part.thickness, current_part.camber);
@@ -2977,6 +2979,7 @@ public class FoilBoard extends JApplet {
    * getCirculation can drop all its parameters and generally become a
    * part of Solver() Ctor.
    *
+   * Note: the challenge is in maintaining global FoilSimIII vars.
    */
   class Solver {
 
@@ -9298,10 +9301,10 @@ public class FoilBoard extends JApplet {
     int edge_view_type = DISPLAY_ANIMATION;
 
     boolean duringDrag = false;
-    boolean dragRightMouse, dragMiddleMouse;
+    boolean dragRightMouse, dragMiddleMouse, move_bg_image;
 
     double ball_spin_angle;
-    int xt_mpressed, yt_mpressed;
+    int xt_mpressed, yt_mpressed, img_x_pressed, img_y_pressed;
 
     boolean mesh_edit_mode = false;
     int mesh_active_chord = 0;
@@ -9331,9 +9334,13 @@ public class FoilBoard extends JApplet {
             if (viewflg == VIEW_3D_MESH) {
               duringDrag = true;
               dragRightMouse = SwingUtilities.isRightMouseButton(e);
-              if (dragRightMouse)
+              if (dragRightMouse) {
                 setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
-              else 
+                move_bg_image = (e.getModifiers() & KeyEvent.CTRL_MASK) != 0;
+                if (move_bg_image) {
+                  img_x_pressed = IMG_X; img_y_pressed = IMG_Y;
+                }
+              }else 
                 setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
               dragMiddleMouse = SwingUtilities.isMiddleMouseButton(e);
               mesh_x_angle_on_press = mesh_x_angle; 
@@ -9531,9 +9538,14 @@ public class FoilBoard extends JApplet {
                   current_part.mesh_TE[current_part.mesh_TE.length-1-mesh_active_chord].z = val;
                   // so far this is cosmetic so no recomp required.
                 }
-             } else if (dragRightMouse) { // translate
-                view_3d_shift_x_on_drag = x - anchor.x;
-                view_3d_shift_y_on_drag = y - anchor.y;
+             } else if (dragRightMouse) { // translate mesh ir gb image
+                if (move_bg_image) {
+                  IMG_X = img_x_pressed + (x - anchor.x);
+                  IMG_Y = img_y_pressed + (y - anchor.y);
+                } else {
+                  view_3d_shift_x_on_drag = x - anchor.x;
+                  view_3d_shift_y_on_drag = y - anchor.y;  
+                }
               } else { // rotate
                 mesh_x_angle = mesh_x_angle_on_press - 1*(y - anchor.y);
                 mesh_z_angle = mesh_z_angle_on_press - 1*(x - anchor.x);
@@ -9541,6 +9553,9 @@ public class FoilBoard extends JApplet {
               }
           
             } else if (viewflg == VIEW_EDGE) {  // translate or force zoom
+              if (zoom_widget_active) {  // adjust zoom widget
+                adjust_zoom(y);
+              }
               if (edge_view_type == DISPLAY_DIRECTION)  { // move the rake
                 locate = new Point(x,y);
                 xflow = xflow + 1*(locate.x - anchor.x);
