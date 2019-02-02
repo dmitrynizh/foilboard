@@ -1,0 +1,41 @@
+<HTML>
+<HEAD>
+  <TITLE>Naish Thrust 2018 Windfoil in T-Hydrofoil Simulator V 1.0</TITLE>
+  <META name="author" content="dmitrynizh"/>
+  <META name="copyright" content="(c) 2019"/>
+</HEAD>
+<BODY>
+<P><APPLET CODE="Foil.class" WIDTH='900' HEIGHT='600' ALIGN='bottom'>
+<!-- This is 2019 Hoverglide FWIND Foil -->
+<!-- https://www.slingshotsports.com/2019-Hoverglide-FWIND-Foil -->
+  <PARAM NAME="Make"  VALUE="Naish"/>
+  <PARAM NAME="Model" VALUE="Thrust WS1 Windfoil"/>
+  <PARAM NAME="Year"  VALUE="2018"/>
+<!-- Params Wing, Stab, Fuse, Mast have these VALUE formats: 
+  (1) simple:  VALUE="FOIL CHORD SPAN THICKNESS CAMBER ANGLE POS*"
+   where CHORD SPAN THICKNESS CAMBER ANGLE  - numeric values in meters
+         FOIL - either one of built-tin names or name of data/image file
+         POS* optional distance of part's leading edge (LE)  from the fuselage tip
+  (2) multi-segmented, with equally-spaced chords
+    where everything is as above except CHORD is ;-separated list of chord specs.
+    Each chord spec  can be either L or L/X or L/X/Z, where L is chord length, 
+    X is longitudinal relative offset from the prev chord, Z is same for vertical direction
+ -->
+<PARAM NAME="Wing" VALUE="NACA_4_Series 0.2715/-0.0056/-0.025;0.2543/0.0167/-5.0E-4;0.237/0.0182/4.0E-4;0.2193/0.0173/0.0;0.2022/0.0178/0.0;0.1842/0.0189/0.0;0.1674/0.0186/-0.0034;0.1555/0.02/-0.0057;0.1424/0.0182/-0.0085;0.1194/0.0261/-0.0088;0.0639/0.0446/-0.0087 0.647 7.9 3.1 0.0 -0.102"/>
+<PARAM NAME="Stab" VALUE="NACA_4_Series 0.0776/-0.0056/0.02;0.0733/0.0054/-0.0026;0.0706/0.0039/-0.0023;0.0625/0.0092/-0.0031;0.0541/0.008/-0.0047;0.0453/0.009/-0.0057;0.0227/0.0221/-0.0064 0.405 7.8 -2.0 -2.0 0.62"/>
+<PARAM NAME="Fuse" VALUE="NACA_4_Series 0.6855 0.02 3.9 0.0 0.0 0.0"/>
+<PARAM NAME="Mast" VALUE="NACA_4_Series 0.1/0.0;0.1/0.0 0.7 11.9 0.0 0.0 0.256"/>
+
+  <PARAM NAME="WSMAST2MASTLE"  VALUE="1"/>
+  <PARAM NAME="MAST_LE2TRANS"  VALUE="0.5"/>
+
+  <PARAM NAME="SAIL_DRIVE_HEIGHT"  VALUE="1.4"/>
+  <PARAM NAME="BW"  VALUE="60"/>
+  <PARAM NAME="RW"  VALUE="80"/>
+  <PARAM NAME="BL"  VALUE="2.1"/>
+  <PARAM NAME="TKD"  VALUE="120"/>
+  <PARAM NAME="BACK_FOOTSTRAP_XPOS"  VALUE="0.2"/>
+  <PARAM NAME="FRONT_FOOTSTRAP_XPOS"  VALUE="-0.38"/>
+</APPLET></P>
+</BODY>
+</HTML>

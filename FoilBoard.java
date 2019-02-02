@@ -287,7 +287,7 @@ public class FoilBoard extends JApplet {
     double chord_zoffs;
     // coeff for induced drag. it is 1 for elliptical wings;
     // for rectangle form Ci_eff is 0.85. 
-    double Ci_eff = 0.8; 
+    double Ci_eff = 0.9; 
     double xoff_tip;
     Point3D[] mesh_LE;
     Point3D[] mesh_TE;
@@ -791,15 +791,17 @@ public class FoilBoard extends JApplet {
         // done
         return 0;
         
-      // current_part.Ci_eff is induced drag coefficient factor' for rectangle = .85, elliptic distr is 1 or so
+      // current_part.Ci_eff is induced drag coefficient factor.
+      // For rectangle Ci_eff = .85, elliptic distr is 1 or so
       // adjust for strut in special way...
       // this must include wave and spray but the waw we calculate induced drag likely results in higher
       // .. drag Cl... stiil proper estimate for strut is:
-      // (1) adjust area below to be 1/3 (or what 1-height/100 is) where drag is computed, use 1/2 of this section drag plust 
+      // (1) adjust area below to be 1/3 (or what 1-height/100 is) where drag is computed, use 1/2 of this section drag plus
       // (3) wave & spray drag as
       // 0.24 * q0_SI * strut.thickness * strut.thickness. See "Full measurm... page 8"
       double k = 3.1415926 * 
-        Math.max(0.03, current_part.aspect_rat) // otherwise K shrinks causing Cd to grow too much for ultra low aspect stuff like fuse (ar = 0.025 or less):
+        Math.max(0.03,                     // why min? otherwise K shrinks causing Cd to grow too much for 
+                 current_part.aspect_rat)  // ultra low aspect stuff like fuse (ar = 0.025 or less):
         * current_part.Ci_eff;    // (/(* 0.1 0.1)(* 3.14 0.025 0.8)) vs  (/(* 0.1 0.1)(* 3.14 0.1 0.8)) and ar=1: (/(* 0.1 0.1)(* 3.14 0.1 0.8))
       
       if (current_part == strut) {
@@ -1356,9 +1358,11 @@ public class FoilBoard extends JApplet {
   static final Color color_sky_blue_light = new Color(102, 204, 255);
   static final Color color_water_dark = new Color(0, 136, 200);
   static final Color color_dark = new Color(90, 90, 90);
-  static final Color color_very_dark = new Color(50, 50, 50);
+  static final Color color_very_dark = new Color(10, 10, 10);
   static final Color color_beige = new Color(245,245,220);
   static final Color color_light_cyan = new Color(224, 255, 255);
+  static final Color color_dark_green = Color.decode("#009000");
+
 
   String foil_descr (Foil foil) {
     return foil.getDescr(current_part.thickness, current_part.camber);
@@ -1449,12 +1453,12 @@ public class FoilBoard extends JApplet {
   boolean  ar_lift_corr = true, re_corr = true, induced_drag_on = true, skin_drag_on = true;
 
   /* Value Ranges */
-  static double v_min,alt_min,ang_min,v_max,alt_max,ang_max;
-  static double ca_min,thk_min,ca_max,thk_max;
-  static double chrd_min,span_min,ar_min,chrd_max,span_max,ar_max;
-  static double rad_min,spin_min,rad_max,spin_max;
+  static double v_min, alt_min, aoa_min, v_max, alt_max, aoa_max;
+  static double camber_min, thickness_min, camber_max, thickness_max;
+  static double chord_min, span_min, ar_min, chord_max, span_max, ar_max;
+  static double rad_min, spin_min, rad_max, spin_max;
   static double vconv,vmax;
-  static double pconv,pmax,pmin,lconv,rconv,fconv,fmax,fmaxb;
+  static double pconv,pmax, pmin, lconv,rconv,fconv,fmax, fmaxb;
   static double load_min = 30, // Newtons
     load_max = 1500; // Newtons
 
@@ -1702,7 +1706,7 @@ public class FoilBoard extends JApplet {
       // estimate Ci_eff... how root chord, MAC and tip chord differ?
       // (- 1 (* 0.15 tip/mac))
       p.Ci_eff = 1 - 0.15 * (Math.min(1, chords[segment_count]/MAC));
-      if (parseParamData_debug) System.out.println("-- Ci_eff: " + p.Ci_eff);
+      if (true || parseParamData_debug) System.out.println("-- "+p.name+"Ci_eff: " + p.Ci_eff);
       // mesh. double segments for symmetric forms - wing, stab, fuse
       int mesh_count = (p == strut) ?  segment_count+1 : 2*segment_count+1;
       p.mesh_LE = new Point3D[mesh_count];
@@ -2043,9 +2047,9 @@ public class FoilBoard extends JApplet {
         2 * wing_Cl0 / div - wing.aoa + current_part.aoa;
       // double correction = corrected_aoa - (current_part.aoa + craft_pitch);
       // System.out.println("-- correction: " + correction);
-      return Math.min(ang_max, Math.max(ang_min, corrected_aoa));
+      return Math.min(aoa_max, Math.max(aoa_min, corrected_aoa));
     } else
-      return Math.min(ang_max, Math.max(ang_min, current_part.aoa + craft_pitch));
+      return Math.min(aoa_max, Math.max(aoa_min, current_part.aoa + craft_pitch));
   }
 
   // this avoids some overhead when doing massive computation
@@ -3050,13 +3054,13 @@ public class FoilBoard extends JApplet {
       stall_model_type = STALL_MODEL_DFLT;
       v_min = 1;     v_max = 70.0;
       alt_min = 0.0;    alt_max = 85; // this in %
-      ang_min = -20.0; ang_max = 20.0;
-      ca_min = -20.0;  ca_max = 20.0;
-      thk_min = 1; // do not make it less than 1, or some Cl?Cd calcs fail, see Solver
-      thk_max = 20.0; // this is 20%
-      chrd_min = .01;  chrd_max = 1.4; // why >1: chord is also fuse length.
+      aoa_min = -20.0; aoa_max = 20.0;
+      camber_min = -20.0;  camber_max = 20.0;
+      thickness_min = 1; // do not make it less than 1, or some Cl?Cd calcs fail, see Solver
+      thickness_max = 20.0; // this is 20%
+      chord_min = .01;  chord_max = 1.4; // why >1: chord is also fuse length.
       span_min = .01;  span_max = 2.5;
-      ar_min = chrd_min*span_min;  ar_max = span_max*chrd_max;
+      ar_min = chord_min*span_min;  ar_max = span_max*chord_max;
       spin_min = -1500.0;   spin_max = 1500.0;
       rad_min = .05;   rad_max = 5.0;
 
@@ -3425,7 +3429,7 @@ public class FoilBoard extends JApplet {
       double radm,thetm;                /* MODS  20 Jul 99  whole routine*/
       double fnew,y_new,y_old,rfac;
       double xold,xnew,thet;
-      double rmin,rmax;
+      double rmin, rmax;
       int iter,isign;
       double effaoa = effective_aoa();
 
@@ -5279,7 +5283,7 @@ public class FoilBoard extends JApplet {
 
       // for simplicity, assume kite/sail pulls at 45 degrees laterally
       double mast_aoa = find_aoa_of_given_lift(drag, 10); // 10: make it thickness-dependent
-      mast_aoa = limit(ang_min, mast_aoa, ang_max);
+      mast_aoa = limit(aoa_min, mast_aoa, aoa_max);
       if (current_part == strut) current_part.aoa = mast_aoa;
       else strut.aoa = mast_aoa;
       recomp_all_parts();
@@ -5293,7 +5297,7 @@ public class FoilBoard extends JApplet {
 
       double min_drag = total_drag();
       double min_drag_aoa = craft_pitch;
-      for (double p = ang_min/2; p < ang_max; p += 0.1) {
+      for (double p = aoa_min/2; p < aoa_max; p += 0.1) {
         craft_pitch = p;
         //computeFlowAndRegenPlotAndAdjust();
         recomp_all_parts();
@@ -5316,8 +5320,8 @@ public class FoilBoard extends JApplet {
       double min_drag_aoa = craft_pitch;
       double step = 0.5;
       double prev_drag = min_drag;
-      double p = Math.min(min_drag_aoa + step, ang_max - 4*step);
-      while (p < ang_max && p > ang_min) {
+      double p = Math.min(min_drag_aoa + step, aoa_max - 4*step);
+      while (p < aoa_max && p > aoa_min) {
         craft_pitch = p;
         //computeFlowAndRegenPlotAndAdjust();
         recomp_all_parts();
@@ -5414,21 +5418,21 @@ public class FoilBoard extends JApplet {
     // otherwise returns speed to re-iterate from.
     double find_min_takeoff_v_old_algorithm_aux (double min_lift, double max_drag, double speed, double speed_step, double pitch_init, double pitch_step) {
       double pitch = pitch_init;
-      double pitch_limit = ang_max*0.7;
+      double pitch_limit = aoa_max*0.7;
       {
         trace("speed_step: " + speed_step + " pitch_step: " + pitch_step);
         for (; speed < v_max; speed += speed_step) {
           velocity = speed;
           // if the startimg pitch guess when at this point was too high, 
           // drag will be too big at this point; then reduce pitch
-          while (pitch > ang_min/2) {
+          while (pitch > aoa_min/2) {
             craft_pitch = pitch;
             //computeFlowAndRegenPlotAndAdjust();
             recomp_all_parts();
             if (total_drag() >= max_drag)
               pitch = Math.max(pitch_init, craft_pitch - Math.abs(craft_pitch/4));
             else 
-              break; // while (pitch > ang_min/2)
+              break; // while (pitch > aoa_min/2)
           }              
               
           trace("for() speed: " + speed + " pitch: " + pitch);
@@ -5526,7 +5530,7 @@ public class FoilBoard extends JApplet {
       for (double speed = start_speed; speed < v_max; speed += 0.5) {
         velocity = speed;
         trace("velocity: " + velocity);
-        for (pitch = 0; pitch <= ang_max; pitch += 0.1) {
+        for (pitch = 0; pitch <= aoa_max; pitch += 0.1) {
           craft_pitch = pitch;
           //computeFlowAndRegenPlotAndAdjust();
           recomp_all_parts();
@@ -5568,7 +5572,7 @@ public class FoilBoard extends JApplet {
       double pitch;
       for (; speed >= 0; speed += v_step) {
         velocity = speed;
-        for (pitch = pitch_start; pitch <= ang_max; pitch += pitch_step) {
+        for (pitch = pitch_start; pitch <= aoa_max; pitch += pitch_step) {
           craft_pitch = pitch;
           //computeFlowAndRegenPlotAndAdjust();
           recomp_all_parts();
@@ -5620,7 +5624,7 @@ public class FoilBoard extends JApplet {
       if (total_lift() > min_lift) {
         // unsustainable, needs less pitch & speed...
         // reduce min_pitch until lift is OK
-        while(pitch_of_min_drag > ang_min) {
+        while(pitch_of_min_drag > aoa_min) {
           pitch_of_min_drag -= 0.05;
           craft_pitch = pitch_of_min_drag;
           //computeFlowAndRegenPlotAndAdjust();
@@ -5639,7 +5643,7 @@ public class FoilBoard extends JApplet {
         double pitch = pitch_of_min_drag;
         velocity = speed;
         set_mast_aoa_for_given_drag(max_drag);
-        for (; pitch < ang_max; pitch += 0.1) {
+        for (; pitch < aoa_max; pitch += 0.1) {
           craft_pitch = pitch;
           //computeFlowAndRegenPlotAndAdjust();
           recomp_all_parts();
@@ -5661,7 +5665,7 @@ public class FoilBoard extends JApplet {
           } 
         }
         // here pitch is at max. what about lift?
-        if (pitch >= ang_max && lift < min_lift) {
+        if (pitch >= aoa_max && lift < min_lift) {
           trace("oops, can not be solved.\nincrease drag limit or decrease lift threshold!");
           return;
         }
@@ -5687,7 +5691,7 @@ public class FoilBoard extends JApplet {
 
       craft_pitch = start_pitch;
       // double prev_pitch = -20; // we nned it only because pitch value gets rounded somewhere in recomp_all_parts...
-      while (craft_pitch < ang_max && craft_pitch > ang_min) {
+      while (craft_pitch < aoa_max && craft_pitch > aoa_min) {
         //computeFlowAndRegenPlotAndAdjust();
         recomp_all_parts();
         double lift = total_lift();
@@ -5718,7 +5722,7 @@ public class FoilBoard extends JApplet {
       //find_aoa_of_min_drag();
       //if (total_lift() > load_numeric) {
       //  // need to reduce AoA
-      //  while (craft_pitch > ang_min) {
+      //  while (craft_pitch > aoa_min) {
       //    craft_pitch -= 0.1;
       //    System.out.println("-- reducing... craft_pitch: " + craft_pitch);
       //    computeFlowAndRegenPlotAndAdjust();
@@ -5729,7 +5733,7 @@ public class FoilBoard extends JApplet {
       //}
       //else if (total_lift() < load_numeric) {
       //  // need to increase AoA
-      //  while (craft_pitch < ang_max) {
+      //  while (craft_pitch < aoa_max) {
       //    craft_pitch += 0.1;
       //    System.out.println("-- increasing... craft_pitch: " + craft_pitch);
       //    computeFlowAndRegenPlotAndAdjust();
@@ -6253,7 +6257,7 @@ public class FoilBoard extends JApplet {
         in.switch_to(shp);
 
         if (current_part.foil == FOIL_FLAT_PLATE) {
-          current_part.thickness = thk_min;
+          current_part.thickness = thickness_min;
         } 
         in.shp.loadPanel(); // takes care of the 3 boxes and 3 slider pos
       } 
@@ -6289,79 +6293,79 @@ public class FoilBoard extends JApplet {
         super.paint(g);
       }
     }
+
+    class Name extends JLabel { 
+      Name(String text) { super(text, JLabel.RIGHT); }
+      Name(String text, int align) { super(text, align); }
+    }
+
+    // Example: Speed,km/h [ 20] <-----x---->
+    class NameBoxBar extends InputPanel { 
+      Name name;
+      JTextField box;
+      JScrollBar bar;
+      NameBoxBar(InputPanel p, String text, String val, double min, double max) { 
+        name = new Name(text);
+        box = new JTextField(val, 5);
+        String[] input = val.trim().split("\\s+");
+        double val_double = Double.parseDouble(input[0]);
+        if (val_double < min) val_double = min;
+        else if (val_double > max) val_double = max;
+        int pos = (int) (((val_double - min)/(max- min))*1000.);
+        bar = new JScrollBar(JScrollBar.HORIZONTAL, pos ,10, 0, 1000);
+        Panel left = new Panel(new GridLayout(1,2,2,2));
+        left.add(name);
+        left.add(box);
+        Panel pair = new Panel(new GridLayout(1,2,0,0)); // ?? 2,2 ??
+        pair.add(left);
+        pair.add(bar);
+        p.add(pair);
+      }
+      NameBoxBar(Flight ft, String text, String prop_name, String dflt, double min, double max) { 
+        this(ft, text, getParamOrProp(prop_name, dflt), min, max);
+      }
+      @Override
+      public void setEnabled (boolean enabled) {
+        bar.setEnabled(enabled);
+        box.setEnabled(enabled);
+        name.setEnabled(enabled);
+      }
+    } // class NameBoxBar
+
+      // Example:  Lift< [  735] Drag< [  85] {Find Lowest Takeoff Speed}
+    class NameBoxNameBoxButton extends Panel { 
+      Name name1, name2;
+      JTextField box1, box2;
+      Button button;
+      Panel constraints, pair;
+      NameBoxNameBoxButton (InputPanel p, 
+                            String text1, String prop1, String dflt1, 
+                            String text2, String prop2, String dflt2, 
+                            String button_text, ActionListener action) { 
+        name1 = new Name(" @ " + text1);
+        box1 = new JTextField(getParamOrProp(prop1, dflt1), 5);
+
+        name2 = new Name(text2);
+        box2 = new JTextField(getParamOrProp(prop2, dflt2), 5);
+
+        button = new Button(button_text);
+        button.addActionListener(action);
+        constraints = new Panel(new GridLayout(1,4,2,2));
+        constraints.add(name1);
+        constraints.add(box1);
+        constraints.add(name2);
+        constraints.add(box2);
+        pair = new Panel(new GridLayout(1,2)); // ?? 2,2 ??
+        pair.add(button);
+        pair.add(constraints);
+        p.add(pair);
+      }
+    } // class NameBoxNameBoxButton
  
     class Flight extends InputPanel {
       FoilBoard app;
       boolean autobalance = true;
       boolean use_load_ctrl_in_vpp = false;
-
-      class Name extends JLabel { 
-        Name(String text) { super(text, JLabel.RIGHT); }
-        Name(String text, int align) { super(text, align); }
-      }
-
-      // Example: Speed,km/h [ 20] <-----x---->
-      class NameBoxBar extends InputPanel { 
-        Name name;
-        JTextField box;
-        JScrollBar bar;
-        NameBoxBar(Flight ft, String text, String val, double min, double max) { 
-          name = new Name(text);
-          box = new JTextField(val, 5);
-          String[] input = val.trim().split("\\s+");
-          double val_double = Double.parseDouble(input[0]);
-          if (val_double < min) val_double = min;
-          else if (val_double > max) val_double = max;
-          int pos = (int) (((val_double - min)/(max- min))*1000.);
-          bar = new JScrollBar(JScrollBar.HORIZONTAL, pos ,10, 0, 1000);
-          Panel left = new Panel(new GridLayout(1,2,2,2));
-          left.add(name);
-          left.add(box);
-          Panel pair = new Panel(new GridLayout(1,2,0,0)); // ?? 2,2 ??
-          pair.add(left);
-          pair.add(bar);
-          ft.add(pair);
-        }
-        NameBoxBar(Flight ft, String text, String prop_name, String dflt, double min, double max) { 
-          this(ft, text, getParamOrProp(prop_name, dflt), min, max);
-        }
-        @Override
-        public void setEnabled (boolean enabled) {
-          bar.setEnabled(enabled);
-          box.setEnabled(enabled);
-          name.setEnabled(enabled);
-        }
-      }
-
-      // Example:  Lift< [  735] Drag< [  85] {Find Lowest Takeoff Speed}
-      class NameBoxNameBoxButton extends Panel{ 
-        Name name1, name2;
-        JTextField box1, box2;
-        Button button;
-        Panel constraints, pair;
-        NameBoxNameBoxButton (Flight ft, 
-                              String text1, String prop1, String dflt1, 
-                              String text2, String prop2, String dflt2, 
-                              String button_text, ActionListener action) { 
-          name1 = new Name(" @ " + text1);
-          box1 = new JTextField(getParamOrProp(prop1, dflt1), 5);
-
-          name2 = new Name(text2);
-          box2 = new JTextField(getParamOrProp(prop2, dflt2), 5);
-
-          button = new Button(button_text);
-          button.addActionListener(action);
-          constraints = new Panel(new GridLayout(1,4,2,2));
-          constraints.add(name1);
-          constraints.add(box1);
-          constraints.add(name2);
-          constraints.add(box2);
-          pair = new Panel(new GridLayout(1,2)); // ?? 2,2 ??
-          pair.add(button);
-          pair.add(constraints);
-          ft.add(pair);
-        }
-      }
 
       JTextField f1,fAoA;
 
@@ -6421,7 +6425,7 @@ public class FoilBoard extends JApplet {
         // calling setValue on the bars generates events that set these text boxes...
         // howeverm value *will* be rounded, then to 1000 steps, so must use on_load
         speed_ctrl.bar.setValue((int)(((velocity- v_min)/(v_max-v_min))*1000.));
-        pitch_ctrl.bar.setValue((int) (((craft_pitch - ang_min)/(ang_max-ang_min))*1000.));
+        pitch_ctrl.bar.setValue((int) (((craft_pitch - aoa_min)/(aoa_max-aoa_min))*1000.));
         alt_ctrl.bar.setValue((int) (((alt - alt_min)/(alt_max-alt_min))*1000.));
         load_ctrl.bar.setValue((int) (((load - load_min)/(load_max-load_min))*1000.));
         on_load = false;
@@ -6585,12 +6589,12 @@ public class FoilBoard extends JApplet {
 
         // row 2
         rows++;
-        pitch_ctrl = new NameBoxBar(this, "Craft Pitch deg", "0.0", ang_min, ang_max);
+        pitch_ctrl = new NameBoxBar(this, "Craft Pitch deg", "0.0", aoa_min, aoa_max);
         pitch_ctrl.bar.addAdjustmentListener(new AdjustmentListener() {
             public void adjustmentValueChanged(AdjustmentEvent evt) {
               if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
               if (on_load) return;
-              float new_pitch = filter3(evt.getValue() * (ang_max - ang_min)/ 1000. + ang_min);
+              float new_pitch = filter3(evt.getValue() * (aoa_max - aoa_min)/ 1000. + aoa_min);
               if (new_pitch == craft_pitch) return;
 
               // DEBUG DEBUG change pitch but not wings AoA
@@ -6620,7 +6624,7 @@ public class FoilBoard extends JApplet {
             System.out.println("-- new_pitch: " + new_pitch);
             if (new_pitch != craft_pitch) {
               craft_pitch = new_pitch;
-              // sAoA.setValue((int) (((craft_pitch - ang_min)/(ang_max-ang_min))*1000.));
+              // sAoA.setValue((int) (((craft_pitch - aoa_min)/(aoa_max-aoa_min))*1000.));
               recomp_all_parts();
               //?speed_kts_mph_kmh_ms_info = make_speed_kts_mph_kmh_ms_info(velocity);
             }
@@ -7154,7 +7158,7 @@ public class FoilBoard extends JApplet {
 
           i1 = (int) (((100.0 - v_min)/(v_max-v_min))*1000.);
           i2 = (int) (((0.0 - alt_min)/(alt_max-alt_min))*1000.);
-          iAoA = (int) (((0.0 - ang_min)/(ang_max-ang_min))*1000.);
+          iAoA = (int) (((0.0 - aoa_min)/(aoa_max-aoa_min))*1000.);
 
           plntch = new JComboBox();
           plntch.addItem("Earth - Average Day");
@@ -7404,296 +7408,66 @@ public class FoilBoard extends JApplet {
 
     class Shape extends InputPanel {
       FoilBoard app;
-      LeftPanel leftPanel;
-      RightPanel rightPanel;
+      // LeftPanel leftPanel;
+      // RightPanel rightPanel;
+
+      JComboBox shape_choice;
+      NameBoxBar aoa_ctrl, camber_ctrl, thickness_ctrl, tip_perform_ctrl;
 
       Button symm_foil_bt, flat_bottom_bt, neg_camb_bt;
       Button hi_camb_bt, flat_plate_bt;
       Button ellipse_bt, curve_plate_bt;
       Button[] old_style_buttons;
-      JScrollBar sb_ci_eff;
+      // JScrollBar sb_ci_eff;
 
       Shape (FoilBoard target) {
-
         app = target;
-        setLayout(new GridLayout(1,2,5,5));
+        int rows = 0;
 
-        leftPanel = new LeftPanel(app);
-        rightPanel = new RightPanel(app);
+        // leftPanel = new LeftPanel(app);
+        // rightPanel = new RightPanel(app);
+        // add(leftPanel);
+        // add(rightPanel);
 
-        add(leftPanel);
-        add(rightPanel);
+        Panel p;
 
-        old_style_buttons = new Button[] {
-          symm_foil_bt, flat_bottom_bt, neg_camb_bt,
-          hi_camb_bt,flat_plate_bt, ellipse_bt,curve_plate_bt
-        };
-      }
-
-      // what needs be done in general when user altered current foil shape?
-      void recompute () {
-        current_part.t_Cl = current_part.t_Cd = current_part.t_Cm = null;
-        computeFlowAndRegenPlot();
-      }
-
-      void set_camber_and_thickness_controls (boolean enable) {
-        leftPanel.f_camber.setEnabled(enable);
-        leftPanel.f_thickness.setEnabled(enable);
-        rightPanel.s1.setEnabled(enable);
-        rightPanel.s2.setEnabled(enable);
-      }
-
-      boolean on_load;
-
-      // Shape.loadPanel
-      @Override
-      public void loadPanel () {
-        long loadPanel_time = System.currentTimeMillis();
-        on_load = true;
-
-        // System.out.println("-- loadPanel current_part: " + current_part);
-        current_part.foil.adjust_foil_shape_in_tab();
+        // row1: label, selector
+        rows++;
+        add(p = new Panel(new GridLayout(1,2,0,0)));
+        p.add(new JLabel("Foil Shape"));
+        shape_choice = new JComboBox();
+        for (int id = 0; id < foil_arr.length; id++) {
+          String text = foil_arr[id].descr;
+          shape_choice.addItem(text);
+        }
+        shape_choice.setBackground(Color.white);
+        shape_choice.setForeground(Color.blue);
+        // shape_choice.setSelectedIndex(FOIL_JOUKOWSKI.id);
+        shape_choice.setSelectedIndex(foil_arr[0].id);
+        shape_choice.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+              int id = shape_choice.getSelectedIndex();
+              String foil = (String)shape_choice.getItemAt(id);
+              // System.out.println("-- shape_choice ActionEvent  id: " + id + " foil: " + foil);
+              setFoil(foil);
+              in.update_state();
+            }});
+        p.add(shape_choice);
         
-        // these trigger events, do first
-        rightPanel.s3.setValue((int) (((current_part.aoa - ang_min)/(ang_max-ang_min))*1000.));
-        rightPanel.s1.setValue((int) (((current_part.camber - ca_min)/(ca_max-ca_min))*1000.));
-        rightPanel.s2.setValue((int) (((current_part.thickness - thk_min)/(thk_max-thk_min))*1000.));
-        sb_ci_eff.setValue((int) (((current_part.Ci_eff - 0)/(3-0))*1000.));
-
-        rightPanel.shape_choice.setSelectedIndex(current_part.foil.id);
-
-        leftPanel.f_angle.setText(pprint(filter3(current_part.aoa)));
-        leftPanel.f_camber.setText(pprint(filter3(current_part.camber)));
-        leftPanel.f_thickness.setText(pprint(filter1(current_part.thickness)));
-
-        on_load = false;
-
-        //tt 
-        // System.out.println("-- Shape loadPanel_time, ms: " + (System.currentTimeMillis()-loadPanel_time)); //System.exit(0);
-
-      }
-
-      class LeftPanel extends Panel {
-        FoilBoard app;
-        JTextField f_camber, f_thickness, f_angle;
-        JLabel l_camber, l_thickness, l_angle;
-     
-        LeftPanel (FoilBoard target) {
-      
-          app = target;
-          setLayout(new GridLayout(8,2,2,10));
-
-          JLabel l;
-          add(l = new JLabel("Foil", JLabel.RIGHT)); l.setForeground(Color.blue);
-          add(l = new JLabel("Shape", JLabel.LEFT));  l.setForeground(Color.blue);
-
-          add(new JLabel(""));
-          add(new JLabel(""));
-
-          add(l_angle = new JLabel("Angle deg", JLabel.CENTER));
-          add(f_angle = new JTextField("5.0",5));
-          f_angle.addActionListener(new ActionListener() {
-              public void actionPerformed(ActionEvent e) {
-                double v = Double.valueOf(f_angle.getText()).doubleValue();
-                current_part.aoa = v;
-                if (v < ang_min) {
-                  current_part.aoa = v = ang_min;
-                  float fl1 = (float) v;
-                  f_angle.setText(String.valueOf(fl1));
-                }
-                else if (v > ang_max) {
-                  current_part.aoa = v = ang_max;
-                  float fl1 = (float) v;
-                  f_angle.setText(String.valueOf(fl1));
-                }
-                int i = (int) (((v - ang_min)/(ang_max-ang_min))*1000.);
-                rightPanel.s3.setValue(i);
-                recompute();
-              }});
-
-          add(l_camber = new JLabel("Camber % chord", JLabel.CENTER));
-          add(f_camber = new JTextField("0.0",5));
-          f_camber.addActionListener(new ActionListener() {
-              public void actionPerformed(ActionEvent e) {
-                double v = Double.valueOf(f_camber.getText()).doubleValue();
-                current_part.camber = v;
-                if (v < ca_min) {
-                  current_part.camber = v = ca_min;
-                  float fl1 = (float) v;
-                  f_camber.setText(String.valueOf(fl1));
-                }
-                else if (v > ca_max) {
-                  current_part.camber = v = ca_max;
-                  float fl1 = (float) v;
-                  f_camber.setText(String.valueOf(fl1));
-                }
-                int i = (int) (((v - ca_min)/(ca_max-ca_min))*1000.);
-                rightPanel.s1.setValue(i);
-                recompute();
-              }});
-          add(l_thickness = new JLabel("Thickness %", JLabel.CENTER));
-          add(f_thickness = new JTextField("12.5",5));
-          f_thickness.addActionListener(new ActionListener() {
-              public void actionPerformed(ActionEvent e) {
-                double v = Double.valueOf(f_thickness.getText()).doubleValue();
-                current_part.thickness = v;
-                if (v < thk_min) {
-                  current_part.thickness = v = thk_min;
-                  float fl1 = (float) v;
-                  f_thickness.setText(String.valueOf(fl1));
-                }
-                else if (v > thk_max) {
-                  current_part.thickness = v = thk_max;
-                  float fl1 = (float) v;
-                  f_thickness.setText(String.valueOf(fl1));
-                }
-                int i = (int) (((v - thk_min)/(thk_max-thk_min))*1000.);
-                rightPanel.s2.setValue(i);
-                recompute();
-              }});
-
-          add(new JLabel("Tip Perform"));
-          add(new JLabel("Factor"));
-
-          add(l = new JLabel("Quick Shapes:", JLabel.RIGHT)); l.setForeground(color_very_dark);
-
-          add(symm_foil_bt = new Button ("Symmetric"));
-          symm_foil_bt.setBackground(Color.white);
-          symm_foil_bt.setForeground(Color.blue);
-          symm_foil_bt.addActionListener(new ActionListener() {
-              @Override
-              public void actionPerformed(ActionEvent e) {
-                for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
-                symm_foil_bt.setBackground(Color.yellow);
-                current_part.camber = 0.0;
-                current_part.thickness = 9; // was 12 - too much for hydro 
-                buttons_action_epilogue();
-              }});
-
-          add(flat_bottom_bt = new_button("Flat Bottom"));
-          flat_bottom_bt.addActionListener(new ActionListener() {
-              @Override
-              public void actionPerformed(ActionEvent e) {
-                for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
-                flat_bottom_bt.setBackground(Color.yellow);
-                current_part.camber = 2.5; // was 5 - too much for hydro 
-                current_part.thickness = 9; // was 12 - too much for hydro 
-                buttons_action_epilogue();
-              }});
-
-          add(neg_camb_bt = new_button("Neg. Camber"));
-          neg_camb_bt.addActionListener(new ActionListener() {
-              @Override
-              public void actionPerformed(ActionEvent e) {
-                for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
-                neg_camb_bt.setBackground(Color.yellow);
-                current_part.camber = -4.0; // was 5 - too much for hydro 
-                current_part.thickness = 9; // was 12 - too much for hydro 
-                buttons_action_epilogue();
-              }});
-        }
-
-        void buttons_action_epilogue() {
-          setFoil(FOIL_NACA4);
-
-          leftPanel.f_camber.setText(String.valueOf(current_part.camber));
-          leftPanel.f_thickness.setText(String.valueOf(current_part.thickness));
-
-          int i1 = (int) (((current_part.camber - ca_min)/(ca_max-ca_min))*1000.);
-          int i2 = (int) (((current_part.thickness - thk_min)/(thk_max-thk_min))*1000.);
-    
-          rightPanel.s1.setValue(i1);
-          rightPanel.s2.setValue(i2);
-
-          //ttshch rightPanel.shape_choice.setSelectedIndex(FOIL_NACA4.id);
-          if (use_cylinder_shapes)
-            in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_JOUKOWSKI.id);
-          recompute();
-        }
-      }  // LeftPanel 
-
-
-      class RightPanel extends Panel {
-        FoilBoard app;
-        JScrollBar s1,s2,s3;
-        JComboBox shape_choice;
-        RightPanel1 rightPanel1;
-        RightPanel2 rightPanel2;
-
-        RightPanel (FoilBoard target) {
-          int i1,i2,i3;
-
-          app = target;
-          setLayout(new GridLayout(8,1,2,10));
-
-          rightPanel1 = new RightPanel1(app);
-          rightPanel2 = new RightPanel2(app);
-
-          i1 = (int) (((0.0 - ca_min)/(ca_max-ca_min))*1000.);
-          i2 = (int) (((12.5 - thk_min)/(thk_max-thk_min))*1000.);
-          i3 = (int) (((current_part.aoa - ang_min)/(ang_max-ang_min))*1000.);
-
-          s1 = new JScrollBar(JScrollBar.HORIZONTAL,i1,10,0,1000);
-          s1.addAdjustmentListener(new AdjustmentListener() {
-            public void adjustmentValueChanged(AdjustmentEvent evt) {
-              if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
-              int pos = s1.getValue();
-              current_part.camber = pos * (ca_max - ca_min)/ 1000. + ca_min;
-              leftPanel.f_camber.setText(String.valueOf((float)current_part.camber));
-              recompute();
-            }});
-
-          s2 = new JScrollBar(JScrollBar.HORIZONTAL,i2,10,0,1000);
-          s2.addAdjustmentListener(new AdjustmentListener() {
-            public void adjustmentValueChanged(AdjustmentEvent evt) {
-              if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
-              int pos = s2.getValue();
-              current_part.thickness = pos * (thk_max - thk_min)/ 1000. + thk_min;
-              leftPanel.f_thickness.setText(String.valueOf((float)current_part.thickness));
-              recompute();
-            }});
-
-          s3 = new JScrollBar(JScrollBar.HORIZONTAL,i3,10,0,1000);
-          s3.addAdjustmentListener(new AdjustmentListener() {
-            public void adjustmentValueChanged(AdjustmentEvent evt) {
-              if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
-              int pos = s3.getValue();
-              current_part.aoa  = pos * (ang_max - ang_min)/ 1000. + ang_min;
-              leftPanel.f_angle.setText(String.valueOf((float)current_part.aoa));
-              recompute();
-            }});
-
-          shape_choice = new JComboBox();
-          for (int id = 0; id < foil_arr.length; id++) {
-            String text = foil_arr[id].descr;
-            shape_choice.addItem(text);
-          }
-          shape_choice.setBackground(Color.white);
-          shape_choice.setForeground(Color.blue);
-          // shape_choice.setSelectedIndex(FOIL_JOUKOWSKI.id);
-          shape_choice.setSelectedIndex(foil_arr[0].id);
-
-          shape_choice.addActionListener(new ActionListener() {
-              public void actionPerformed(ActionEvent e) {
-                int id = shape_choice.getSelectedIndex();
-                String foil = (String)shape_choice.getItemAt(id);
-                // System.out.println("-- shape_choice ActionEvent  id: " + id + " foil: " + foil);
-                setFoil(foil);
-                in.update_state();
-              }});
-
-          add(shape_choice);
-
-          Button import_bt;
-          add(import_bt = new Button ("Import from File"));
-          import_bt.addActionListener(new ActionListener() {
+        // row2: empty, button
+        rows++;
+        add(p = new Panel(new GridLayout(1,2,0,0)));
+        p.add(new JLabel(""));
+        Button import_bt  = new Button ("Import from File");
+        p.add(import_bt);
+        import_bt.addActionListener(new ActionListener() {
           @Override
           /**
            * @j2sNative
            * 
            * var can_not_do_it_in_js;
            */
-          public void actionPerformed(ActionEvent e) {
+          public void actionPerformed (ActionEvent e) {
             Import imp = null;
             try { // Import depends on mhclasses.jar, so have that handled...
               imp = new Import();
@@ -7739,13 +7513,103 @@ public class FoilBoard extends JApplet {
             }
             in.shp.loadPanel();
           }});
+        
+        // row3: aoa_ctrl
+        rows++;
+        aoa_ctrl = new NameBoxBar(this, "Angle, Degr",  "0", aoa_min, aoa_max);
+        aoa_ctrl.box.addActionListener(new ActionListener() {
+              public void actionPerformed(ActionEvent e) {
+                double v = Double.valueOf(aoa_ctrl.box.getText()).doubleValue();
+                current_part.aoa = v;
+                if (v < aoa_min) {
+                  current_part.aoa = v = aoa_min;
+                  float fl1 = (float) v;
+                  aoa_ctrl.box.setText(String.valueOf(fl1));
+                }
+                else if (v > aoa_max) {
+                  current_part.aoa = v = aoa_max;
+                  float fl1 = (float) v;
+                  aoa_ctrl.box.setText(String.valueOf(fl1));
+                }
+                int i = (int) (((v - aoa_min)/(aoa_max-aoa_min))*1000.);
+                aoa_ctrl.bar.setValue(i);
+                recompute();
+              }});          
+        aoa_ctrl.bar.addAdjustmentListener(new AdjustmentListener() {
+            public void adjustmentValueChanged(AdjustmentEvent evt) {
+              if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
+              int pos = evt.getValue();
+              current_part.aoa  = pos * (aoa_max - aoa_min)/ 1000. + aoa_min;
+              aoa_ctrl.box.setText(String.valueOf((float)current_part.aoa));
+              // long time = System.currentTimeMillis();
+              recompute();
+              // System.out.println("-- time: " + (System.currentTimeMillis()-time));
+              // time = System.currentTimeMillis();
+              // System.out.println("-- time2: " + (System.currentTimeMillis()-time));              
+            }});
+        // row4: camber_ctrl
+        rows++;
+        camber_ctrl = new NameBoxBar(this, "Camber",  "0", camber_min, camber_max);
+        camber_ctrl.box.addActionListener(new ActionListener() {
+              public void actionPerformed(ActionEvent e) {
+                double v = Double.valueOf(camber_ctrl.box.getText()).doubleValue();
+                current_part.camber = v;
+                if (v < camber_min) {
+                  current_part.camber = v = camber_min;
+                  float fl1 = (float) v;
+                  camber_ctrl.box.setText(String.valueOf(fl1));
+                }
+                else if (v > camber_max) {
+                  current_part.camber = v = camber_max;
+                  float fl1 = (float) v;
+                  camber_ctrl.box.setText(String.valueOf(fl1));
+                }
+                int i = (int) (((v - camber_min)/(camber_max-camber_min))*1000.);
+                camber_ctrl.bar.setValue(i);
+                recompute();
+              }});
+        camber_ctrl.bar.addAdjustmentListener(new AdjustmentListener() {
+            public void adjustmentValueChanged(AdjustmentEvent evt) {
+              if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
+              int pos = evt.getValue();
+              current_part.camber = pos * (camber_max - camber_min)/ 1000. + camber_min;
+              camber_ctrl.box.setText(String.valueOf((float)current_part.camber));
+              recompute();
+            }});
 
-          add(s3);
-          add(s1);
-          add(s2);
-          
-          sb_ci_eff = new JScrollBar(JScrollBar.HORIZONTAL,i1,10,0,1000);
-          sb_ci_eff.addAdjustmentListener(new AdjustmentListener() {
+        // row5: thickness_ctrl
+        rows++;
+        thickness_ctrl = new NameBoxBar(this, "Thickness, %",  "10", thickness_min, thickness_max);
+        thickness_ctrl.box.addActionListener(new ActionListener() {
+              public void actionPerformed(ActionEvent e) {
+                double v = Double.valueOf(thickness_ctrl.box.getText()).doubleValue();
+                current_part.thickness = v;
+                if (v < thickness_min) {
+                  current_part.thickness = v = thickness_min;
+                  float fl1 = (float) v;
+                  thickness_ctrl.box.setText(String.valueOf(fl1));
+                }
+                else if (v > thickness_max) {
+                  current_part.thickness = v = thickness_max;
+                  float fl1 = (float) v;
+                  thickness_ctrl.box.setText(String.valueOf(fl1));
+                }
+                int i = (int) (((v - thickness_min)/(thickness_max-thickness_min))*1000.);
+                thickness_ctrl.bar.setValue(i);
+                recompute();
+              }});
+        thickness_ctrl.bar.addAdjustmentListener(new AdjustmentListener() {
+            public void adjustmentValueChanged(AdjustmentEvent evt) {
+              if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
+              int pos = evt.getValue();
+              current_part.thickness = pos * (thickness_max - thickness_min)/ 1000. + thickness_min;
+              thickness_ctrl.box.setText(String.valueOf((float)current_part.thickness));
+              recompute();
+            }});
+        // row6: tip_perform_ctrl
+        rows++;
+        tip_perform_ctrl = new NameBoxBar(this, "WingTip Performance k",  "1", 0, 3);
+        tip_perform_ctrl.bar.addAdjustmentListener(new AdjustmentListener() {
             public void adjustmentValueChanged(AdjustmentEvent evt) {
               if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
               if (on_load) return;
@@ -7757,165 +7621,233 @@ public class FoilBoard extends JApplet {
                 new Exception("======== current_part.Ci_eff == 0 ==========" + current_part.name).printStackTrace(System.out);
               recomp_all_parts();
             }});
-          add(sb_ci_eff);
 
-          add(rightPanel1);
-          add(rightPanel2);
-        }
+        Panel p1;
+        // row7: label, bt bt bt
+        rows++;
+        add(p = new Panel(new GridLayout(1,4,2,2)));
+        p.add(new JLabel("Quick Shapes:", JLabel.RIGHT)); // l.setForeground(color_very_dark); 
+        p.add(symm_foil_bt = new Button ("Symmetric"));
+        symm_foil_bt.setBackground(Color.white);
+        symm_foil_bt.setForeground(Color.blue);
+        symm_foil_bt.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+              for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
+              symm_foil_bt.setBackground(Color.yellow);
+              current_part.camber = 0.0;
+              current_part.thickness = 9; // was 12 - too much for hydro 
+              buttons_action_epilogue();
+            }});
 
-        class RightPanel1 extends Panel {
-          FoilBoard app;
+        p.add(flat_bottom_bt = new_button("Flat Bottom"));
+        flat_bottom_bt.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+              for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
+              flat_bottom_bt.setBackground(Color.yellow);
+              current_part.camber = 2.5; // was 5 - too much for hydro 
+              current_part.thickness = 9; // was 12 - too much for hydro 
+              buttons_action_epilogue();
+            }});
 
-          RightPanel1 (FoilBoard target) {
+        p.add(neg_camb_bt = new_button("Neg. Camber"));
+        neg_camb_bt.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+              for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
+              neg_camb_bt.setBackground(Color.yellow);
+              current_part.camber = -4.0; // was 5 - too much for hydro 
+              current_part.thickness = 9; // was 12 - too much for hydro 
+              buttons_action_epilogue();
+            }});        
+        // row8: label, bt bt bt empt
+        rows++;
+        add(p = new Panel(new GridLayout(1,4,2,2)));
+        p.add(hi_camb_bt = new_button("High Camber"));
+        p.add(flat_plate_bt = new_button("Flat Plate"));
+        hi_camb_bt.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+              shape_choice.setSelectedIndex(FOIL_NACA4.id);
+              if (use_cylinder_shapes)
+                in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_NACA4.id);
 
-            app = target;
-            setLayout(new GridLayout(1,2,2,10));
+              for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
+              hi_camb_bt.setBackground(Color.yellow);
 
-            hi_camb_bt = new_button("High Camber");
-            flat_plate_bt = new_button("Flat Plate");
+              current_part.camber = 11.0; // was 15 - too much for hydro 
+              current_part.thickness = 9; // was 12 - to much for hydro
 
-            hi_camb_bt.addActionListener(new ActionListener() {
-                @Override
-                public void actionPerformed(ActionEvent e) {
-                  shape_choice.setSelectedIndex(FOIL_NACA4.id);
-                  if (use_cylinder_shapes)
-                    in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_NACA4.id);
+              if (use_foilsim_foils) {
+                setFoil(FOIL_JOUKOWSKI);
+                shape_choice.setSelectedIndex(FOIL_JOUKOWSKI.id);
+                if (use_cylinder_shapes)
+                  in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_JOUKOWSKI.id);
+              }
 
-                  for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
-                  hi_camb_bt.setBackground(Color.yellow);
+              camber_ctrl.box.setText(String.valueOf(current_part.camber));
+              thickness_ctrl.box.setText(String.valueOf(current_part.thickness));
 
-                  current_part.camber = 11.0; // was 15 - too much for hydro 
-                  current_part.thickness = 9; // was 12 - to much for hydro
-
-                  if (use_foilsim_foils) {
-                    setFoil(FOIL_JOUKOWSKI);
-                    shape_choice.setSelectedIndex(FOIL_JOUKOWSKI.id);
-                    if (use_cylinder_shapes)
-                      in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_JOUKOWSKI.id);
-                  }
-
-                  leftPanel.f_camber.setText(String.valueOf(current_part.camber));
-                  leftPanel.f_thickness.setText(String.valueOf(current_part.thickness));
-
-                  int i1 = (int) (((current_part.camber - ca_min)/(ca_max-ca_min))*1000.);
-                  int i2 = (int) (((current_part.thickness - thk_min)/(thk_max-thk_min))*1000.);
+              int i1 = (int) (((current_part.camber - camber_min)/(camber_max-camber_min))*1000.);
+              int i2 = (int) (((current_part.thickness - thickness_min)/(thickness_max-thickness_min))*1000.);
     
-                  rightPanel.s1.setValue(i1);
-                  rightPanel.s2.setValue(i2);
+              camber_ctrl.bar.setValue(i1);
+              thickness_ctrl.bar.setValue(i2);
 
-                  recompute();
+              recompute();
 
-                }});
+            }});
 
-            flat_plate_bt.addActionListener(new ActionListener() {
-                @Override
-                public void actionPerformed(ActionEvent e) {
-                  shape_choice.setSelectedIndex(FOIL_NACA4.id);
-                  if (use_cylinder_shapes)
-                    in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_NACA4.id);
+        flat_plate_bt.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+              shape_choice.setSelectedIndex(FOIL_NACA4.id);
+              if (use_cylinder_shapes)
+                in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_NACA4.id);
 
-                  for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
-                  flat_plate_bt.setBackground(Color.yellow);
+              for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
+              flat_plate_bt.setBackground(Color.yellow);
 
-                  Foil f = use_foilsim_foils ? FOIL_FLAT_PLATE : FOIL_NACA4;
-                  setFoil(f);
-                  current_part.camber = 0.0;
-                  current_part.thickness = 1.0;
+              Foil f = use_foilsim_foils ? FOIL_FLAT_PLATE : FOIL_NACA4;
+              setFoil(f);
+              current_part.camber = 0.0;
+              current_part.thickness = 1.0;
 
-                  shape_choice.setSelectedIndex(f.id);
-                  if (use_cylinder_shapes)
-                    in.cylShape.rightPanel.shape_choice.setSelectedIndex(f.id);
+              shape_choice.setSelectedIndex(f.id);
+              if (use_cylinder_shapes)
+                in.cylShape.rightPanel.shape_choice.setSelectedIndex(f.id);
 
-                  leftPanel.f_camber.setText(String.valueOf(current_part.camber));
-                  leftPanel.f_thickness.setText(String.valueOf(current_part.thickness));
+              camber_ctrl.box.setText(String.valueOf(current_part.camber));
+              thickness_ctrl.box.setText(String.valueOf(current_part.thickness));
 
-                  int i1 = (int) (((current_part.camber - ca_min)/(ca_max-ca_min))*1000.);
-                  int i2 = (int) (((current_part.thickness - thk_min)/(thk_max-thk_min))*1000.);
+              int i1 = (int) (((current_part.camber - camber_min)/(camber_max-camber_min))*1000.);
+              int i2 = (int) (((current_part.thickness - thickness_min)/(thickness_max-thickness_min))*1000.);
     
-                  rightPanel.s1.setValue(i1);
-                  rightPanel.s2.setValue(i2);
+              camber_ctrl.bar.setValue(i1);
+              thickness_ctrl.bar.setValue(i2);
 
-                  recompute();
+              recompute();
 
-                }});
+            }});
 
-            add(hi_camb_bt);
-            add(flat_plate_bt);
-          }
+        ellipse_bt = new_button("Ellipse");
+        ellipse_bt.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+              for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
+              ellipse_bt.setBackground(Color.yellow);
+              setFoil(FOIL_ELLIPTICAL);
+              current_part.camber = 0.0;
+              current_part.thickness = 12.5;
+              shape_choice.setSelectedIndex(FOIL_ELLIPTICAL.id);
+              in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_ELLIPTICAL.id);
+              camber_ctrl.box.setText(String.valueOf(current_part.camber));
+              thickness_ctrl.box.setText(String.valueOf(current_part.thickness));
 
-          public boolean action (Event evt, Object arg) {
-            System.out.println("-- warning: obsolete action() invoked... arg: " + arg);
-              return false;
-          }
-
-        }  // RightPanel1
-
-        class RightPanel2 extends Panel {
-          FoilBoard app;
-
-          RightPanel2 (FoilBoard target) {
-
-            app = target;
-            setLayout(new GridLayout(1,2,2,10));
-
-            ellipse_bt = new_button("Ellipse");
-            ellipse_bt.addActionListener(new ActionListener() {
-                @Override
-                public void actionPerformed(ActionEvent e) {
-                  for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
-                  ellipse_bt.setBackground(Color.yellow);
-                  setFoil(FOIL_ELLIPTICAL);
-                  current_part.camber = 0.0;
-                  current_part.thickness = 12.5;
-                  shape_choice.setSelectedIndex(FOIL_ELLIPTICAL.id);
-                  in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_ELLIPTICAL.id);
-                  leftPanel.f_camber.setText(String.valueOf(current_part.camber));
-                  leftPanel.f_thickness.setText(String.valueOf(current_part.thickness));
-
-                  int i1 = (int) (((current_part.camber - ca_min)/(ca_max-ca_min))*1000.);
-                  int i2 = (int) (((current_part.thickness - thk_min)/(thk_max-thk_min))*1000.);
+              int i1 = (int) (((current_part.camber - camber_min)/(camber_max-camber_min))*1000.);
+              int i2 = (int) (((current_part.thickness - thickness_min)/(thickness_max-thickness_min))*1000.);
     
-                  rightPanel.s1.setValue(i1);
-                  rightPanel.s2.setValue(i2);
-                  recompute();
-                }});
+              camber_ctrl.bar.setValue(i1);
+              thickness_ctrl.bar.setValue(i2);
+              recompute();
+            }});
+        if (use_foilsim_foils)
+          p.add(ellipse_bt);
+        else
+          p.add(new JLabel(""));
 
-            curve_plate_bt = new_button("Curve Plate");
-            curve_plate_bt.addActionListener(new ActionListener() {
-                @Override
-                public void actionPerformed(ActionEvent e) {
-                  for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
-                  curve_plate_bt.setBackground(Color.yellow);
-                  Foil f = use_foilsim_foils ? FOIL_FLAT_PLATE : FOIL_NACA4;
-                  setFoil(f);
-                  //current_part.aoa = 5.0;
-                  current_part.camber = 5.0;
-                  current_part.thickness = 1.0;
+        p.add(curve_plate_bt = new_button("Curve Plate"));
+        curve_plate_bt.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+              for (Button b : old_style_buttons) b.setBackground(Color.WHITE);
+              curve_plate_bt.setBackground(Color.yellow);
+              Foil f = use_foilsim_foils ? FOIL_FLAT_PLATE : FOIL_NACA4;
+              setFoil(f);
+              //current_part.aoa = 5.0;
+              current_part.camber = 5.0;
+              current_part.thickness = 1.0;
 
-                  shape_choice.setSelectedIndex(f.id);
-                  if (use_cylinder_shapes)
-                    in.cylShape.rightPanel.shape_choice.setSelectedIndex(f.id);
+              shape_choice.setSelectedIndex(f.id);
+              if (use_cylinder_shapes)
+                in.cylShape.rightPanel.shape_choice.setSelectedIndex(f.id);
 
-                  int i1 = (int) (((current_part.camber - ca_min)/(ca_max-ca_min))*1000.);
-                  int i2 = (int) (((current_part.thickness - thk_min)/(thk_max-thk_min))*1000.);
+              int i1 = (int) (((current_part.camber - camber_min)/(camber_max-camber_min))*1000.);
+              int i2 = (int) (((current_part.thickness - thickness_min)/(thickness_max-thickness_min))*1000.);
     
-                  rightPanel.s1.setValue(i1);
-                  rightPanel.s2.setValue(i2);
-                  recompute();
-                }});
+              camber_ctrl.bar.setValue(i1);
+              thickness_ctrl.bar.setValue(i2);
+              recompute();
+            }});
 
-            if (use_foilsim_foils)
-              add(ellipse_bt);
-            add(curve_plate_bt);
-          }
+        // finalize...
+        setLayout(new GridLayout(rows,1,5,5));
+        old_style_buttons = new Button[] {
+          symm_foil_bt, flat_bottom_bt, neg_camb_bt,
+          hi_camb_bt,flat_plate_bt, ellipse_bt, curve_plate_bt
+        };
+      }
 
-          public boolean action (Event evt, Object arg) {
-            System.out.println("-- warning: obsolete action() invoked... arg: " + arg);
-            return false;
-          }
+      void buttons_action_epilogue () {
+        setFoil(FOIL_NACA4);
 
-        }  // RightPanel2
-      }  // RightPanel
+        camber_ctrl.box.setText(String.valueOf(current_part.camber));
+        thickness_ctrl.box.setText(String.valueOf(current_part.thickness));
+
+        int i1 = (int) (((current_part.camber - camber_min)/(camber_max-camber_min))*1000.);
+        int i2 = (int) (((current_part.thickness - thickness_min)/(thickness_max-thickness_min))*1000.);
+    
+        aoa_ctrl.bar.setValue(i1);
+        thickness_ctrl.bar.setValue(i2);
+
+        //ttshch rightPanel.shape_choice.setSelectedIndex(FOIL_NACA4.id);
+        if (use_cylinder_shapes)
+          in.cylShape.rightPanel.shape_choice.setSelectedIndex(FOIL_JOUKOWSKI.id);
+        recompute();
+      }
+
+      // what needs be done in general when user altered current foil shape?
+      void recompute () {
+        current_part.t_Cl = current_part.t_Cd = current_part.t_Cm = null;
+        computeFlowAndRegenPlot();
+      }
+
+      void set_camber_and_thickness_controls (boolean enable) {
+        camber_ctrl.setEnabled(enable);
+        thickness_ctrl.setEnabled(enable);
+      }
+
+      boolean on_load;
+
+      // Shape.loadPanel
+      @Override
+      public void loadPanel () {
+        long loadPanel_time = System.currentTimeMillis();
+        on_load = true;
+
+        // System.out.println("-- loadPanel current_part: " + current_part);
+        current_part.foil.adjust_foil_shape_in_tab();
+        
+        // these trigger events, do first
+        aoa_ctrl.bar.setValue((int) (((current_part.aoa - aoa_min)/(aoa_max-aoa_min))*1000.));
+        camber_ctrl.bar.setValue((int) (((current_part.camber - camber_min)/(camber_max-camber_min))*1000.));
+        thickness_ctrl.bar.setValue((int) (((current_part.thickness - thickness_min)/(thickness_max-thickness_min))*1000.));
+        tip_perform_ctrl.bar.setValue((int) (((current_part.Ci_eff - 0)/(3-0))*1000.));
+
+        shape_choice.setSelectedIndex(current_part.foil.id);
+
+        aoa_ctrl.box.setText(pprint(filter3(current_part.aoa)));
+        camber_ctrl.box.setText(pprint(filter3(current_part.camber)));
+        thickness_ctrl.box.setText(pprint(filter1(current_part.thickness)));
+
+        on_load = false;
+
+        //tt 
+        // System.out.println("-- Shape loadPanel_time, ms: " + (System.currentTimeMillis()-loadPanel_time)); //System.exit(0);
+
+      }
+
     }  // Shape 
 
     class Size extends InputPanel {
@@ -7996,7 +7928,7 @@ public class FoilBoard extends JApplet {
           rightPanel.tilt_mast_SB.setEnabled(current_part == strut);
 
           // these cause events, so do them first.
-          int pos = (int) (((current_part.chord - chrd_min)/(chrd_max-chrd_min))*1000.);
+          int pos = (int) (((current_part.chord - chord_min)/(chord_max-chord_min))*1000.);
           rightPanel.chord_SB.setValue(pos);
           rightPanel.span_SB.setValue((int) (((current_part.span - span_min)/(span_max-span_min))*1000.));
           rightPanel.xpos_SB.setValue((int) (((current_part.xpos - xpos_min)/(xpos_max-xpos_min))*1000.));
@@ -8108,9 +8040,9 @@ public class FoilBoard extends JApplet {
                 Double V1 = Double.valueOf(size_tf.getText());
                 //debug System.out.println("-chord - ActionEvent: " + e);
                 double chord = V1.doubleValue();
-                chord = limit(chrd_min,
+                chord = limit(chord_min, 
                               size_input_in_display_units_to_m(chord, display_units),
-                              chrd_max);
+                              chord_max);
                 if (current_part.chord == chord) return;
                 // current_part.chord = chord;
                 // if (current_part.chord_spec.length > 1) { // part loses its multisegemnted shape!
@@ -8280,14 +8212,14 @@ public class FoilBoard extends JApplet {
 
           ChordSB (FoilBoard target) {
             super(JScrollBar.HORIZONTAL,
-                  (int)(((current_part.chord - chrd_min)/(chrd_max-chrd_min))*1000.), 
+                  (int)(((current_part.chord - chord_min)/(chord_max-chord_min))*1000.), 
                   10,0,1000);
             app = target;
             addAdjustmentListener(new AdjustmentListener() {
                 public void adjustmentValueChanged(AdjustmentEvent evt) {
                   if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
                   if (app.in.size.on_loadPanel) return;
-                  double chord  = getValue() * (chrd_max - chrd_min)/ 1000. + chrd_min;
+                  double chord  = getValue() * (chord_max - chord_min)/ 1000. + chord_min;
                   if (current_part.chord == chord) return;
                   //debug new Exception("warn!!!! " + current_part.chord +"!=" +  chord).printStackTrace(System.out);
                 
@@ -9376,6 +9308,9 @@ public class FoilBoard extends JApplet {
     int mesh_edit_le_metaseq_anchor, mesh_edit_te_metaseq_anchor, 
       mesh_edit_z_metaseq_anchor_x, mesh_edit_z_metaseq_anchor_y;
     double mesh_edit_on_press_x0;
+    
+    Point3D model_space_point = new Point3D(0,0,0);
+    int mouse_x, mouse_y;
 
     Viewer (FoilBoard target) {
       setBackground(color_very_dark);
@@ -9427,7 +9362,8 @@ public class FoilBoard extends JApplet {
                     // pressed the Z metasequoia button
                     mesh_edit_z_on_press = true;
                     mesh_edit_on_press_x0 = current_part.mesh_LE[mesh_active_chord].z;
-                  }                  
+                  } // else // not in editing mode!                   
+                    // mesh_edit_mode = false;
                 }
               }
             }
@@ -9473,13 +9409,15 @@ public class FoilBoard extends JApplet {
                   viewflg = VIEW_FORCES;
                   // thic collides with running cg pos plot....
                   //vpp.steady_flight_at_given_speed(5, 0);
-                } else 
+                } else
                   viewflg = VIEW_EDGE;
                 pboflag = 0;
-              } else if (x >= 180 && x < 240) {   // 3d mesh view
-                if (current_part.foil != FOIL_CYLINDER && current_part.foil != FOIL_BALL)
+              } else if (x >= 180 && x < 240) {   // switch to 3d mesh view
+                if (current_part.foil != FOIL_CYLINDER && current_part.foil != FOIL_BALL) {
                   viewflg = VIEW_3D_MESH;
-                else 
+                  // for projection views to start nice, indicate a need to anchor to 0,0
+                  anchor.x = anchor.y = -1;
+                } else 
                   viewflg = VIEW_EDGE;
               } else if (x >= 240 && x <= 270) {   //find
                 find_it();
@@ -9623,8 +9561,9 @@ public class FoilBoard extends JApplet {
           @SuppressWarnings("deprecation")
           public void mouseMoved (MouseEvent e) {
             // System.out.println("Viewer:MOUSE_MOVED_EVENT:");
+            mouse_x = e.getX();
+            mouse_y = e.getY();
           }
-
         });
       this.addMouseWheelListener(new MouseWheelListener() {
           public void mouseWheelMoved (MouseWheelEvent e) {
@@ -9775,8 +9714,8 @@ public class FoilBoard extends JApplet {
     int force_scale_slider = 50;
     double mesh_active_chord_le_xpos_slider = 30 + 67.5;
     double mesh_active_chord_te_xpos_slider = 30 + 67.5;
-    double mesh_x_angle = 0, mesh_x_angle_on_press = 0;
-    double mesh_z_angle = 0, mesh_z_angle_on_press = 0;
+    double mesh_x_angle = -45, mesh_x_angle_on_press = 0;
+    double mesh_z_angle = -45, mesh_z_angle_on_press = 0;
 
     void find_it () {
       // System.out.println("-- centering,zooming: " + fact);
@@ -9886,12 +9825,20 @@ public class FoilBoard extends JApplet {
       y[i] = screen_off_y + toInt(space_y);
     }
 
-    // scale and translate but but no rotation
+    // from to x,y. scale and translate but but no rotation
     void to_screen_x_y_norot (Point3D p, int[] x, int[] y, int i, double offx, double scalex, double offy, double scaley, int screen_off_x, int screen_off_y)  { 
       double space_x = scalex*(offx+p.x);
       double space_y = scaley*(offy+p.z);
       x[i] = screen_off_x + toInt(space_x);
       y[i] = screen_off_y + toInt(space_y);
+    }
+
+    // from x, y to p. scale and translate but but no rotation
+    void from_screen_x_y_norot (Point3D p, int x, int y, double offx, double scalex, double offy, double scaley, int screen_off_x, int screen_off_y)  { 
+      // screen_off_x + toInt(scalex*(offx+p.x)) = x ==>
+      // scalex*p.x  = x - screen_off_x - scalex*offx;
+      p.x = (x - screen_off_x - scalex*offx)/scalex;
+      p.y = (y - screen_off_y - scaley*offy)/scaley;
     }
 
     void drawPart (Part p, double offx, double scalex, double offy, double scaley, int screen_off_x, int screen_off_y) {
@@ -9927,7 +9874,7 @@ public class FoilBoard extends JApplet {
 
     double persp_scale (double z) {
       if (!perspective) return 1;
-      double distance_to_screen_from_z0 = 1; // 1meter
+      double distance_to_screen_from_z0 = 1; // 
       return 1/(distance_to_screen_from_z0+z);
     }
 
@@ -10106,12 +10053,13 @@ public class FoilBoard extends JApplet {
 
     int view_3d_shift_x = 0, view_3d_shift_y = 0;
     int view_3d_shift_x_on_drag = 0, view_3d_shift_y_on_drag = 0;
+    boolean crosshair_mode = true;
       
     // Viewer.paint
     public void paint (Graphics g) {
       int i,j,k,n;
       //System.out.println("-- paint: ");
-      int xlabel,ylabel,ind,inmax,inmin;
+      int xlabel,ylabel,ind,inmax, inmin;
       int x[] = new int[40];
       int y[] = new int[40];
       double offx,scalex,offy,scaley,waste,incy,incx;
@@ -10125,6 +10073,8 @@ public class FoilBoard extends JApplet {
       int panel_height = getHeight();
       int panel_width = getWidth();
       // System.out.println("-- panel_height: " + panel_height);
+
+      boolean in_top_view = false, in_side_view = false, in_front_view = false;
 
       col = new Color(0,0,0);
       if (planet == 0) col = Color.cyan;
@@ -10495,9 +10445,7 @@ public class FoilBoard extends JApplet {
           y[i++] = screen_off_y+toInt(scaley*(wsmb_y+1.77));
           off1Gg.setColor(Color.BLUE);
           off1Gg.fillPolygon(x,y,i);
-            
         }
-          
 
         // RIDER
         i = 0;
@@ -10691,6 +10639,11 @@ public class FoilBoard extends JApplet {
                         y[0], x[0], x[1]);
 
       } else if (viewflg == VIEW_3D_MESH) { // draw 3D mesh view
+
+        in_top_view = mesh_z_angle == 0 && mesh_x_angle == -90;
+        in_side_view = mesh_z_angle == 0 && mesh_x_angle == 0;
+        in_front_view = mesh_x_angle == 0 && mesh_z_angle == -90;
+
         off1Gg.setColor(color_very_dark);
         off1Gg.fillRect(0,0,panel_width, panel_height);
         
@@ -10706,13 +10659,52 @@ public class FoilBoard extends JApplet {
 
         // 150 pixels is 1.5m
         scalex = 4*zoom_slider_pos_y; scaley = -scalex;
-        offx = -strut.xpos - strut.chord/2;
-        offy = -strut.span/3;
-          
+        offx = 0; // -strut.xpos - strut.chord/2;
+        offy = 0; // -strut.span/3;
+       
         drawPart3D(strut,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
         drawPart3D( fuse,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
         drawPart3D( wing,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
         drawPart3D( stab,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+
+        if (in_top_view || in_side_view || in_front_view) { 
+          if (anchor.x < 0) { // request to set anchor to 0,0
+            model_space_point.x = model_space_point.y = model_space_point.z = 0;
+            to_screen_x_y(model_space_point, x, y, 0, scalex, offx, scaley, offy, screen_off_x, screen_off_y);
+            anchor.x = x[0]; anchor.y = y[0];
+          }
+
+          // show mouse distance from 0
+          Point3D p = model_space_point;
+          // int screen_off_x = panel_width/2  + view_3d_shift_x + view_3d_shift_x_on_drag, 
+          //   screen_off_y   = panel_height/2 + view_3d_shift_y + view_3d_shift_y_on_drag; 
+          // offx = -strut.xpos - strut.chord/2;
+          // offy = -strut.span/3;
+          from_screen_x_y_norot(p, mouse_x, mouse_y, offx, scalex, 0, scaley, screen_off_x, screen_off_y);
+          // distance from the anchor
+          Point3D a = new Point3D(0,0,0);
+          from_screen_x_y_norot(a, anchor.x, anchor.y, offx, scalex, 0, scaley, screen_off_x, screen_off_y);
+          double dist_x = p.x - a.x;
+          double dist_y = p.y - a.y;
+          double dist = Math.sqrt(dist_x*dist_x + dist_y*dist_y);
+          // System.out.println("-- dist: " + dist);
+          off1Gg.drawString("( "+filter1(p.x*100), panel_width-200, panel_height-12);
+          off1Gg.drawString("/   "+filter1(p.y*100)+ " )", panel_width-150, panel_height-12);
+          off1Gg.drawString("d,cm= "+filter1(dist*100), panel_width-80, panel_height-12);
+          // show crosshair(s)
+          if (crosshair_mode) {
+            off1Gg.setColor(Color.gray);
+            off1Gg.drawLine(0, mouse_y, panel_width, mouse_y);
+            off1Gg.drawLine(mouse_x, 0, mouse_x, panel_height);
+            off1Gg.setColor(color_dark_green);
+            off1Gg.drawLine(0, anchor.y, panel_width, anchor.y);
+            off1Gg.drawLine(anchor.x, 0, anchor.x, panel_height);
+            int dist_screen = (int)Math.sqrt((anchor.x - mouse_x)*(anchor.x - mouse_x) +
+                                        (anchor.y - mouse_y)*(anchor.y - mouse_y));
+            off1Gg.drawOval(anchor.x - dist_screen, anchor.y - dist_screen, dist_screen*2, dist_screen*2);
+            off1Gg.setColor(Color.white);
+          }
+        }
           
       } else { // Edge
 
@@ -11207,7 +11199,8 @@ public class FoilBoard extends JApplet {
           // from meters to slider pos
           mesh_active_chord_te_xpos_slider = 30 + (mesh_active_chord_te_xpos_slider*500.0 + 67.5);
           drawSliderWidget("  TE", 60, (int)mesh_active_chord_te_xpos_slider, mesh_active_chord_te_xpos_widget_active);
-          if (mesh_z_angle == 0 && (mesh_x_angle == -90 || mesh_x_angle == 0)) { // top view or side view
+
+          if (in_top_view || in_side_view) { // top view or side view
             off1Gg.setColor(Color.yellow);
             off1Gg.drawString("CH+",230,25);
             off1Gg.setColor(Color.yellow);
@@ -11220,7 +11213,7 @@ public class FoilBoard extends JApplet {
             off1Gg.drawRect(mesh_edit_te_metaseq_anchor, 30, 20, 20);
             off1Gg.drawString("LE", mesh_edit_le_metaseq_anchor, 22);
             off1Gg.drawString("TE", mesh_edit_te_metaseq_anchor, 22);
-          } else if (mesh_x_angle == 0 && mesh_z_angle == -90) { // front view ==> Z offset editing
+          } else if (in_front_view) { // front view ==> Z offset editing
             mesh_edit_z_metaseq_anchor_x =  panel_width-60;
             mesh_edit_z_metaseq_anchor_y =  panel_height/2;
             off1Gg.drawRect(mesh_edit_z_metaseq_anchor_x, mesh_edit_z_metaseq_anchor_y, 20, 20);
@@ -12444,7 +12437,7 @@ public class FoilBoard extends JApplet {
     // class Plot
     public void paint (Graphics g) {
       int i,j,k,n,index;
-      int xlabel,ylabel,ind,inmax,inmin;
+      int xlabel,ylabel,ind,inmax, inmin;
       int x[] = new int[8];
       int y[] = new int[8];
       double offx,scalex,offy,scaley,waste,incy,incx;
