@@ -194,7 +194,12 @@ import java.awt.datatransfer.Transferable; //same
 import java.awt.image.BufferedImage; // BG image
 import java.awt.geom.AffineTransform; // same 
 import java.awt.Graphics2D; // same
-
+import java.awt.image.LookupTable; // same
+import java.awt.image.ShortLookupTable; // same
+import java.awt.image.LookupOp; // same
+import java.awt.image.ByteLookupTable; // same
+import java.awt.image.ColorModel; // same
+import java.awt.image.WritableRaster; // same
 
 // Swing classes. No '.*', keep track of all links.
 import javax.swing.JDialog;
@@ -667,11 +672,18 @@ public class FoilBoard extends JApplet {
     protected boolean on_loadPanel;
 
     // a little sty;e helper
-    Button new_button (String title) {
+    Button new_button (String title, ActionListener action, String tooltip) {
       Button b = new Button(title);
       b.setBackground(Color.white);
       b.setForeground(Color.blue);
+      if (action != null)
+        b.addActionListener(action);
+      if (tooltip != null)
+        b.setToolTipText(tooltip);
       return b;
+    }
+    Button new_button (String title) {
+      return new_button(title, null, null);
     }
   } // Panel
 
@@ -9295,7 +9307,7 @@ public class FoilBoard extends JApplet {
       VIEW_3D_MESH = 2;
 
     static final int VIEW_SLIDERS_MAX_Y = 230;
-    boolean help_draw_details = false;
+    boolean help_draw_details = false, bg_image_popup_pressed = false;
 
     int viewflg = VIEW_FORCES;
     int edge_view_type = DISPLAY_ANIMATION;
@@ -9346,7 +9358,12 @@ public class FoilBoard extends JApplet {
               mesh_x_angle_on_press = mesh_x_angle; 
               mesh_z_angle_on_press = mesh_z_angle;
 
-              if (y < 35 && x >= getWidth() - 30) help_draw_details = !help_draw_details;
+              if (x >= getWidth() - 30) {
+                if (y < 35)
+                  help_draw_details = !help_draw_details;
+                else if (y < 70)
+                  bg_image_popup_pressed = !bg_image_popup_pressed;
+              }
 
               if (mesh_edit_mode) {
                 // ..._on_press = current_part.xpos - current_part.mesh_LE[mesh_active_chord].x;
@@ -9609,6 +9626,25 @@ public class FoilBoard extends JApplet {
                 System.out.println("-- CTRL-V" );
                 paste_image();
                 viewer.repaint();                
+                break;
+              case KeyEvent.VK_I:  // Ctrl-i or Ctrl-I
+                viewer.BGImageInvert();
+                break;
+              case KeyEvent.VK_ADD:
+              case KeyEvent.VK_PLUS: // Ctrl-+
+              case KeyEvent.VK_PAGE_UP:
+                viewer.BGImageContrastInc();
+                break;
+              case KeyEvent.VK_SUBTRACT:
+              case KeyEvent.VK_MINUS:  // Ctrl--
+              case KeyEvent.VK_PAGE_DOWN:
+                viewer.BGImageContrastDec();
+                break;
+              case KeyEvent.VK_HOME:
+                viewer.BGImageBrighten();
+                break;
+              case KeyEvent.VK_END:
+                viewer.BGImageDarken();
                 break;
               default:
               }
@@ -11145,6 +11181,10 @@ public class FoilBoard extends JApplet {
         off1Gg.setColor(perspective ? Color.yellow : Color.cyan);
         off1Gg.drawString("Perspective",160,25);
         off1Gg.setColor(Color.white);
+        if (bg_image_popup_pressed) {
+          bg_image_popup_pressed = false;
+          controlsPopUp();
+        }
         if (help_draw_details) {
           off1Gg.drawString("Hide", panel_width-30,25);
           int h_x = panel_width-164, h_y = 37;
@@ -11169,6 +11209,7 @@ public class FoilBoard extends JApplet {
           off1Gg.drawString("LE/TE of the selected chord", h_x, h_y); h_y+=12;
         } else 
           off1Gg.drawString("Help", panel_width-30,25);
+        off1Gg.drawString("Image", panel_width-30,50);
       } else {
         off1Gg.setColor(Color.red);
         off1Gg.drawString("Find",240,10);
@@ -11251,11 +11292,18 @@ public class FoilBoard extends JApplet {
       g.drawImage(offImg1,0,0,this);   
     } // Viewer.paint ()
 
-    // background image manipulation
+
+
+    // -------------- Background Image Manipulation Section -------------------
+    //
+    // The following routines are taken from TopLevelMacros.jsl, the
+    // Tube Spice Maodel Paint* toolkit, http://www.dmitrynizh.com/tubeparams_image.htm
+
     int IMG_X = 0, IMG_Y = 0;
     double IMG_ROT = 0.0, IMG_SHEAR = 0.0, IMG_SCALE = 1.0;
+    
 
-    BufferedImage bg_image;
+    BufferedImage bg_image, bg_image_orig;
     Clipboard clipboard;
     void paste_image ()  {
       //create clipboard object
@@ -11267,9 +11315,8 @@ public class FoilBoard extends JApplet {
           if (clipData.isDataFlavorSupported(DataFlavor.imageFlavor)) {
             System.out.println("-- pasting an image...");
             BufferedImage image =  (BufferedImage)  clipboard.getData(DataFlavor.imageFlavor);
-            bg_image = image;
-            // not yet
-            // IMG_INVERTED = false; IMG_SCALE = IMG_CONTRAST = 1.0; IMG_ROT = IMG_SHEAR = IMG_BRIGHTNESS = IMG_X = IMG_Y = 0;
+            bg_image = bg_image_orig = image;
+            IMG_INVERTED = false; IMG_SCALE = IMG_CONTRAST = 1.0; IMG_ROT = IMG_SHEAR = IMG_BRIGHTNESS = IMG_X = IMG_Y = 0;
           } else if (clipData.isDataFlavorSupported(DataFlavor.stringFlavor) ||
                      clipData.isDataFlavorSupported(DataFlavor.plainTextFlavor)) {
             String data =  (String)   clipboard.getData(DataFlavor.stringFlavor);
@@ -11303,6 +11350,287 @@ public class FoilBoard extends JApplet {
       Graphics2D g2d = (Graphics2D) g;
       g2d.drawImage(image, at, null);
     }
+
+        LookupTable lookupTable;
+
+        public void contrastLUT () {
+          short brighten[] = new short[256];
+          for (int i = 0; i < 256; i++) {
+            short pixelValue = (short) (i * IMG_CONTRAST);
+            if (pixelValue > 255)
+              pixelValue = 255;
+            else if (pixelValue < 0)
+              pixelValue = 0;
+            brighten[i] = pixelValue;
+          }
+          lookupTable = new ShortLookupTable(0, brighten);
+        }
+
+        public void brightenLUT () {
+          short brighten[] = new short[256];
+          for (int i = 0; i < 256; i++) {
+            short pixelValue = (short) (i + IMG_BRIGHTNESS);
+            if (pixelValue > 255)
+              pixelValue = 255;
+            else if (pixelValue < 0)
+              pixelValue = 0;
+            brighten[i] = pixelValue;
+          }
+          lookupTable = new ShortLookupTable(0, brighten);
+        }
+
+        public void reverseLUT () {
+          byte reverse[] = new byte[256];
+          for (int i = 0; i < 256; i++) {
+            reverse[i] = (byte) (255 - i);
+          }
+          lookupTable = new ByteLookupTable(0, reverse);
+        }
+
+        public void applyFilter () {
+          LookupOp lop = new LookupOp(lookupTable, null);
+          bg_image = imageDeepCopy(bg_image_orig);
+          lop.filter(bg_image_orig, bg_image);
+        }
+
+        // from http://stackoverflow.com/questions/3514158/how-do-you-clone-a-bufferedimage
+        public BufferedImage imageDeepCopy(BufferedImage bi) {
+          ColorModel cm = bi.getColorModel();
+          boolean isAlphaPremultiplied = cm.isAlphaPremultiplied();
+          WritableRaster raster = bi.copyData(bi.getRaster().createCompatibleWritableRaster());
+          return new BufferedImage(cm, raster, isAlphaPremultiplied, null);
+        }
+
+        double IMG_CONTRAST = 1.0;
+        public void BGImageContrastInc () {
+          if (bg_image == null) return;
+          IMG_CONTRAST *= 1.1;
+          contrastLUT();
+          applyFilter();
+          repaint();
+        }
+
+        public void BGImageContrastDec () {
+          if (bg_image == null) return;
+          IMG_CONTRAST /= 1.1;
+          contrastLUT();
+          applyFilter();
+          repaint();
+        }
+
+        int IMG_BRIGHTNESS = 0;
+        public void BGImageBrighten () {
+          if (bg_image == null) return;
+          IMG_BRIGHTNESS += 10;
+          brightenLUT();
+          applyFilter();
+          repaint();
+        }
+
+        public void BGImageDarken () {
+          if (bg_image == null) return;
+          IMG_BRIGHTNESS -= 10;
+          brightenLUT();
+          applyFilter();
+          repaint();
+        }
+
+        boolean IMG_INVERTED = false;
+        
+        public void BGImageInvert () {
+          if (bg_image == null) return;
+          reverseLUT();
+          IMG_INVERTED = !IMG_INVERTED;
+          applyFilter();
+          // a hack of sorts to allow further brightness etc.
+          // double inversion always restores the original. 
+          bg_image_orig = bg_image;
+
+          repaint();
+        }
+
+        JDialog controlsWindow;
+
+        void controlsPopUp () {
+          if (controlsWindow == null) {
+            // Frame frame = new Frame("Controls, Options, Settings");
+            JDialog frame = new JDialog(app.frame,"Controls, Options, Settings");
+            controlsWindow = frame;
+            Panel p = new Panel();
+            // p.setLayout(null); // fixed/exact geometry
+            // p.setBackground(panelColor);
+
+            int t1 = 10, dy = 30;            
+            Point xy = new Point(t1, t1);
+            
+            JButton b;
+            int rows = 0;
+
+            rows++;
+            p.add(new JLabel("Paste Background Image:"));
+            p.add(new JLabel("press Ctrl-v or"));
+            p.add(p.new_button("Paste",
+                             new ActionListener() {
+                               @Override
+                               public void actionPerformed(ActionEvent e) {
+                                 paste_image();
+                                 repaint();                
+                               }},
+                             "<html>if the OS Clipboard holds image, paste the image as backgound image mage, otherwise<br>" +
+                             "if the OS Clipboard holds text, try to import it as SPICE Model text.</html>"));
+            
+            /// 
+            ///  xy.setLocation(t1, xy.getY()+dy+dy);
+            ///  label(p, "Bacground Image Colors:", xy, 10);
+
+            rows++;
+            p.add(new JLabel("Bacground"));
+            p.add(new JLabel("Image"));
+            p.add(new JLabel("Colors:"));
+
+            ///  xy.setLocation(t1, xy.getY()+dy);
+            rows++;
+            p.add(new JLabel("Brightness:"));
+            p.add(p.new_button("Less",
+                               new ActionListener() {
+                                 @Override
+                                 public void actionPerformed(ActionEvent e) {                               
+                                   BGImageDarken();
+                                   repaint();}}, 
+                               null));
+            p.add(p.new_button("More",
+                               new ActionListener() {
+                                 @Override
+                                 public void actionPerformed(ActionEvent e) {                               
+                                   BGImageBrighten();
+                                   repaint();}}, 
+                               null));
+
+            ///  xy.setLocation(t1, xy.getY()+dy);
+            rows++;
+            p.add(new JLabel("Contrast:"));
+            p.add(p.new_button("Less",
+                               new ActionListener() {
+                                 @Override
+                                 public void actionPerformed(ActionEvent e) {                               
+                                   BGImageContrastDec();
+                                   repaint();}}, 
+                               null));
+            p.add(p.new_button("More",
+                               new ActionListener() {
+                                 @Override
+                                 public void actionPerformed(ActionEvent e) {                               
+                                   BGImageContrastInc();
+                                   repaint();}}, 
+                               null));
+            /// 
+            ///  xy.setLocation(t1, xy.getY()+dy);
+            rows++;
+            p.add(new JLabel("Invert"));
+            p.add(new JLabel("Colors:"));
+            p.add(p.new_button("Apply",
+                               new ActionListener() {
+                                 @Override
+                                 public void actionPerformed(ActionEvent e) {                               
+                                   BGImageInvert();
+                                   repaint();}}, 
+                               null));
+            
+            ///  ADD_ACTION button(p, "Revert", xy, null, 30) {
+            ///    IMG_BRIGHTNESS = 0; IMG_CONTRAST = 1.0;
+            ///    if (IMG_INVERTED) BGImageInvert();
+            ///    plateCurvesImage = plateCurvesImageOrig;
+            ///    top_repaint();
+            ///  };
+            /// 
+            ///  xy.setLocation(t1, xy.getY()+dy+dy);
+
+            ///  label(p, "Bacground Image Geometry:", xy, 10);
+            ///  xy.setLocation(t1, xy.getY()+dy);
+            ///  label(p, "    Zoom", xy, 10);
+            ///  ADD_ACTION button(p, "Less", xy, null, 30) {IMG_SCALE /= 1.1;top_repaint();};
+            ///  ADD_ACTION button(p, "More", xy, null, 30) {IMG_SCALE *= 1.1;top_repaint();};
+            ///  xy.setLocation(t1, xy.getY()+dy);
+            ///  label(p, "    Rotate 90 degr  ", xy, 10);
+            ///  ADD_ACTION button(p, "Clockwise", xy, null, 30)   {IMG_ROT += Math.toRadians(90);top_repaint();};
+            ///  ADD_ACTION button(p, "Back", xy, null, 30)     {IMG_ROT -= Math.toRadians(90);top_repaint();};
+            ///  xy.setLocation(t1, xy.getY()+dy);
+            ///  label(p, "    Rotate 1/10 degr", xy, 10);
+            ///  ADD_ACTION button(p, "Clockwise", xy, null, 30) {IMG_ROT += 0.002;top_repaint();};
+            ///  ADD_ACTION button(p, "Back", xy, null, 30)   {IMG_ROT -= 0.002;top_repaint();};
+            ///  xy.setLocation(t1, xy.getY()+dy);
+            ///  label(p, "    Shear", xy, 10);
+            ///  ADD_ACTION button(p, "Left", xy, null, 30)  {IMG_SHEAR += 0.005; IMG_X+=(0.005*0.1*frameSize_Y); top_repaint();};
+            ///  ADD_ACTION button(p, "Right", xy, null, 30) {IMG_SHEAR -= 0.005; IMG_X-=(0.005*0.1*frameSize_Y); top_repaint();};
+            /// 
+            ///  xy.setLocation(t1, xy.getY()+dy);
+            ///  label(p, " ", xy, 10);
+            ///  ADD_ACTION button(p, "Revert geometry to original", xy, null, 30) {
+            ///    IMG_X = IMG_Y = 0;
+            ///    IMG_ROT = IMG_SHEAR = 0.0; 
+            ///    IMG_SCALE = 1.0;
+            ///    top_repaint();
+            ///  };
+            /// 
+            ///  xy.setLocation(t1, xy.getY()+dy+dy);
+            ///  label(p, "Plot lines", xy, 10);
+            ///  ADD_ACTION button(p, "Narrower", xy, null, 30) IF_INSTANCEOF obg Graphics2D g2 {
+            ///    BasicStroke stroke = (BasicStroke)g2.getStroke();
+            ///    stroke = new BasicStroke(Math.max(1,stroke.getLineWidth()-1));
+            ///    g2.setStroke(stroke);
+            ///    top_repaint();
+            ///  };
+            ///  ADD_ACTION button(p, "Wider", xy, null, 30) IF_INSTANCEOF obg Graphics2D g2 {
+            ///    BasicStroke stroke = (BasicStroke)g2.getStroke();
+            ///    stroke = new BasicStroke(stroke.getLineWidth()+1);
+            ///    g2.setStroke(stroke);
+            ///    top_repaint();
+            ///  };
+            ///  ADD_ACTION button(p, "Revert to deault", xy, null, 30) IF_INSTANCEOF obg Graphics2D g2 {
+            ///    BasicStroke stroke = (BasicStroke)g2.getStroke();
+            ///    stroke = new BasicStroke(DEFAULT_LINE_STROKE);
+            ///    g2.setStroke(stroke);
+            ///    top_repaint();
+            ///  };
+            /// 
+            /// 
+
+            // p.setSize(430, (int)(xy.getY())+dy);
+            p.setLayout(new GridLayout(rows,3,10,10));
+
+            frame.add(p); //, BorderLayout.SOUTH);
+            
+            //frame.setLocation(frameSize_X/2, -frameSize_Y/2);
+            // frame.setLocationRelativeTo(this.frame);
+            frame.setLocation(app.frame.getX() + app.frame.getWidth(), app.frame.getY());   
+            frame.getContentPane().setPreferredSize(new Dimension(420, rows*40));
+            frame.pack();
+            frame.setVisible(true);
+            //frame.addWindowListener(A_NEW WindowListener {
+            //    public void windowClosed (WindowEvent e) {
+            //    }
+            //
+            //    public void windowOpened (WindowEvent e) {
+            //    }
+            //
+            //    public void windowIconified(WindowEvent e) {
+            //    }
+            //
+            //    public void windowDeiconified(WindowEvent e) {
+            //    }
+            //
+            //    public void windowActivated(WindowEvent e) {
+            //    }
+            //
+            //    public void windowDeactivated(WindowEvent e) {
+            //    }
+            //    public void windowClosing (WindowEvent e) {
+            //      e.getWindow().setVisible(false);
+            //    }});
+          }
+          controlsWindow.setVisible(true);
+          controlsWindow.show();
+        }
     
   } // end Viewer
 
