@@ -9358,10 +9358,11 @@ public class FoilBoard extends JApplet {
               mesh_x_angle_on_press = mesh_x_angle; 
               mesh_z_angle_on_press = mesh_z_angle;
 
-              if (x >= getWidth() - 30) {
-                if (y < 35)
+              int width = getWidth(); 
+              if (y < 35) {
+                if (x >=  width - 30)                
                   help_draw_details = !help_draw_details;
-                else if (y < 70)
+                else if (x >= width - 110 && x < width - 30)
                   bg_image_popup_pressed = !bg_image_popup_pressed;
               }
 
@@ -11209,7 +11210,7 @@ public class FoilBoard extends JApplet {
           off1Gg.drawString("LE/TE of the selected chord", h_x, h_y); h_y+=12;
         } else 
           off1Gg.drawString("Help", panel_width-30,25);
-        off1Gg.drawString("Image", panel_width-30,50);
+        off1Gg.drawString("IMG Controls", panel_width-110,25);
       } else {
         off1Gg.setColor(Color.red);
         off1Gg.drawString("Find",240,10);
@@ -11454,7 +11455,7 @@ public class FoilBoard extends JApplet {
         void controlsPopUp () {
           if (controlsWindow == null) {
             // Frame frame = new Frame("Controls, Options, Settings");
-            JDialog frame = new JDialog(app.frame,"Controls, Options, Settings");
+            JDialog frame = new JDialog(app.frame,"Background Image Controls");
             controlsWindow = frame;
             Panel p = new Panel();
             // p.setLayout(null); // fixed/exact geometry
@@ -11484,9 +11485,9 @@ public class FoilBoard extends JApplet {
             ///  label(p, "Bacground Image Colors:", xy, 10);
 
             rows++;
-            p.add(new JLabel("Bacground"));
-            p.add(new JLabel("Image"));
+            p.add(new JLabel("Bacground Image", JLabel.RIGHT));
             p.add(new JLabel("Colors:"));
+            p.add(new JLabel(""));
 
             ///  xy.setLocation(t1, xy.getY()+dy);
             rows++;
@@ -11547,6 +11548,11 @@ public class FoilBoard extends JApplet {
 
             ///  label(p, "Bacground Image Geometry:", xy, 10);
             ///  xy.setLocation(t1, xy.getY()+dy);
+            rows++;
+            p.add(new JLabel("Bacground Image", JLabel.RIGHT));
+            p.add(new JLabel("Geometry:"));
+            p.add(new JLabel(""));
+
             ///  label(p, "    Zoom", xy, 10);
             ///  ADD_ACTION button(p, "Less", xy, null, 30) {IMG_SCALE /= 1.1;top_repaint();};
             ///  ADD_ACTION button(p, "More", xy, null, 30) {IMG_SCALE *= 1.1;top_repaint();};
@@ -11554,6 +11560,24 @@ public class FoilBoard extends JApplet {
             ///  label(p, "    Rotate 90 degr  ", xy, 10);
             ///  ADD_ACTION button(p, "Clockwise", xy, null, 30)   {IMG_ROT += Math.toRadians(90);top_repaint();};
             ///  ADD_ACTION button(p, "Back", xy, null, 30)     {IMG_ROT -= Math.toRadians(90);top_repaint();};
+            rows++;
+            p.add(new JLabel("Rotate 90 degrees:"));
+            p.add(p.new_button("Clockwise",
+                               new ActionListener() {
+                                 @Override
+                                 public void actionPerformed(ActionEvent e) { 
+                                   IMG_ROT += Math.toRadians(90);
+                                   repaint();}}, 
+                               null));
+            p.add(p.new_button("Back",
+                               new ActionListener() {
+                                 @Override
+                                 public void actionPerformed(ActionEvent e) { 
+                                   IMG_ROT -= Math.toRadians(90);
+                                   repaint();}}, 
+                               null));
+
+
             ///  xy.setLocation(t1, xy.getY()+dy);
             ///  label(p, "    Rotate 1/10 degr", xy, 10);
             ///  ADD_ACTION button(p, "Clockwise", xy, null, 30) {IMG_ROT += 0.002;top_repaint();};
