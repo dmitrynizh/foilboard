@@ -29,7 +29,16 @@ Displays side view of the entire water-craft in flight, including the rider and 
 
 ![3d-view-1](3d-view.png)
 
-Displays a 3D rendering of the hydrofoil unit as 3d mesh.  The board is not rendered in the 3D Mesh View. The mesh model can be rotated with mouse and zoomed with a slider bar (no mouse-wheel-controlled zooming yet). The Display menu allows to select either perspective view or orthographic view.
+Displays a 3D rendering of the hydrofoil unit as 3d mesh.  The board is not rendered in the 3D Mesh View. The mesh model can be rotated with mouse and zoomed either with the slider bar or with mouse wheel.  The Display menu allows to select either perspective view or orthographic view. 
+
+The 3 projection viwes - Top, Side, Front -  can be entered with keyboard:
+press t for Top View, s for Side View, f for Front View. 
+
+Note: the Top-Left panel needs be 'active'  for the keyboard commands be directed to it. Activate the panel with a mouse click before using the keyboard commands. 
+
+Changes to Parts Span, Chord/MAC and other controls on the 'Size Tab' (see decryption below) are immediately visible on the 3D Mesh View.
+ 
+In addition, 3D Mesh View has Editor Mode that allows advanced users to modify the shape of the parts, exactly  matching the mesh to hydrofoil drawings or photos.  Read more  [Here](MeshEditor.md). about the Mesh Editor.
 
 ### Top Right Panel
 
@@ -99,8 +108,12 @@ When FoilSimIII shapes are enabled, some of these buttons select FoilSim 'analyt
 ![Size Tab](panel-bl-tab-size.png)
 
 This tab provides 3 inputs with sliders - Chord, Span and Xpos, and one with text input box only - Area. The values are displayed according to the Units selection on the Results Panel, Metric Scientific is the default. Xpos is longitudinal offset of the leading edge of the root chord of the current part from the nose of fuselage. The Area input box allows to scale Chord and Span to given Area size. For parts with complex geometry Chord is  *Mean Aerodynamic Chord*, and the caption is "MAC". 
-Users are allowed to alter the value  of MAC chord, however,  once it is done, the chord is no longer MAC, and the part loses its multi-segment geometry, which is replaced by a rectangle of chord span x chord size. 
- Aspect Rat is in output field (black background means output field) and the value of it is the part's  aspect ratio which is  Span/Chord which is also Span^2/Area. 
+
+ Aspect Rat is an output field (black background means output field) and the value of it is the part's  aspect ratio which is  Span/Chord which is also Span^2/Area. 
+
+When using this tab, it best to switch to the 3d mesh on the top panel.
+Parst with complex geometry scale proportionally when Chord/MAC or Span are altered. 
+
 
 ### Choose Plot Tab
 

@@ -1,0 +1,30 @@
+<HTML>
+<HEAD>
+  <TITLE>Slingshot Windfoil in T-Hydrofoil Simulator V 1.0</TITLE>
+  <META name="author" content="dmitrynizh"/>
+  <META name="copyright" content="(c) 2017"/>
+</HEAD>
+<BODY>
+<P><APPLET CODE="Foil.class" WIDTH='900' HEIGHT='600' ALIGN='bottom'>
+<!-- This is 2019 Hoverglide FWIND Foil -->
+<!-- https://www.slingshotsports.com/2019-Hoverglide-FWIND-Foil -->
+  <PARAM NAME="Make"  VALUE="Slingshot"/>
+  <PARAM NAME="Model" VALUE="Infinity76 Windfoil"/>
+  <PARAM NAME="Year"  VALUE="2019"/>
+<!-- Params Wing, Stab, Fuse, Mast have these VALUE formats: 
+  (1) simple:  VALUE="FOIL CHORD SPAN THICKNESS CAMBER ANGLE POS*"
+   where CHORD SPAN THICKNESS CAMBER ANGLE  - numeric values in meters
+         FOIL - either one of built-tin names or name of data/image file
+         POS* optional distance of part's leading edge (LE)  from the fuselage tip
+  (2) multi-segmented, with equally-spaced chords
+    where everything is as above except CHORD is ;-separated list of chord specs.
+    Each chord spec  can be either L or L/X or L/X/Z, where L is chord length, 
+    X is longitudinal relative offset from the prev chord, Z is same for vertical direction
+ -->
+<PARAM NAME="Wing" VALUE="NACA_4_Series 0.3159/-0.009/-0.025;0.3115/0.004/-0.0015;0.3007/0.0107/-0.0035;0.2872/0.0135/-0.0059;0.2708/0.0162/-0.0061;0.2531/0.0176/-0.0049;0.2349/0.018/-0.0034;0.212/0.0226/-0.002;0.1829/0.0289/-5.0E-4;0.1513/0.0316/-0.0027;0.0711/0.074/-0.0248 0.84 11.9 3.2 0.0 -0.151"/>
+<PARAM NAME="Stab" VALUE="NACA_4_Series 0.115/-0.001/0.02;0.114/7.0E-4/-6.0E-4;0.1099/0.0031/-3.0E-4;0.1024/0.0055/8.0E-4;0.0919/0.0078/0.0021;0.0786/0.0099/0.0102;0.0634/0.0114/0.0285 0.48 7.9 -1.5 -1.0 0.719"/>
+<PARAM NAME="Fuse" VALUE="NACA_4_Series 0.8399 0.02 4.0 0.0 0.0 0.0"/>
+<PARAM NAME="Mast" VALUE="NACA_4_Series 0.125/0.0;0.125/0.0 0.61 12.0 0.0 0.0 0.31"/>
+</APPLET></P>
+</BODY>
+</HTML>
