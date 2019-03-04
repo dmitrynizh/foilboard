@@ -811,7 +811,7 @@ public class FoilBoard extends JApplet {
       // (1) adjust area below to be 1/3 (or what 1-height/100 is) where drag is computed, use 1/2 of this section drag plus
       // (3) wave & spray drag as
       // 0.24 * q0_SI * strut.thickness * strut.thickness. See "Full measurm... page 8"
-      double k = 3.1415926 * 
+      double k = Math.PI * 
         Math.max(0.03,                     // why min? otherwise K shrinks causing Cd to grow too much for 
                  current_part.aspect_rat)  // ultra low aspect stuff like fuse (ar = 0.025 or less):
         * current_part.Ci_eff;    // (/(* 0.1 0.1)(* 3.14 0.025 0.8)) vs  (/(* 0.1 0.1)(* 3.14 0.1 0.8)) and ar=1: (/(* 0.1 0.1)(* 3.14 0.1 0.8))
@@ -1302,8 +1302,8 @@ public class FoilBoard extends JApplet {
   static Font largeFont = new Font("TimesRoman", Font.PLAIN, 24);
   static Font boldFont  = new Font("TimesRoman", Font.BOLD, 16);
  
-  static double convdr = 3.1415926/180.;
-  static double pid2 = 3.1415926/2.0;
+  static double convdr = Math.PI /180.;
+  static double pid2 = Math.PI /2.0;
 
   static double viscos;
 
@@ -1462,7 +1462,8 @@ public class FoilBoard extends JApplet {
 
   int bdragflag = 1;
 
-  boolean  ar_lift_corr = true, re_corr = true, induced_drag_on = true, skin_drag_on = true;
+  boolean  ar_lift_corr = true, ar_lift_corr_2 = false, ar_lift_corr_3 = false,
+    re_corr = true, induced_drag_on = true, skin_drag_on = true;
 
   /* Value Ranges */
   static double v_min, alt_min, aoa_min, v_max, alt_max, aoa_max;
@@ -3071,8 +3072,8 @@ public class FoilBoard extends JApplet {
       alt_min = 0.0;    alt_max = 85; // this in %
       aoa_min = -20.0; aoa_max = 20.0;
       camber_min = -20.0;  camber_max = 20.0;
-      thickness_min = 1; // do not make it less than 1, or some Cl?Cd calcs fail, see Solver
-      thickness_max = 20.0; // this is 20%
+      thickness_min = 1; // in %. do not make it less than 1%, or some Cl,Cd calcs fail, see Solver
+      thickness_max = 20.0; // in %. this is 20%
       chord_min = .01;  chord_max = 1.4; // why >1: chord is also fuse length.
       span_min = .01;  span_max = 2.5;
       ar_min = chord_min*span_min;  ar_max = span_max*chord_max;
@@ -3233,40 +3234,64 @@ public class FoilBoard extends JApplet {
 
     // circulation from Kutta condition
     // thickness_pst: typically current_part.thickness
-    // camber_pst   : typically current_part.camber/25
+    // camber_pst   : typically current_part.camber
     void getCirculation (double effaoa, double thickness_pst, double camber_pst) {   
       double beta;
-      double thickness = thickness_pst/100.0; 
-      double camber = camber_pst/100.0; 
+      double th_abs = thickness_pst/100.0; 
       xcval = 0.0;
-      ycval = 2 * camber; // was: current_part.camber/25/2, which is current_part.camber/25.
+      ycval = camber_pst/50; // was: current_part.camber/25/2
 
       if (current_part.foil == FOIL_CYLINDER ||      /* get circulation for rotating cylnder */
           current_part.foil == FOIL_BALL) {         /* get circulation for rotating ball */
         rval = radius/lconv;
-        gamval = 4.0 * 3.1415926 * 3.1415926 *spin * rval * rval
+        gamval = 4.0 * Math.PI * Math.PI *spin * rval * rval
           / (velocity/vconv);
         gamval = gamval * spindr;
         ycval = .0001;
       } else {
-        rval = thickness + Math.sqrt(thickness*thickness + ycval*ycval + 1.0);
-        xcval = 1.0 - Math.sqrt(rval*rval - ycval*ycval);
+        rval = th_abs + Math.sqrt((current_part.foil == FOIL_FLAT_PLATE
+                                   ? 0 : th_abs*th_abs)
+                                  + ycval*ycval + 1.0);
+        xcval = current_part.foil == FOIL_JOUKOWSKI ? 0 : (1.0 - Math.sqrt(rval*rval - ycval*ycval));
         beta = Math.asin(ycval/rval)/convdr;     /* Kutta condition */
         gamval = 2.0*rval*Math.sin((effaoa+beta)*convdr);
       }
     }
-    
-    double get_Cl (double effaoa) {
-      double result = current_part.foil.get_Cl(effaoa);
 
-      if (ar_lift_corr) {  // correction for low aspect ratio
-        double k = 
-          (current_part.aspect_rat >= 0.2) 
-          ? 3.14159*current_part.aspect_rat // classic, normal 
-          : 3.14159*Math.pow(current_part.aspect_rat, 1.2); // for fuse, it drops down more
-        result = result /(1.0 + Math.abs(result)/k);
+    // for my comparison of various corection methods, see
+    static final String desmos_ar_corr_url = "https://www.desmos.com/calculator/ngqg38y2t0";
+    // older edits:
+    // https://www.desmos.com/calculator/erzdtdn7k0
+    // https://www.desmos.com/calculator/hb6nfgy1k8
+    // https://www.desmos.com/calculator/w7kilfwdli
+    // https://www.desmos.com/calculator/0ejmbb8hks
+
+    double get_Cl (double effaoa) {
+      double AR = current_part.aspect_rat;
+      double Cl = current_part.foil.get_Cl(effaoa); // Cl_infinity
+      double k = Math.PI *AR;
+      double Cl_abs = Math.abs(Cl);
+      if (ar_lift_corr) {  // Helmbold's correction for low aspect ratio
+        Cl = (AR >= 4) 
+          // fast, classic, normal, 'e'=1
+          ? Cl / (1.0 + Cl_abs/k)
+          // Helmbold's equation except with pow increased from 2 to 3....
+          // converses alomost ideally with the high AR one at AR=4
+          : Cl / (Math.sqrt(1.0 + Math.pow(Cl_abs/k,3)) + Cl_abs/k);
+      } else if (ar_lift_corr_2) { // Dmitry's low AR correction approach
+        Cl = (AR >= 1) 
+          ? Cl / (1.0 + Cl_abs/k) // standard -  same as high AR above
+          // low AR, converges with the above at AR=1
+          : Cl / (1 + Cl/(Math.PI * Math.pow(AR, 1.4)));
+      } else if (ar_lift_corr_3) { // from JavaFoil, M<<<1
+        // note: this really is 2/AR....
+        double grad = (2 * Math.PI )/(Math.PI * AR);
+        Cl = (AR >= 4) 
+          ? Cl / (1.0 + grad)
+          // low AR: note: 5% step from above just under AR=4!!!
+          : Cl / (Math.sqrt(1.0 + k*k) + k);
       }
-      return result;
+      return Cl;
     }
 
     double compute_Cl_Kutta (double effaoa) {
@@ -3304,7 +3329,7 @@ public class FoilBoard extends JApplet {
       }
       
       result = stfact *
-        gamval*4.0*3.1415926/chrd;
+        gamval*4.0* Math.PI /chrd;
         
       return result;
     }
@@ -3609,7 +3634,7 @@ public class FoilBoard extends JApplet {
 
     // from http://paulbourke.net/miscellaneous/interpolation/ 
     double CosineInterpolate (double y1,double y2, double mu) {
-      double mu2 = (1-Math.cos(mu*Math.PI))/2;
+      double mu2 = (1-Math.cos(mu* Math.PI ))/2;
       return(y1*(1-mu2)+y2*mu2);
     }
 
@@ -6260,7 +6285,7 @@ public class FoilBoard extends JApplet {
           // in.opts.cbt3.setBackground(Color.white);
         } else if (current_part.foil == FOIL_BALL) {
           current_part.span = radius;
-          current_part.area = 3.1415926*radius*radius;
+          current_part.area = Math.PI *radius*radius;
           if (viewer.viewflg != viewer.VIEW_EDGE) viewer.viewflg = viewer.VIEW_EDGE;
           bdragflag = 1;
           // in.opts.cbt1.setBackground(Color.yellow);
@@ -8541,7 +8566,7 @@ public class FoilBoard extends JApplet {
             }
             current_part.spanfac = (int)(fact*current_part.span/radius*.3535);
             current_part.area = 2.0*radius*current_part.span;
-            if (current_part.foil == FOIL_BALL) current_part.area = 3.1415926 * radius * radius;
+            if (current_part.foil == FOIL_BALL) current_part.area = Math.PI * radius * radius;
 
             i1 = (int) (((v1 - spin_min)/(spin_max-spin_min))*1000.);
             i2 = (int) (((v2 - rad_min)/(rad_max-rad_min))*1000.);
@@ -8631,7 +8656,7 @@ public class FoilBoard extends JApplet {
           if (current_part.foil == FOIL_BALL) current_part.span = v3 = radius;
           current_part.spanfac = (int)(fact*current_part.span/radius*.3535);
           current_part.area = 2.0*radius*current_part.span;
-          if (current_part.foil == FOIL_BALL) current_part.area = 3.1415926 * radius * radius;
+          if (current_part.foil == FOIL_BALL) current_part.area = Math.PI * radius * radius;
           cylShape.setLims();
 
           fl1 = (float) v1;
@@ -8952,16 +8977,63 @@ public class FoilBoard extends JApplet {
       Opts (FoilBoard target) {
 
         app = target;
-        setLayout(new GridLayout(8,1,5,5));
-
+        int rows = 0;
         JCheckBox chb; 
-        add(chb = new JCheckBox("Aspect Ratio Correction for Lift", ar_lift_corr));
-        chb.addItemListener(new ItemListener() { public void itemStateChanged(ItemEvent e) {             
-          ar_lift_corr = e.getStateChange() == ItemEvent.SELECTED;
-          computeFlowAndRegenPlotAndAdjust();
-          recomp_all_parts();
-        }});
 
+        // Row 0
+        {
+          rows++;
+          ButtonGroup cbg = new ButtonGroup();
+          add(chb = new JCheckBox("AR Correction for Lift", ar_lift_corr));
+          cbg.add(chb);
+          chb.setToolTipText("<html><p>Aspect Ratio Correction for Lift<br>"+
+                             "At AR &gt;= 4 this implements 'classic' AR correction<br>" +
+                             "having E=1. At low AR, this implements<br>" +
+                             "Helmbold's equation except with pow increased from 2 to 3<br>" + 
+                             "which gives more realistic correction for fuselages.<br>" +
+                             "see various correction plots compared: "+solver.desmos_ar_corr_url+"<br>" +
+                             "</html>");
+          chb.addItemListener(new ItemListener() { public void itemStateChanged(ItemEvent e) {             
+            ar_lift_corr = e.getStateChange() == ItemEvent.SELECTED;
+            if (ar_lift_corr) ar_lift_corr_2 = ar_lift_corr_3 = false;
+            computeFlowAndRegenPlotAndAdjust();
+            recomp_all_parts();
+          }});
+
+          add(chb = new JCheckBox("Dmitry AR Correction for Lift", ar_lift_corr_2));
+          cbg.add(chb);
+          chb.setToolTipText("<html><p>Dmitry's AR correction for Lift<br>"+
+                             "for AR &lt;1, involved a modification of the classic AR by<br>" + 
+                             "rasing the Cl to the power of 1.4.<br>" + 
+                             "It is very close to the  Helmbold's Equation with Q=3.....<br>"+
+                             "see various correction plots compared: "+solver.desmos_ar_corr_url+"<br>" +
+                             "</html>");
+          chb.addItemListener(new ItemListener() { public void itemStateChanged(ItemEvent e) { 
+            ar_lift_corr_2 = e.getStateChange() == ItemEvent.SELECTED;
+            if (ar_lift_corr_2) ar_lift_corr = ar_lift_corr_3 = false;
+            computeFlowAndRegenPlotAndAdjust();
+            recomp_all_parts();
+          }});
+
+          add(chb = new JCheckBox("JavaFoil AR Correction for Lift", ar_lift_corr_3));
+          cbg.add(chb);
+          chb.setToolTipText("<html><p>Aspect Ration Correction for Lift<br>"+
+                             "used by JavaFoil. This results in substantuialy lower<br>" + 
+                             "lift than the other corrections.<br>"+
+                             "see JavaFoil manual, https://www.mh-aerotools.de/airfoils/java/JavaFoil%20Users%20Guide.pdf.<br>"+
+                             "also see various correction plots compared: "+solver.desmos_ar_corr_url+"<br>" +
+                             "</html>");
+          chb.addItemListener(new ItemListener() { public void itemStateChanged(ItemEvent e) { 
+            ar_lift_corr_3 = e.getStateChange() == ItemEvent.SELECTED;
+            if (ar_lift_corr_3) ar_lift_corr_2 = ar_lift_corr = false;
+            computeFlowAndRegenPlotAndAdjust();
+            recomp_all_parts();
+          }});
+        }
+
+
+        // Row 1
+        rows++;
         add(chb = new JCheckBox("Compute Lift-Induced Drag", induced_drag_on));
         chb.addItemListener(new ItemListener() { public void itemStateChanged(ItemEvent e) {             
           induced_drag_on = e.getStateChange() == ItemEvent.SELECTED;
@@ -8976,12 +9048,18 @@ public class FoilBoard extends JApplet {
           recomp_all_parts();
         }});
 
+
         add(chb = new JCheckBox("Reynolds Number Correction for Lift", re_corr));
         chb.addItemListener(new ItemListener() { public void itemStateChanged(ItemEvent e) {             
           re_corr = e.getStateChange() == ItemEvent.SELECTED;
           computeFlowAndRegenPlotAndAdjust();
           recomp_all_parts();
         }});
+
+        // Row 2
+        rows++;
+        add(new JLabel(""));
+
 
         add(chb_stab_aoa_corr = new JCheckBox("Front Wing Downwash Correction for Back wing eff angle", stab_aoa_correction));
         chb_stab_aoa_corr.addItemListener(new ItemListener() { public void itemStateChanged(ItemEvent e) { 
@@ -9007,6 +9085,8 @@ public class FoilBoard extends JApplet {
             }
           });        
 
+        // Row 3
+        rows++;
         add(chb = new JCheckBox("Ignore Stab Cm", false));
         chb.addItemListener(new ItemListener() {
             public void itemStateChanged(ItemEvent e) {             
@@ -9033,6 +9113,9 @@ public class FoilBoard extends JApplet {
               recomp_all_parts();
             }
           });        
+
+        // Row 4
+        rows++;
 
         add(chb = new JCheckBox("Ignore Drive M", false));
         chb.addItemListener(new ItemListener() {
@@ -9062,6 +9145,9 @@ public class FoilBoard extends JApplet {
           });        
 
 
+        // Row 5
+        rows++;
+
         add(chb = new JCheckBox("Fix Symmetry probkem (legacy)", false));
         chb.addItemListener(new ItemListener() {
             public void itemStateChanged(ItemEvent e) {             
@@ -9088,27 +9174,34 @@ public class FoilBoard extends JApplet {
             }
           });
 
+        // Row 6
+        rows++;
+
         add(new JLabel(craft_type == WINDFOIL ? "Sail" : "kite" + "Drive height"));
-          JScrollBar test = new JScrollBar(JScrollBar.HORIZONTAL, (int)(1000*RIDER_DRIVE_HEIGHT),10, 0, 3000);
-          test.addAdjustmentListener(new AdjustmentListener() {
-              public void adjustmentValueChanged(AdjustmentEvent evt) {
-                RIDER_DRIVE_HEIGHT = evt.getValue()/1000.0;
-                computeFlowAndRegenPlotAndAdjust();
-                recomp_all_parts();
-              }});
-          add(test);
+        JScrollBar test = new JScrollBar(JScrollBar.HORIZONTAL, (int)(1000*RIDER_DRIVE_HEIGHT),10, 0, 3000);
+        test.addAdjustmentListener(new AdjustmentListener() {
+            public void adjustmentValueChanged(AdjustmentEvent evt) {
+              RIDER_DRIVE_HEIGHT = evt.getValue()/1000.0;
+              computeFlowAndRegenPlotAndAdjust();
+              recomp_all_parts();
+            }});
+        add(test);
 
-          add(new JLabel(""));
+        add(new JLabel(""));
 
-          add(new JLabel("rider CG height"));
-          test = new JScrollBar(JScrollBar.HORIZONTAL, (int)(1000*RIDER_CG_HEIGHT),10, 0, 3000);
-          test.addAdjustmentListener(new AdjustmentListener() {
-              public void adjustmentValueChanged(AdjustmentEvent evt) {
-                RIDER_CG_HEIGHT = evt.getValue()/1000.0;
-                computeFlowAndRegenPlotAndAdjust();
-                recomp_all_parts();
-              }});
-          add(test);
+        // Row 7
+        rows++;
+        add(new JLabel("rider CG height"));
+        test = new JScrollBar(JScrollBar.HORIZONTAL, (int)(1000*RIDER_CG_HEIGHT),10, 0, 3000);
+        test.addAdjustmentListener(new AdjustmentListener() {
+            public void adjustmentValueChanged(AdjustmentEvent evt) {
+              RIDER_CG_HEIGHT = evt.getValue()/1000.0;
+              computeFlowAndRegenPlotAndAdjust();
+              recomp_all_parts();
+            }});
+        add(test);
+
+        setLayout(new GridLayout(rows,1,5,5));
 
       }
 
@@ -9885,7 +9978,7 @@ public class FoilBoard extends JApplet {
       y[i] = screen_off_y + toInt(space_y);
     }
 
-    // from x, y to p. scale and translate but but no rotation
+    // from x, y to p. scale and translate but no rotation
     void from_screen_x_y_norot (Point3D p, int x, int y, double offx, double scalex, double offy, double scaley, int screen_off_x, int screen_off_y)  { 
       // screen_off_x + toInt(scalex*(offx+p.x)) = x ==>
       // scalex*p.x  = x - screen_off_x - scalex*offx;
@@ -10322,8 +10415,8 @@ public class FoilBoard extends JApplet {
           // to_screen_x_y(new Point3D(ws_arc_x,0,ws_arc_y),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
           // double arc_wh = 2*ws_mast_r;
           // to_screen_x_y(new Point3D(arc_wh,0,arc_wh),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-          // double arc_start = (180/Math.PI*Math.atan2((ws_mast_base_y - ws_mast_arch_0y), (ws_mast_base_x - ws_mast_arch_0x)));
-          // double arc_stop  = (180/Math.PI*Math.atan2((ws_mast_tip_y  - ws_mast_arch_0y), (ws_mast_tip_x  - ws_mast_arch_0x)));
+          // double arc_start = (180/ Math.PI *Math.atan2((ws_mast_base_y - ws_mast_arch_0y), (ws_mast_base_x - ws_mast_arch_0x)));
+          // double arc_stop  = (180/ Math.PI *Math.atan2((ws_mast_tip_y  - ws_mast_arch_0y), (ws_mast_tip_x  - ws_mast_arch_0x)));
           // to_screen_x_y(new Point3D(arc_start,0,arc_start),x,y,2,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
           // off1Gg.drawArc(x[0], y[0], x[1], y[1], x[2], y[2]);
           // System.out.println("-- x: " + java.util.Arrays.toString(x));
@@ -12497,7 +12590,7 @@ public class FoilBoard extends JApplet {
           double camd = current_part.camber;
 
           // note that below is always with Reynolds correction ON which is correct.
-          boolean ar_lift_corr_saved = ar_lift_corr;
+          // boolean ar_lift_corr_saved = ar_lift_corr;
           boolean induced_drag_on_saved = induced_drag_on;
           // no AR correction - infinite 2D foil lift
           induced_drag_on = false;
@@ -12786,10 +12879,10 @@ public class FoilBoard extends JApplet {
     //     // do nothing. stfact = 1
     //   }
     // 
-    //   number = stfact*gamc*4.0*3.1415926/crdc;
+    //   number = stfact*gamc*4.0* Math.PI /crdc;
     // 
     //   if (ar_lift_corr) {  // correction for low aspect ratio
-    //     number = number /(1.0 + Math.abs(number)/(3.14159*aspect_rat));
+    //     number = number /(1.0 + Math.abs(number)/( Math.PI *aspect_rat));
     //   }
     // 
     //   return (number);
@@ -13780,8 +13873,8 @@ public class FoilBoard extends JApplet {
           }
         }
         volume = volume * current_part.span;
-        if (current_part.foil == FOIL_CYLINDER) volume = 3.14159 * radius * radius * current_part.span;
-        else if (current_part.foil == FOIL_BALL) volume = 3.14159 * radius * radius * radius * 4.0 / 3.0;
+        if (current_part.foil == FOIL_CYLINDER) volume = Math.PI * radius * radius * current_part.span;
+        else if (current_part.foil == FOIL_BALL) volume = Math.PI * radius * radius * radius * 4.0 / 3.0;
            
         text.append( "\n  Volume =" + filter3(volume));
         if (lunits == IMPERIAL) text.append( " cu ft " );
