@@ -28,7 +28,8 @@
 *------------------------------------------------------------------------------
 *
 * Portions of this foil simulator are derived from "FoilSim III", see
-* its copyright and header of FoilSim below. I tried to preserve the
+* its copyright and the doc-header provided at the bottom of this file. 
+* I tried to preserve the
 * original look and feel of "FoilSim III" with its 4 panels of equal
 * size arranged on a 2-by-2 grid, out of which left top is graphical,
 * left bottom is inputs, right top is outputs and right bottom is for
@@ -50,91 +51,6 @@
 * https://1drv.ms/f/s!AhpYSQuCj3vrjHeKi4Bvpnp_r7kB which came out
 * exactly as conceived, thanks to this tool's predictions.
 *
-*
-*----From FoilSim.java, https://www.grc.nasa.gov/www/k-12/FoilSim------------- 
-
-                      FoilSim III  - Airfoil  mode
-   
-                           A Java Applet
-               to perform Kutta-Joukowski Airfoil analysis
-                including drag from wind tunnel tests
-
-                     Version 1.5b   - 3 Sep 13
-
-                              Written by 
-
-                               Tom Benson
-                       NASA Glenn Research Center
-
-                                 and
-              
-                               Anthony Vila
-                          Vanderbilt University
-
-                                NOTICE
-This software is in the Public Domain.  It may be freely copied and used in
-non-commercial products, assuming proper credit to the author is given.  IT
-MAY NOT BE RESOLD.  If you want to use the software for commercial
-products, contact the author.
-No copyright is claimed in the United States under Title 17, U. S. Code.
-This software is provided "as is" without any warranty of any kind, either
-express, implied, or statutory, including, but not limited to, any warranty
-that the software will conform to specifications, any implied warranties of
-merchantability, fitness for a particular purpose, and freedom from
-infringement, and any warranty that the documentation will conform to the
-program, or any warranty that the software will be error free.
-In no event shall NASA be liable for any damages, including, but not
-limited to direct, indirect, special or consequential damages, arising out
-of, resulting from, or in any way connected with this software, whether or
-not based on warranty, contract, tort or otherwise, whether or not injury
-was sustained by persons or property or otherwise, and whether or not loss
-was sustained from, or arose out of the results of, or use of, the software
-or services provided hereunder.
- 
-  New test -
-             * include the drag
-             * rename modules and change layout
-             * change the color scheme on the plots
-             * correct lift of ball from CurveBall
-             * change pressure and velocity plots for stalled airfoil
-             * add reynolds number calculation
-               get moment coefficient - FoilSim IV
-               put separation bubble on airfoil graphics - FoilSim IV
-
-                                           TJB  22 Jun 10
-
-  New Test B
-           * -Build Drag Data Interpolator to incorporate drag results
-             * -Implement interpolator into program (create drag output results textbar)
-           * -get drag of elliptical foils
-
-                                           AJV 7/14/10
-  New Test C
-           *  add drag plots and interpolated data
-           *  move plot selection to input side
-           *  add analysis panel - 
-           *  make input and output buttons - not drop down
-           *  add reynolds correction to airfoil - make optional
-           *  add induced drag to drag calculation  - make optional
-           *  add drag to gage output
-           *  add smooth ball / rough ball option 
-           *  release as FoilSim III
-                                            TJB 29 July 10
-           *  move metric/imperial units back on control panel - based on user inputs
-           *  add some standard shapes to Shape input with buttons
-                                            TJB 23 Nov 10
-           *  fix up a symmetry problem for negative camber and drag 
-           *  fix up a plotting problem for drag involving the induced drag
-                                             TJB 29 Nov 10
-           * change number of sig fig on graphs - small airfoils
-                                             TJB 17 Feb 11
-           * add volume of the wing to the printed output - option "Geometry"
-                                             TJB 21 Mar 11
-           * add Venus surface atmospherics (need to fix viscosity)
-                                             TJB 20 Feb 13
-             add relative humidty to the flight input
-                                             TJB 3 Sep 13
-                                                                                          
 */
 //====  This section is for Swing 2 JS ==============================
 //
@@ -542,7 +458,7 @@ public class FoilBoard extends JApplet {
   void withSavedParts (PartPack pp) { wing = pp.w; stab = pp.s; fuse = pp.f; strut = pp.m; }
   
   boolean runAsApplication = false; // main() sets this to true
-  boolean fix_symmetry_problem = true; // legacy
+  boolean fix_symmetry_problem = false; // true; // legacy
   boolean rider_xpos_tilt_correction = true;
 
   double FRONT_FOOTSTRAP_XPOS = Double.NaN; // This is signed. NaN: not defined
@@ -818,12 +734,12 @@ public class FoilBoard extends JApplet {
       
       if (current_part == strut) {
         // (1) corect the aspect_rat used above for actual mast AR, which is a portio of it submerged AR
-        k *= (1-alt/100);
+        k *= (1 - alt_val/100);
         // increase k by 2 because this is bottom end only, the top
         // end does not have induced drag.  Instead, for top, wave and
         // spray adjustment apply,  see forces_totals_maybe_panels()
         k *= 2; 
-        // note that for 50% submerged mast teh net effect of the
+        // note that for 50% submerged mast the net effect of the
         // above two corrections is 0.5*2=1 
       }
       return (cldin * cldin)/k;
@@ -880,6 +796,9 @@ public class FoilBoard extends JApplet {
   } // class RoundFoil
 
 
+  // NACA 4 series foils with 40% camber position.
+  // http://airfoiltools.com/search/index?m%5Bgrp%5D=naca4d&m%5Bsort%5D=1
+  // https://en.wikipedia.org/wiki/NACA_airfoil#Four-digit_series
   class NACA4Foil extends Foil {
     NACA4Foil (String descr, String print_line) {
       super(descr, print_line);
@@ -912,7 +831,7 @@ public class FoilBoard extends JApplet {
     String getDescr (double thickness, double camber) { 
       String thickness_str = ""+Math.round(thickness);
       if (thickness_str.length() < 2) thickness_str = "0" + thickness_str;
-      return "NACA" + (Math.round(Math.abs(camber))) + "4" + thickness_str;
+      return "NACA" + (Math.round(Math.abs(camber))) + (camber == 0 ? "0" : "4") + thickness_str;
     }
 
     @Override
@@ -1307,7 +1226,7 @@ public class FoilBoard extends JApplet {
 
   static double viscos;
 
-  static double usq,vsq,alt,altmax;
+  static double usq,vsq,alt_val,altmax;
 
   static double q0_EN,q0_SI,ps0,ts0,rho_EN,rho_SI,rlhum; // free stream vars
 
@@ -1352,7 +1271,8 @@ public class FoilBoard extends JApplet {
 
   static double rider_weight, total_weight;
 
-  static double RIDER_DRIVE_HEIGHT = 1.05; // this is ~ where waist harness is
+  // this is ~ where waist harness is or at shoulder level 
+  static double DRIVING_FORCE_HEIGHT = 1.05; // was named RIDER_DRIVE_HEIGHT
   static double RIDER_CG_HEIGHT = 1.05; // this is ~ where waist harness is
 
   // stall model coeffs cache
@@ -1494,6 +1414,8 @@ public class FoilBoard extends JApplet {
   DashBoardOrPlot out_top;
   Out out_bottom;
   Viewer viewer;
+
+  PerfWeb perfweb;
 
   // CardLayout layin,layout,layplt;
   Image offImg1;
@@ -1873,6 +1795,8 @@ public class FoilBoard extends JApplet {
     setSize(900, 600);
 
     lang = System.getProperty("user.language");
+    // mast_foot_pressure_k = Double.parseDouble(getParamOrProp("MFP","0"));
+
     // System.out.println("-- lang: " + lang);
 
     // any inputs?
@@ -1896,7 +1820,7 @@ public class FoilBoard extends JApplet {
     use_foilsim_foils   = Boolean.parseBoolean(getParamOrPropAliased("FSIMFOILS", "USE_FOILSIM_FOILS", "false"));
 
     if (craft_type == WINDFOIL) // adjust or set height
-      RIDER_DRIVE_HEIGHT = // sail drives "from 20-50cm  above boom" - depending on mast len, sail size, etc
+      DRIVING_FORCE_HEIGHT = // sail drives "from 20-50cm  above boom" - depending on mast len, sail size, etc
         Double.parseDouble(getParamOrProp("SAIL_DRIVE_HEIGHT", "1.8"));
 
     FRONT_FOOTSTRAP_XPOS = Double.parseDouble(getParamOrPropAliased("FRONT_FOOTSTRAP_XPOS",  "FRONT_FOOTSTRAP_TO_MAST_LE_DISTANCE", 
@@ -1979,6 +1903,8 @@ public class FoilBoard extends JApplet {
 
     viewer = new Viewer(this);
 
+    perfweb = new PerfWeb(this);
+
     out_top = new DashBoardOrPlot(this);
     out_bottom = new Out(this);
 
@@ -1993,7 +1919,7 @@ public class FoilBoard extends JApplet {
     viewer.start();
     out_top.plot.start();
 
-    // now, simulate switch to underfater, ocean water conditions
+    // now, simulate switch to underwater, ocean water conditions
     // with metric units
     
     planet = 2; // water
@@ -2005,7 +1931,7 @@ public class FoilBoard extends JApplet {
     dash.untch.setSelectedIndex(METRIC);
 
     velocity = 20.0; // speed is 20 km/h
-    alt = 70; // depth: 30% of strut
+    alt_val = 70; // depth: 30% of strut
 
 
     // Stab in downwash? if so, turn correction 'on' by default
@@ -2199,7 +2125,7 @@ public class FoilBoard extends JApplet {
     double ovs,chords,spans,aros,chos,spos,rads;
     double alts,ares;
 
-    alts = alt / lconv;
+    alts = alt_val / lconv;
     //chords = chord / lconv;
     // spans = span / lconv;
     //ares = area /lconv/lconv;
@@ -2229,7 +2155,7 @@ public class FoilBoard extends JApplet {
     }
     }
  
-    alt = alts * lconv;
+    alt_val = alts * lconv;
     //chord = chords * lconv;
     //span = spans * lconv;
     // area = ares * lconv * lconv;
@@ -2656,7 +2582,9 @@ public class FoilBoard extends JApplet {
     // cg_pos=-35cm, xoff_tip=5cm (horue,dmitry) cg_pos_board_level=-30-5=-35
     dash.cg_pos_board_level = dash.cg_pos - strut.xoff_tip;
 
-    // tilt correction
+    // foilboard AOA tilt correction. when the board is at high angle of attack, the
+    // computed offset is only good at fuse level. At the board deck level
+    // it is much further forward.
     if (rider_xpos_tilt_correction) {
       double deck_height = BOARD_THICKNESS + strut.span;
       // note this offset is positive when nose is up, negative when nose is down
@@ -2665,14 +2593,18 @@ public class FoilBoard extends JApplet {
       dash.cg_pos_board_level -= deck_x_offset;
     }
 
-    // drive_offset/height = drive_force/weight
-    double drive_force = 
-      (in.opts.ignore_drive_moment)
-      ? 0
-      : (total_drag() * RIDER_DRIVE_HEIGHT/RIDER_CG_HEIGHT);
-    double rider_countering_x_offset = (drive_force/rider_weight)* RIDER_CG_HEIGHT; // wasFF 0.86;
-    // System.out.println("-- rider_countering_x_offset UT: " + rider_countering_x_offset);
-    dash.cg_pos_of_rider = dash.cg_pos_board_level + rider_countering_x_offset;
+    // rider_countering_x_offset is added only of the drive height is > 0 (kite, sail, wing, tow cases)
+    if (DRIVING_FORCE_HEIGHT > 0) {
+      // drive force, scaled to be considering coming from the rider CG height spot
+      double drive_force_scaled = 
+        (in.opts.ignore_drive_moment)
+        ? 0
+        : (total_drag() * DRIVING_FORCE_HEIGHT/RIDER_CG_HEIGHT);
+      // two square triangles: rider_offset/height = drive_force_scaled/weight
+      dash.rider_countering_x_offset = (drive_force_scaled/rider_weight)* RIDER_CG_HEIGHT; // wasFF 0.86;
+      // System.out.println("-- rider_countering_x_offset UT: " + dash.rider_countering_x_offset);
+      dash.cg_pos_of_rider = dash.cg_pos_board_level + dash.rider_countering_x_offset;
+    }
 
     // factored out to dash.loadPanel()
     // if (can_do_gui_updates) {
@@ -2693,7 +2625,7 @@ public class FoilBoard extends JApplet {
   public void cp_computeForces () {
 
     double eff_area_k = (current_part == strut)
-      ? (1-alt/100) // typically only 30% of mast sits in the water
+      ? (1- alt_val/100) // typically only 30% of mast sits in the water
       : 1;
 
     // 1a. compute lift
@@ -2829,7 +2761,7 @@ public class FoilBoard extends JApplet {
   }
 
   double total_drag () {
-    if (alt > 0) 
+    if (alt_val > 0) 
       board_drag = 0; // flying!
     else { 
       // this is based on "Moth Full Scale Measurements..." page 3.
@@ -2838,8 +2770,8 @@ public class FoilBoard extends JApplet {
       // and after 10-11 kmh it goes down to zero fast.
       // 
       // TODO compute drag for (load-lift). why: the approach below
-      // works oK, does nto use the lift, though...  one ide of using
-      // lift is define 180 or 240lb Moth drag as "baseline", and
+      // works oK, does not use the lift, though...  one idea of using
+      // lift is to define 180 or 240lb Moth drag as "baseline", and
       // apprximate it as linear at 15lb per 10kmh slope and flat
       // after reaching, say 25-30 or so, and indicating planing.
       // Subtract from thsi wing lift.
@@ -2880,23 +2812,39 @@ public class FoilBoard extends JApplet {
   //
   // to find rider body CG pos, call it as find_cg_xpos(rider_weight, ..... board_and_rig_moments)
   // 
-  double center_of_lift = 0.25;
+  static final double CENTER_OF_LIFT = 0.25; // 25% of the chord from the LE
+
+  // Balancer.
+  //
+  // By placing the CG of the rider at the spot calculated here, the craft
+  // can be balanced; (it is assumed that if the board is up in the air, its
+  // pitch has been already selected so that lift == load, in other words,
+  // the board is in equilibrium wrt forces. Placing CG properly adds
+  // equilibrium of moments.  Unlike most airplanes, foilboard craft is
+  // inherently unstable and balance won't remain in effect unless the rider
+  // controls the flight. However, the rider feels and appretiates a foil
+  // with pitch stability (such as one having a decalage).
+  //
+  //
+  // Balancing is achieved with use of moments relative to a reference point
+  // aka Reference Frame Origin, RFO. RFO location is abitrary. Here it is
+  // assumed RFO is the bottom LE point of the mast - where it intersects
+  // with the fuse.
   double find_cg_xpos () { // vertical ref point is fuse level (at ref_point_xpos)
     double lift = total_lift();
     double drag = total_drag();
 
-    // this was named mast_le_xpos when ref point was mast le, which is strut.xpos.
-    double ref_point_xpos = strut.xpos; 
+    double driving_force = drag; // drag equals driving force  - steady equilibrium condition
 
-    // prob, no.... double load = lift; // lift equals load
-    double driving_force = drag; // drag equals driving force 
-    // driving_arm: how much above fuse is driving force?
-    double driving_arm = 
-      strut.span + BOARD_THICKNESS; // wasFF  + RIDER_DRIVE_HEIGHT;
+    // driving_arm is subtle: When the riders transfers the driving force from hands/harness into the board, 
+    // the derived vertical driving arm is at the board deck height. the rider applies the weight there also at certain
+    // location. when drive is not through rider's body, then the arm is that plus DRIVING_FORCE_HEIGHT
+    double driving_arm = strut.span + BOARD_THICKNESS; 
+    if (DRIVING_FORCE_HEIGHT <= 0) driving_arm += DRIVING_FORCE_HEIGHT; // efoil etc
 
     // strut_drag_arm
     double strut_drag_arm = 
-      (1-alt/100) * strut.span * // this is the length of water immersed section fo the strut.
+      (1- alt_val/100) * strut.span * // this is the length of water immersed section fo the strut.
       0.5; // drag center is at the center of the immersed section
 
     // should include aerodynamic drag here???
@@ -2922,19 +2870,6 @@ public class FoilBoard extends JApplet {
       wing.moment +
       stab.moment + 
       fuse.moment;
-    
-    double CW_moments = // +CW
-      strut_drag_moment + 
-      foils_Cm_moments +
-      wing.lift *  - (wing.xpos + wing.chord_xoffs + center_of_lift * wing.chord - ref_point_xpos) +
-      fuse.lift *  - (center_of_lift * fuse.chord - ref_point_xpos); 
-
-    double CCW_moments  = // -CW
-      drive_moment +
-      stab.lift * (stab.xpos + stab.chord_xoffs + center_of_lift * stab.chord - ref_point_xpos) +
-      (in.opts.ignore_aux_weight_moments 
-       ? 0 
-       : board_moment + rig_moment);
 
     // Suppose rider_moment is +CW, it is with arm towards transom from mast bottom LE.
     // rider_moment + CW_moments = CCW_moments ==>
@@ -2943,24 +2878,53 @@ public class FoilBoard extends JApplet {
     //
     // 
     double load = FoilBoard.this.load; 
+
+    // non-flying motion
+    boolean non_flying = load > lift;
+
+    if (non_flying) { 
+      // load = lift; // Ok idea but not ideal
+      // here is better idea: when non_flying, the board provides the remaining lift
+      board_moment = (BOARD_WEIGHT - (load - lift)) * board_arm;
+    }
+
+    // this was named mast_le_xpos when ref point was mast le, which is strut.xpos.
+    double ref_point_xpos = strut.xpos; 
+    
+    double CW_moments = // +CW
+      strut_drag_moment + 
+      foils_Cm_moments + // any positive Cm pitches nose up therefore CW in this 'view'
+      wing.lift *  - (wing.xpos + wing.chord_xoffs + CENTER_OF_LIFT * wing.chord - ref_point_xpos) +
+      fuse.lift *  - (CENTER_OF_LIFT * fuse.chord - ref_point_xpos); 
+
+    double CCW_moments  = // -CW
+      drive_moment +
+      stab.lift * (stab.xpos + stab.chord_xoffs + CENTER_OF_LIFT * stab.chord - ref_point_xpos) +
+      (in.opts.ignore_aux_weight_moments 
+       || non_flying // this help to keep the rider over the board and not behind when drive is very light
+       ? 0 
+       : board_moment + rig_moment);
+
+
     // if we decide to include prorated rider-mast calcs here 
     // load = load*(1-load_distribution_to_mast_loc)
-    double rider_arm = (CCW_moments - CW_moments) / load;
-    dash.cg_pos_of_rider_at_drive_height = ((CCW_moments + driving_force*RIDER_DRIVE_HEIGHT) // adjust for drive height
+    //
+    // why using lift not load? to cover both non_flying and flying
+    // conditions in a simple way.  clearly it shoudl be load but in flying
+    // equilibrium its alwats equal to lift. when not flying, lift is much
+    // smaller and that results in wrong rider_arm. Say, lift is 1/2 of load
+    // and wing's arm is 20cm from strut LE and other factors small. then
+    // rider stands back and is at 10cm forward from strut LE. This is not
+    // quite correct esp at efoil where you are right above the wing lift at high AOAs.
+    double rider_arm = (CCW_moments - CW_moments) / lift;
+
+    // March 2021: warning: I forgot what it is and how non_flying affects this.
+    // not ethat as of now, it is not used in simulation... 
+    dash.cg_pos_of_rider_at_drive_height = ((CCW_moments + driving_force*DRIVING_FORCE_HEIGHT) // adjust for drive height
                                            - CW_moments) / load;
 
     return rider_arm;
       
-    // tilt correction is now done when board level math applied (when find_cg_xpos is called)
-    // if (rider_xpos_tilt_correction == false) 
-    // 
-    // // now, must correct xpos for craft tilt
-    // // so that the value corresponds to mast LE at board deck level
-    // double deck_height = BOARD_THICKNESS // board thickness, m
-    //   + strut.span;
-    // // note this offset is positive when nose is up, negative when nose is down
-    // double x_offset = deck_height * Math.sin(Math.toRadians(craft_pitch));
-    // return rider_arm - x_offset;
   }
 
   // just for a test
@@ -3049,7 +3013,7 @@ public class FoilBoard extends JApplet {
       velocity = 20.; // km h
       vmax = 70.;
 
-      alt = 70; // 70%
+      alt_val = 70; // 70%
       altmax = strut.span;
       // chord = 0.1;
       //span_old = span = 1;
@@ -3125,7 +3089,7 @@ public class FoilBoard extends JApplet {
       /* MODS  19 Jan 00  whole routine*/
       double rgas = 1716.;                /* ft2/sec2 R */
       double gama = 1.4;
-      double height_m = alt/lconv;
+      double height_m = alt_val/lconv;
       double mu0 = .000000362;
       double g0 = 32.2;
 
@@ -3176,7 +3140,7 @@ public class FoilBoard extends JApplet {
         break;
 
       case 2: // water --  constant density
-        height_m = -alt/lconv;
+        height_m = -alt_val/lconv;
         rlhum = 100.;
 
         ts0 = 520.;
@@ -3259,8 +3223,9 @@ public class FoilBoard extends JApplet {
     }
 
     // for my comparison of various corection methods, see
-    static final String desmos_ar_corr_url = "https://www.desmos.com/calculator/ngqg38y2t0";
+    static final String desmos_ar_corr_url = "https://www.desmos.com/calculator/bgt6psby4l"; 
     // older edits:
+    // https://www.desmos.com/calculator/ngqg38y2t0
     // https://www.desmos.com/calculator/erzdtdn7k0
     // https://www.desmos.com/calculator/hb6nfgy1k8
     // https://www.desmos.com/calculator/w7kilfwdli
@@ -3809,7 +3774,7 @@ public class FoilBoard extends JApplet {
     // and for Re=300000 and infine aspect ratio, Used for
     // interpolation instead of original FoilSim III polynomials.  The
     // reynolds correction and induced drag low aspect corrections of
-    // FoilSim woudl hen apply (see the end of get_Cd() method).
+    // FoilSim would then apply (see the end of get_Cd() method).
     // Tables produced by dmitrynizh 2016.
 
     // Name = NACA 0005
@@ -5303,11 +5268,11 @@ public class FoilBoard extends JApplet {
       // L = Cl * A * .5 * rho * V^2 , 
       // in foilsim. L = fconv * current_part.cl * q0_EN * area / lconv / lconv; 
       // so...
-      double cl_required = lift / ( q0_SI * strut.span * strut.chord * (1-alt/100));
+      double cl_required = lift / ( q0_SI * strut.span * strut.chord * (1- alt_val/100));
       double aoa = cl_required * cl_to_alpha;
       // NEED to DEBUG the incremental increse in above!!
       // but for now, the above ad hoc formula gives OK approximation, use it...
-      // double k_alt = (Math.pow(alt/100, 1.7));
+      // double k_alt = (Math.pow(alt_val/100, 1.7));
       // return 0.9 * k_alt;
       return aoa;
     }
@@ -5506,7 +5471,7 @@ public class FoilBoard extends JApplet {
     }
 
     // algorith that uses find_steady_conditions....
-    // goes up, must start from velocity set to mon takeoff speed.
+    // goes up, must start from velocity set to min takeoff speed.
     void easy_ride (double min_lift) {      
       double pitch = 0;
       double min_drag = 10000.0;
@@ -5758,7 +5723,7 @@ public class FoilBoard extends JApplet {
       vpp.set_mast_aoa_for_given_drag(total_drag()); // (wing.drag+stab.drag);
       recomp_all_parts();
 
-      // old linear increasin logic 
+      // old linearly increasing logic 
       //find_aoa_of_min_drag();
       //if (total_lift() > load_numeric) {
       //  // need to reduce AoA
@@ -5791,6 +5756,9 @@ public class FoilBoard extends JApplet {
   class DashBoard extends Panel {
     FoilBoard app;
     JLabel l1,l2,blank,liftOverDrag,FSlabel;
+    // when rider holds kite sail wing rope etc pullong forward, the posture
+    // must reflect the need to lean back proprtionaly 
+    double rider_countering_x_offset; 
     double cg_pos; // this is offset from strut bottom LE. "fore" is -, "aft" is +,
     double cg_pos_board_level; // offset from strut upper side LE
     double cg_pos_of_rider; // the above with drive force counter-balansing afffset added to it.
@@ -6466,13 +6434,13 @@ public class FoilBoard extends JApplet {
         // howeverm value *will* be rounded, then to 1000 steps, so must use on_load
         speed_ctrl.bar.setValue((int)(((velocity- v_min)/(v_max-v_min))*1000.));
         pitch_ctrl.bar.setValue((int) (((craft_pitch - aoa_min)/(aoa_max-aoa_min))*1000.));
-        alt_ctrl.bar.setValue((int) (((alt - alt_min)/(alt_max-alt_min))*1000.));
+        alt_ctrl.bar.setValue((int) (((alt_val - alt_min)/(alt_max-alt_min))*1000.));
         load_ctrl.bar.setValue((int) (((load - load_min)/(load_max-load_min))*1000.));
         on_load = false;
 
         speed_ctrl.box.setText(make_speed_info_in_display_units(velocity, false));
         pitch_ctrl.box.setText(pprint(filter3(craft_pitch))); // was: filter5 ...
-        alt_ctrl.box.setText(pprint(filter1(alt)));
+        alt_ctrl.box.setText(pprint(filter1(alt_val)));
         load_ctrl.box.setText(make_force_info_in_display_units(load, false));
         if (mfp_ctrl != null) mfp_ctrl.box.setText(pprint(filter1(100*mast_foot_pressure_k)));
         //load_ctrl.box.setText(make_force_info_in_display_units(vpp.steady_flight_at_given_speed___load, false));
@@ -6567,8 +6535,8 @@ public class FoilBoard extends JApplet {
               if (DEBUG_SPEED_SUPPR_ADJ) { debug_speed_suppr_adj(evt); return;}
               if (on_load) return;
               float new_val = filter3(alt_ctrl.bar.getValue() * (alt_max - alt_min)/ 1000. + alt_min);
-              if (new_val == alt) return;
-              alt = new_val;
+              if (new_val == alt_val) return;
+              alt_val = new_val;
               //recomp_all_parts();
               //? computeFlowAndRegenPlot();
               if (autobalance)
@@ -6579,9 +6547,9 @@ public class FoilBoard extends JApplet {
         alt_ctrl.box.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
               double new_val = Double.valueOf(alt_ctrl.box.getText()).doubleValue();
-              if (new_val != alt) {
-                alt = new_val;
-                //alt_ctrl.bar.setValue((int) (((alt - alt_min)/(alt_max-alt_min))*1000.));
+              if (new_val != alt_val) {
+                alt_val = new_val;
+                //alt_ctrl.bar.setValue((int) (((alt_val - alt_min)/(alt_max-alt_min))*1000.));
 
                 if (autobalance)
                   find_steady_conditions();
@@ -6784,7 +6752,7 @@ public class FoilBoard extends JApplet {
                                        // will do the trick???
                                        load = use_load_ctrl_in_vpp ? load : min_lift; 
                                        double max_drag = (double)constr_tkoff_max_drag; // parse_force_constraint(tf_tkoff_max_drag);
-                                       alt = 0.5 ; // % alt_min;
+                                       alt_val = 0; // was 0.5 ; // % alt_min;
                                        loadPanel();
                                        can_do_gui_updates = false;
                                        vpp.find_min_takeoff_v(min_lift, max_drag, true);
@@ -6799,6 +6767,7 @@ public class FoilBoard extends JApplet {
             @Override
             public void actionPerformed(ActionEvent e) {
               constr_tkoff_min_lift = filter0(parse_force_constraint(tf_tkoff_min_lift));
+              System.out.println("-- constr_tkoff_min_lift: " + constr_tkoff_min_lift);
             }});
 
         
@@ -6827,7 +6796,7 @@ public class FoilBoard extends JApplet {
                                        double starting_speed = (double)constr_cruise_starting_speed; // parse_speed_constraint(tf_cruise_starting_speed, "CRS", "10 km/h");
                                        System.out.println("-- constr_cruise_starting_speed: " + constr_cruise_starting_speed);
                                        can_do_gui_updates = false;
-                                       alt = 80;
+                                       alt_val = 80;
                                        strut.aoa = 0;
                                        vpp.find_min_takeoff_v(min_lift, (double)constr_tkoff_max_drag, false); // find starting point
                                        vpp.easy_ride(min_lift); // for old: min_takeoff_speed > 0 ? min_takeoff_speed : constr_cruise_starting_speed);
@@ -6872,7 +6841,7 @@ public class FoilBoard extends JApplet {
                                        load = use_load_ctrl_in_vpp ? load : min_lift; 
                                        double max_drag = (double)constr_race_max_drag; // parse_force_constraint(tf_race_max_drag);
                                        can_do_gui_updates = false;
-                                       alt = 70;
+                                       alt_val = 70;
                                        vpp.max_speed(min_lift, max_drag, true);
                                        can_do_gui_updates = true;
                                        recomp_all_parts();
@@ -7123,14 +7092,14 @@ public class FoilBoard extends JApplet {
               V2 = Double.valueOf(f2.getText());
               v2 = V2.doubleValue();
 
-              alt = v2;
+              alt_val = v2;
               if (v2 < alt_min) {
-                alt = v2 = alt_min;
+                alt_val = v2 = alt_min;
                 fl1 = (float) v2;
                 f2.setText(String.valueOf(fl1));
               }
               if (v2 > alt_max) {
-                alt = v2 = alt_max;
+                alt_val = v2 = alt_max;
                 fl1 = (float) v2;
                 f2.setText(String.valueOf(fl1));
               }
@@ -7232,7 +7201,7 @@ public class FoilBoard extends JApplet {
                   velocity = 5.;
                   vmax = 40.;
                   if (lunits == 1) vmax = 60.;
-                  alt = 0.0;
+                  alt_val = 0.0;
                   altmax = strut.span;
                   current_part.area = 10.0;
                   // armax = 50.;
@@ -7297,7 +7266,6 @@ public class FoilBoard extends JApplet {
           add(rightPanel2);
           add(rightPanel3);
           add(rightPanel6);
-
 
         }
 
@@ -8732,230 +8700,7 @@ public class FoilBoard extends JApplet {
       public void loadPanel () { 
         out_top.plot.loadPlot();
       }
-
-      // old stuff
-      //
-      // class Upper extends Panel {
-      //   FoilBoard app;
-      //   JLabel l1;
-      //   Button pl1,pl2,pl3, bt_balance_pos_vs_speed, bt_drag_elts_vs_speed;
-      // 
-      //   Upper(FoilBoard target) {
-      //     app = target;
-      //     setLayout(new GridLayout(3,0,5,5));
-      // 
-      //     pl1 = new_button("Pressure");
-      // 
-      //     pl2 = new_button("Velocity");
-      // 
-      //     pl3 = new Button ("Drag Polar");
-      //     pl3.setBackground(Color.yellow);
-      //     pl3.setForeground(Color.blue);
-      // 
-      //     bt_balance_pos_vs_speed = new_button("CG/Speed");
-      //     bt_drag_elts_vs_speed =   new_button("Drag/Speed");
-      // 
-      //     add(new JLabel(" ", JLabel.RIGHT));
-      //     add(new JLabel("Select", JLabel.RIGHT));
-      //     add(new JLabel("Plot", JLabel.LEFT));
-      //     add(new JLabel(" ", JLabel.RIGHT));
-      // 
-      //     add(pl1);
-      //     add(pl2);
-      //     add(pl3);
-      //     add(bt_balance_pos_vs_speed);
-      // 
-      //     add(bt_drag_elts_vs_speed);
-      //     add(new JLabel(" ", JLabel.RIGHT));
-      //     add(new JLabel(" ", JLabel.RIGHT));
-      //     add(new JLabel(" ", JLabel.RIGHT));
-      // 
-      //   }
-      // 
-      //   public boolean action (Event evt, Object arg) {
-      //     if (evt.target instanceof Button) {
-      //       handleBut(evt,arg);
-      //       return true;
-      //     }
-      //     else return false;
-      //   } // Handler
-      // 
-      //   public void handleBut(Event evt, Object arg) {
-      //     String label = (String)arg;
-      //     out_bottom.setSelectedIndex(0);
-      // 
-      //     ensure_all_array();
-      // 
-      //     for (Button b : all) { 
-      //       b.setBackground(Color.white);
-      //       // b.setForeground(Color.blue);
-      //     }
-      // 
-      //     if (label.equals("Pressure")) {
-      //       plot_type = PLOT_TYPE_PRESSURE;
-      //       pl1.setBackground(Color.yellow);
-      //       pl3.setBackground(Color.white);
-      //     } else if (label.equals("Velocity")) {
-      //       plot_type = PLOT_TYPE_VELOCITY;
-      //       pl2.setBackground(Color.yellow);
-      //     } else if (label.equals("Drag Polar")) {
-      //       plot_type = PLOT_TYPE_LIFT_DRAG_POLARS;
-      //       pl3.setBackground(Color.yellow);
-      //     } else if (label.equals("CG/Speed")) {
-      //       plot_type = PLOT_TYPE_CG_VS_SPEED;
-      //       bt_balance_pos_vs_speed.setBackground(Color.yellow);
-      //     } else if (label.equals("Drag/Speed")) {
-      //       plot_type = PLOT_TYPE_DRAG_TOTALS_VS_SPEED;
-      //       bt_drag_elts_vs_speed.setBackground(Color.yellow);
-      //     } 
-      // 
-      //     out_top.plot.loadPlot();
-      // 
-      //   } // end handlebut
-      // } // Upper
-      // 
-      // class Lower extends Panel {
-      //   FoilBoard app;
-      //   FoilCtrls f;
-      //   BallCtrls c;
-      // 
-      //   Lower(FoilBoard target) {
-      //     app = target;
-      //     layplt = new CardLayout();
-      //     setLayout(layplt);
-      // 
-      //     f = new FoilCtrls(app);
-      //     c = new BallCtrls(app);
-      // 
-      //     add ("first", f);
-      //     add ("second", c);
-      //   }
-      // 
-      //   class FoilCtrls extends Panel {
-      //     FoilBoard app;
-      //     JLabel l2;
-      //     Button pl3,pl4,pl5,pl6,pl7,pl8,pl9;
-      //     JComboBox plout,ploutb;
-      // 
-      //     FoilCtrls(FoilBoard target) {
-      //       app = target;
-      //       setLayout(new GridLayout(3,4,5,5));
-      // 
-      //       ploutb = new JComboBox();
-      //       ploutb.addItem("Lift vs.");
-      //       ploutb.addItem("Drag vs.");
-      //       ploutb.setBackground(Color.white);
-      //       ploutb.setForeground(Color.red);
-      //       ploutb.setSelectedIndex(0);
-      // 
-      //       plout = new JComboBox();
-      //       plout_bottom.addItem("Lift vs.");
-      //       plout_bottom.addItem("Cl vs.");
-      //       plout_bottom.addItem("Drag vs.");
-      //       plout_bottom.addItem("Cd vs.");
-      //       plout_bottom.setBackground(Color.white);
-      //       plout_bottom.setForeground(Color.red);
-      //       plout_bottom.setSelectedIndex(0);
-      // 
-      //       pl3 = new_button("Angle");
-      //       pl4 = new_button("Thickness");
-      //       pl5 = new_button("Camber");
-      //       pl6 = new_button("Speed");
-      //       pl7 = new_button("Altitude");
-      //       pl8 = new_button("Wing Area");
-      //       pl9 = new_button("Density");
-      // 
-      //       add(plout);
-      //       add(pl3);
-      //       add(pl5);
-      //       add(pl4);
-      // 
-      //       add(ploutb);
-      //       add(pl6);
-      //       add(pl7);
-      //       add(new JLabel(" ", JLabel.RIGHT));
-      // 
-      //       add(new JLabel(" ", JLabel.RIGHT));
-      //       add(pl8);
-      //       add(pl9);
-      //       add(new JLabel(" ", JLabel.RIGHT));
-      //     }
-      // 
-      //     public boolean action (Event evt, Object arg) {
-      //       if (evt.target instanceof Button) {
-      //         handleBut(evt,arg);
-      //         return true;
-      //       }
-      //       if (evt.target instanceof JComboBox) {
-      //         String label = (String)arg;
-      //         plot_y_val = plout_bottom.getSelectedIndex();
-      //         plot_y_val_2 = ploutb.getSelectedIndex();
-      //               
-      //         out_top.plot.loadPlot();
-      // 
-      //         return true;
-      //       }
-      //       else return false;
-      //     } // Handler
-      // 
-      //     public void handleBut(Event evt, Object arg) {
-      //       String label = (String)arg;
-      //       out_bottom.setSelectedIndex(0);
-      // 
-      //       ensure_all_array();
-      //       for (Button b : all) { 
-      //         b.setBackground(Color.white);
-      //       }
-      //       if (label.equals("Angle")) {
-      //         plot_type = PLOT_TYPE_ANGLE;
-      //         pl3.setBackground(Color.yellow);
-      //       }
-      //       if (label.equals("Thickness")) {
-      //         plot_type = PLOT_TYPE_THICKNESS;
-      //         pl4.setBackground(Color.yellow);
-      //       }
-      //       if (label.equals("Camber")) {
-      //         plot_type = PLOT_TYPE_CAMBER;
-      //         pl5.setBackground(Color.yellow);
-      //       }
-      //       if (label.equals("Speed")) {
-      //         plot_type = PLOT_TYPE_CURR_PART_VS_SPEED;
-      //         pl6.setBackground(Color.yellow);
-      //       }
-      //       if (label.equals("Altitude")) {
-      //         plot_type = PLOT_TYPE_ALTITUDE;
-      //         pl7.setBackground(Color.yellow);
-      //       }
-      //       if (label.equals("Wing Area")) {
-      //         plot_type = PLOT_TYPE_WING_AREA;
-      //         pl8.setBackground(Color.yellow);
-      //       }
-      //       if (label.equals("Density")) {
-      //         plot_type = PLOT_TYPE_DENSITY;
-      //         pl9.setBackground(Color.yellow);
-      //       }
-      // 
-      //       out_top.plot.loadPlot();
-      // 
-      //     }
-      // 
-      //   }  // FoilCtrls
-      // 
-      //   class BallCtrls extends Panel {
-      //     FoilBoard app;
-      //     JLabel l2;
-      // 
-      //     BallCtrls(FoilBoard target) {
-      //       app = target;
-      //       setLayout(new GridLayout(1,1,5,5));
-      // 
-      //       l2 = new JLabel(" ", JLabel.RIGHT);
-      // 
-      //       add(l2);
-      //     }
-      //   }  // BallCtrls
-      // } // Lower
-    }  // PlotSelectorTab
+    } // PlotSelectorTab
 
     class Opts extends InputPanel {
       FoilBoard app;
@@ -9177,17 +8922,28 @@ public class FoilBoard extends JApplet {
         // Row 6
         rows++;
 
-        add(new JLabel(craft_type == WINDFOIL ? "Sail" : "kite" + "Drive height"));
-        JScrollBar test = new JScrollBar(JScrollBar.HORIZONTAL, (int)(1000*RIDER_DRIVE_HEIGHT),10, 0, 3000);
+        add(new JLabel(craft_type == WINDFOIL ? "Sail" : "kite" + " Drive height"));
+        JScrollBar test = new JScrollBar(JScrollBar.HORIZONTAL, (int)(1000*DRIVING_FORCE_HEIGHT),4, 0, 3000);
         test.addAdjustmentListener(new AdjustmentListener() {
             public void adjustmentValueChanged(AdjustmentEvent evt) {
-              RIDER_DRIVE_HEIGHT = evt.getValue()/1000.0;
+              DRIVING_FORCE_HEIGHT = evt.getValue()/1000.0 -1;
               computeFlowAndRegenPlotAndAdjust();
               recomp_all_parts();
             }});
         add(test);
 
-        add(new JLabel(""));
+        //add(new JLabel(""));
+        add(chb = new JCheckBox("Summary tab above", false));
+        chb.setToolTipText("Summary panel tab appears at top or bottom panel");
+        chb.addItemListener(new ItemListener() {
+            public void itemStateChanged(ItemEvent e) {             
+              if (e.getStateChange() == ItemEvent.SELECTED) 
+                out_top.addTab("Summary", null, perfweb, "Shape and Performance Summary");
+              else 
+                out_bottom.addTab("Summary", null, perfweb, "Shape and Performance Summary");
+            }
+          });
+
 
         // Row 7
         rows++;
@@ -10244,7 +10000,7 @@ public class FoilBoard extends JApplet {
         // 150 pixels is 1.5m
         scalex = zoom_slider_pos_y; scaley = -zoom_slider_pos_y;
         offx = 0; // maybe -strut.xpos; 
-        double flight_height = strut.span * (alt/100); // board bottom above water
+        double flight_height = strut.span * (alt_val/100); // board bottom above water
         offy =  flight_height - strut.span; // this is flight depth
           
         drawPart(strut,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
@@ -10285,13 +10041,10 @@ public class FoilBoard extends JApplet {
         // -cg_pos = k*moff + (1-k)*rx -> rx = (-cgpos - k*l)/(1-k)
         //double rider_center_x = strut.xpos + (-dash.cg_pos + mast_foot_pressure_k * mast_foot_dist_from_strut_le)/(1-mast_foot_pressure_k);
         // this is 0 when in.opts.ignore_drive_moment == true
-        double rider_countering_x_offset =  dash.cg_pos_of_rider - dash.cg_pos_board_level; // see updateTotals()
         // // for now, this parallels/verifies computation from updateTotals...
-        // double drive_force = total_drag() * RIDER_DRIVE_HEIGHT/RIDER_CG_HEIGHT;
-        // double rider_countering_x_offset_ver = (drive_force/rider_weight)* RIDER_CG_HEIGHT; // wasFF 0.86;
-        // if (rider_countering_x_offset != rider_countering_x_offset_ver) System.out.println("WARNING:  rider_countering_x_offset mismatch: " + rider_countering_x_offset_ver + " vs con:" + rider_countering_x_offset);
+        // double drive_force = total_drag() * DRIVING_FORCE_HEIGHT/RIDER_CG_HEIGHT;
 
-        double rider_center_x = cg_x_pos_rot_x + rider_countering_x_offset;
+        double rider_center_x = cg_x_pos_rot_x + dash.rider_countering_x_offset;
         // above is: strut.xpos + dash.cg_pos + dash.cg_pos_of_rider - dash.cg_pos_board_level
         // double rider_center_x_v2 = strut.xpos + dash.cg_pos_of_rider + strut.xoff_tip;
         // above is: strut.xpos + dash.cg_pos - strut.xoff_tip  + dash.cg_pos_of_rider - dash.cg_pos_board_level  + strut.xoff_tip;
@@ -10334,7 +10087,7 @@ public class FoilBoard extends JApplet {
         double rider_rot_center_x = rider_center_x;
 
         double rider_rot_center_y = y[0]/scaley; // rotation corrected, real coords not screen
-        double rider_drive_center_y = rider_rot_center_y + RIDER_DRIVE_HEIGHT; // rotation corrected, real coords not screen
+        double rider_drive_center_y = rider_rot_center_y + DRIVING_FORCE_HEIGHT; // rotation corrected, real coords not screen
         double rider_cg_center_y = rider_rot_center_y + RIDER_CG_HEIGHT; // rotation corrected, real coords not screen
 
         double rider_torso_height_correction = 
@@ -10343,7 +10096,7 @@ public class FoilBoard extends JApplet {
           :
           // wasFF 0.86 * (Math.cos(total_drag()/rider_weight) - 1);
           // 0.8 * (Math.cos((rider_center_x-cg_x_pos)/0.8) - 1);
-          Math.sqrt(Math.max(0, 0.8*0.8 - rider_countering_x_offset*rider_countering_x_offset)) - 0.8 ;
+          Math.sqrt(Math.max(0, 0.8*0.8 - dash.rider_countering_x_offset*dash.rider_countering_x_offset)) - 0.8 ;
 
         // if in 2 straps, reduce it (only to display comfu pos of front foot loading)
         if (!Double.isNaN(BACK_FOOTSTRAP_XPOS) && !Double.isNaN(FRONT_FOOTSTRAP_XPOS))
@@ -10738,8 +10491,9 @@ public class FoilBoard extends JApplet {
           // board weight.
           // board weight arm is 1/2 length minus mast LE to transom
           if (!in.opts.ignore_aux_weight_moments) {
+            double board_force = BOARD_WEIGHT - (FoilBoard.this.load - total_lift()); 
             to_screen_x_y(new Point3D((-BOARD_LENGTH/2+mast_xpos+MAST_LE_TO_TRANSOM),0,strut.span+BOARD_THICKNESS/2),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-            to_screen_x_y(new Point3D((-BOARD_LENGTH/2+mast_xpos+MAST_LE_TO_TRANSOM),0,strut.span+BOARD_THICKNESS/2-BOARD_WEIGHT*force_scale),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+            to_screen_x_y(new Point3D((-BOARD_LENGTH/2+mast_xpos+MAST_LE_TO_TRANSOM),0,strut.span+BOARD_THICKNESS/2-board_force*force_scale),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
             drawVectorVert(Color.red, 
                            lang=="ru" 
                            ? "\u0412\u0435\u0441 \u0414\u043e\u0441\u043a\u0438"
@@ -11763,15 +11517,15 @@ public class FoilBoard extends JApplet {
     Point locp, ancp; // cryptic FoilSimIII name 
 
 
-    double[][] plotx = new double[5][50+1]; // 1 st x,y  oten used to store a current red "dot"
-    double[][] ploty = new double[5][50+1];
+    double[][] plotx = new double[5][100+1]; // 1 st x,y  oten used to store a current red "dot"
+    double[][] ploty = new double[5][100+1];
     Color[] plot_colors = {Color.white, Color.magenta, Color.green};
 
     // state shared between loadPlot and paint
     int lines = 1;
 
-    // soem controls like "Craft Pitch" in "no equilibrium" mode
-    // corrently confilct with vpp-based speed-sweep plots such as
+    // some controls like "Craft Pitch" in "no equilibrium" mode
+    // currently confilct with vpp-based speed-sweep plots such as
     // PLOT_TYPE_CURR_PART_VS_SPEED and PLOT_TYPE_CURR_PART_VS_SPEED
     // because these currently leave the craft in equilibrium state
     // at the speed that was in effect before the sweep.
@@ -11868,7 +11622,7 @@ public class FoilBoard extends JApplet {
            plot_type == PLOT_TYPE_CURR_PART_VS_SPEED) ) 
         return;
 
-      // Cryptic var names is FoilSimIII legacy
+      // These cryptic var names are FoilSimIII legacy. TODO: rename all
       double rad,ang,xc,yc,lftref,clref,drgref,cdref;
       double del,spd,awng,ppl,tpl,hpl,angl;
       int index,ic;
@@ -11894,7 +11648,7 @@ public class FoilBoard extends JApplet {
 
       if (current_part == strut) {
         // typically only 30% sits in water
-        drgref *= (1-alt/100);
+        drgref *= (1- alt_val/100);
       }
    
       //  load up the current plot
@@ -12210,7 +11964,7 @@ public class FoilBoard extends JApplet {
         laby = "";
         labyu = "";
 
-        npt = 40;
+        npt = 90;
         start_pt = 1;
         plot_trace_count = 5;
         axis_x_label_width = 5;  axis_y_label_width = 3;
@@ -12219,7 +11973,7 @@ public class FoilBoard extends JApplet {
         // spd = Math.min(8, velocity);
         spd = 8;
         labxu = current_display_speed_unit_string();
-        double beg_spd = 4+load/100; //ad hoc  old: min_takeoff_speed == 0 ? 15 : min_takeoff_speed; // velocity/2; // 10;
+        double beg_spd = 5; // 4+load/100; //ad hoc  old: min_takeoff_speed == 0 ? 15 : min_takeoff_speed; // velocity/2; // 10;
         double end_spd = 50;
         del = (npt == 1) ? 0 : (end_spd-beg_spd)/(npt-1);
 
@@ -12467,7 +12221,7 @@ public class FoilBoard extends JApplet {
         ntiky = 5;
         if (plot_y_val_2 == 0) laby = String.valueOf("Lift");
         if (plot_y_val_2 == 1) laby = String.valueOf("Drag");
-        plotx[1][0] = alt/100.;
+        plotx[1][0] = alt_val/100.;
         if (plot_y_val_2 == 0) ploty[1][0] = lftref;
         if (plot_y_val_2 == 1) ploty[1][0] = drgref;
         if (lunits == IMPERIAL) labyu = String.valueOf("lbs");
@@ -13435,13 +13189,149 @@ public class FoilBoard extends JApplet {
     }
   } // end class Plot 
 
+  class PerfWeb extends Panel {
+    FoilBoard app;
+    JEditorPane prnt;
+
+    PerfWeb (FoilBoard target) {
+      setLayout(new GridLayout(1,1,0,0));
+      prnt = new JEditorPane();
+      prnt.setAutoscrolls(true);
+      prnt.setContentType("text/html");
+      add(prnt);
+    }
+
+    // PerfWeb.loadPanel
+    @Override
+    public void loadPanel () { 
+      updateReport();
+    }
+
+    public void paint (Graphics g) {
+      // System.out.println("-- paint " + this);
+      updateReport();
+      super.paint(g);
+    }
+
+    String cg_text (String cg_text) { 
+      if (cg_text.equals("-"))
+        return "??";
+      else 
+        return cg_text + " mast LE";
+      
+    }
+
+    void updateReport () { 
+      long start = System.currentTimeMillis();
+      prnt.setText(genReport()); 
+      // System.out.println("-- PerfWeb updateReport, ms: " + (System.currentTimeMillis() - start));
+    }
+      
+    String genReport () {
+      String l_u = current_display_size_unit_string();
+      String v_u = current_display_speed_unit_string();
+      String f_u = current_display_force_unit_string();
+      String html_text = 
+        "<style>\n table {border:1px solid black;border-collapse:collapse;width:100%}\n"+
+        " th, td {padding:0px;text-align:right;}\n</style>\n\n" + 
+        "<body style='font-size:14pt'>\n" + 
+        "<b>$NAME</b>\n" +  dateString() +
+        // "<br>Specs" + 
+        "<table border='0'>\n"+
+        "<thead >\n"+
+        "<tr style='background-color:yellow'>\n"+
+        "<th>Part</th><th>Span<br>"+l_u+"</th><th>Chord<br>"+l_u+"</th><th>Thickness<br>averg,"+l_u+"</th>\n"+
+        "<th>Angle<br>deg</th><th>Area<br>"+l_u+"2</th><th>Foil(Profile)</th></tr></thead>\n"+
+        "<tbody>\n"+
+        "  <tr style='background-color:#ffffff'><td>Wing</td><td>$WS</td><td>$WC</td><td>$WT</td><td>$Wa</td><td>$WA</td><td>$WF</td></tr>\n"+
+        "  <tr style='background-color:#f0f0f0'><td>Stab</td><td>$SS</td><td>$SC</td><td>$ST</td><td>$Sa</td><td>$SA</td><td>$SF</td></tr>\n"+
+        "  <tr style='background-color:#ffffff'><td>Fuse</td><td>$FS</td><td>$FC</td><td>$FT</td><td>$Fa</td><td>$FA</td><td>$FF</td></tr>\n"+
+        "  <tr style='background-color:#f0f0f0'><td>Mast</td><td>$MS</td><td>$MC</td><td>$MT</td><td>$Ma</td><td>$MA</td><td>$MF</td></tr>\n"+
+        "</tbody></table>\n"+
+        "<table border='0'>\n"+
+        "<thead >\n"+
+        "<tr style='background-color:yellow'>\n"+
+        "<th>Performance Evaluation</th><th>Speed<br>"+v_u+"</th><th>Lift<br>"+f_u+"</th><th>Drag<br>"+f_u+"</th><th>Rider C.G.<br>Location</th></tr></thead>\n"+
+        "<tbody>\n"+
+        "  <tr style='background-color:#ffffff'><td>Takeoff (Min Speed)</td><td>$TKS</td><td>$TKL</td><td>$TKD</td><td>$TKX</td></tr>\n"+
+        "  <tr style='background-color:#f0f0f0'><td>Cruise (Least Drag)</td><td>$CRS</td><td>$CRL</td><td>$CRD</td><td>$CRX</td></tr>\n"+
+        "  <tr style='background-color:#ffffff'><td>Race (Max Speed)</td><td>$RCS</td><td>$RCL</td><td>$RCD</td><td>$RCX</td></tr>\n"+
+        "</tbody></table>\n\n</body>"
+        ;
+
+      html_text = html_text.replace("$TKS", toStringOptQMFilter1(min_takeoff_speed));
+      html_text = html_text.replace("$TKL", toStringOptQMFilter0(min_takeoff_lift));
+      html_text = html_text.replace("$TKD", toStringOptQMFilter0(min_takeoff_drag));
+      html_text = html_text.replace("$TKX", cg_text(min_takeoff_cg));
+      html_text = html_text.replace("$CRS", toStringOptQMFilter1(cruising_speed));
+      html_text = html_text.replace("$CRL", toStringOptQMFilter0(cruising_lift));
+      html_text = html_text.replace("$CRD", toStringOptQMFilter0(cruising_drag));
+      html_text = html_text.replace("$CRX", cg_text(cruising_cg));
+      html_text = html_text.replace("$RCS", toStringOptQMFilter1(max_speed_speed));
+      html_text = html_text.replace("$RCL", toStringOptQMFilter0(max_speed_lift));
+      html_text = html_text.replace("$RCD", toStringOptQMFilter0(max_speed_drag));
+      html_text = html_text.replace("$RCX", cg_text(max_speed_cg));
+
+
+      html_text = html_text.replace("$NAME", t_foil_name);
+
+      html_text = html_text.replace("$WS", ""+make_size_info_in_display_units(wing.span,false));
+      html_text = html_text.replace("$WC", ""+make_size_info_in_display_units(wing.chord,false));
+      html_text = html_text.replace("$WT", ""+make_size_info_in_display_units(wing.chord*wing.thickness/100,false)); // 100*ch*th/100%
+      html_text = html_text.replace("$Wa", ""+filter1(wing.aoa));
+      html_text = html_text.replace("$WA", ""+make_area_info_in_display_units(wing.span*wing.chord,false));
+      html_text = html_text.replace("$WF", wing.foil_descr());
+
+      html_text = html_text.replace("$SS", ""+make_size_info_in_display_units(stab.span,false));
+      html_text = html_text.replace("$SC", ""+make_size_info_in_display_units(stab.chord,false));
+      html_text = html_text.replace("$ST", ""+make_size_info_in_display_units(stab.chord*stab.thickness/100,false));
+      html_text = html_text.replace("$Sa", ""+filter1(stab.aoa));
+      html_text = html_text.replace("$SA", ""+make_area_info_in_display_units(stab.span*stab.chord,false));
+      html_text = html_text.replace("$SF", stab.foil_descr());
+
+      html_text = html_text.replace("$MS", ""+make_size_info_in_display_units(strut.span,false));
+      html_text = html_text.replace("$MC", ""+make_size_info_in_display_units(strut.chord,false));
+      html_text = html_text.replace("$MT", ""+make_size_info_in_display_units(strut.chord*strut.thickness/100,false));
+      html_text = html_text.replace("$Ma", ""+filter1(strut.aoa));
+      html_text = html_text.replace("$MA", ""+make_area_info_in_display_units(strut.span*strut.chord,false));
+      html_text = html_text.replace("$MF", strut.foil_descr());
+
+      html_text = html_text.replace("$FS", ""+make_size_info_in_display_units(fuse.span,false));
+      html_text = html_text.replace("$FC", ""+make_size_info_in_display_units(fuse.chord,false));
+      html_text = html_text.replace("$FT", ""+make_size_info_in_display_units(fuse.chord*fuse.thickness/100,false));
+      html_text = html_text.replace("$Fa", ""+filter1(fuse.aoa));
+      html_text = html_text.replace("$FA", ""+make_area_info_in_display_units(fuse.span*fuse.chord,false));
+      html_text = html_text.replace("$FF", fuse.foil_descr());
+
+      return html_text;
+
+    }
+  } // PerfWeb
+
+  class PerfWebSrc extends Panel {
+    FoilBoard app;
+    JTextArea text;
+
+    PerfWebSrc (FoilBoard target) {
+      setLayout(new GridLayout(1,1,0,0));
+      text = new JTextArea();
+      text.setEditable(false);
+      add(new JScrollPane(text));
+    }
+    public void paint (Graphics g) {
+      // System.out.println("-- paint " + this);
+      text.setText(perfweb.genReport());
+      super.paint(g);
+    }
+  } // PerfWebSrc
+
   class Out extends javax.swing.JTabbedPane {
     FoilBoard app;
     Probe probe;
     Geometry geometry;
     Data data;
-    PerfWeb perfweb;
-    PerfWebSrc perfwebsrc;
+    //PerfWeb perfweb;
+    //PerfWebSrc perfwebsrc;
 
     Out (FoilBoard target) { 
       app = target;
@@ -13454,21 +13344,21 @@ public class FoilBoard extends JApplet {
       data = new Data(app);
       
       // TODO: regen this on update (if active)
-      perfweb = new PerfWeb(app);
+      // perfweb = new PerfWeb(app);
       addTab("Summary", null, perfweb, "Shape and Performance Summary");
       addTab("Geometry", null, geometry, "Hydrofoil components geometry,\nfoil/profile geometry tables or links");
       addTab("Data", null, data, "Hydrofoil components data,\nincluding size, shape etc");
       addTab("Probe", null, probe, "Fluid Flow Probe Display");
-      // addTab("Plot", null, plot, "Show Plot");
+      // old: addTab("Plot", null, pp, "Show Plot");
 
 
-      // phasin out this.... (stil works). instead, copy&past "summary" tab into
+      // phazing out this.... (still works). instead, copy&past "summary" tab into
       // html tool such as https://html-online.com/editor/ and done!
       //
       // perfwebsrc = new PerfWebSrc(app);
       // addTab("<h1>Summary...", null, perfwebsrc, "Shape and Performance Summary,\n html codes for embedding");
 
-      setSelectedComponent(perfweb);
+      //setSelectedComponent(perfweb);
 
       // adding actions to tabs: following "whoa" ideas from stackoverflow work but I use
       // overloaded paint() instead, seem simple.
@@ -13965,7 +13855,7 @@ public class FoilBoard extends JApplet {
         }
         }
 
-        // ta.append( "\n Altitude = " + filter0(alt) );
+        // ta.append( "\n Altitude = " + filter0(alt_val) );
         // if (lunits == IMPERIAL) ta.append( " ft ," );
         // else /*METRIC*/         ta.append( " m ," );
       
@@ -14156,7 +14046,7 @@ public class FoilBoard extends JApplet {
       }
       public void paint (Graphics g) {
         // System.out.println("-- paint " + this);
-        text.setText(out_bottom.perfweb.genReport());
+        text.setText(perfweb.genReport());
         super.paint(g);
       }
     }
@@ -14166,13 +14056,19 @@ public class FoilBoard extends JApplet {
   class DashBoardOrPlot extends javax.swing.JTabbedPane {
     FoilBoard app;
     Plot plot;
+    //PerfWeb perfweb;
 
     DashBoardOrPlot (FoilBoard target) { 
       app = target;
       plot = new Plot(app);
       PlotPanel pp = new PlotPanel(plot);
+
+      //perfweb = new PerfWeb(app);
+
       addTab("Dash-board", null, dash, "Performance DashBoard");
       addTab("Plot", null, pp, "Show Plot");
+
+      addTab("Summary", null, perfweb, "Shape and Performance Summary");
 
       this.addChangeListener(new javax.swing.event.ChangeListener() {
           @Override
@@ -14204,4 +14100,90 @@ public class FoilBoard extends JApplet {
     }
 
   } // DashBoardOrPlot
-}
+} // FoilBoard
+
+/*----From FoilSim.java, https://www.grc.nasa.gov/www/k-12/FoilSim------------- 
+
+                      FoilSim III  - Airfoil  mode
+   
+                           A Java Applet
+               to perform Kutta-Joukowski Airfoil analysis
+                including drag from wind tunnel tests
+
+                     Version 1.5b   - 3 Sep 13
+
+                              Written by 
+
+                               Tom Benson
+                       NASA Glenn Research Center
+
+                                 and
+              
+                               Anthony Vila
+                          Vanderbilt University
+
+                                NOTICE
+This software is in the Public Domain.  It may be freely copied and used in
+non-commercial products, assuming proper credit to the author is given.  IT
+MAY NOT BE RESOLD.  If you want to use the software for commercial
+products, contact the author.
+No copyright is claimed in the United States under Title 17, U. S. Code.
+This software is provided "as is" without any warranty of any kind, either
+express, implied, or statutory, including, but not limited to, any warranty
+that the software will conform to specifications, any implied warranties of
+merchantability, fitness for a particular purpose, and freedom from
+infringement, and any warranty that the documentation will conform to the
+program, or any warranty that the software will be error free.
+In no event shall NASA be liable for any damages, including, but not
+limited to direct, indirect, special or consequential damages, arising out
+of, resulting from, or in any way connected with this software, whether or
+not based on warranty, contract, tort or otherwise, whether or not injury
+was sustained by persons or property or otherwise, and whether or not loss
+was sustained from, or arose out of the results of, or use of, the software
+or services provided hereunder.
+ 
+  New test -
+             * include the drag
+             * rename modules and change layout
+             * change the color scheme on the plots
+             * correct lift of ball from CurveBall
+             * change pressure and velocity plots for stalled airfoil
+             * add reynolds number calculation
+               get moment coefficient - FoilSim IV
+               put separation bubble on airfoil graphics - FoilSim IV
+
+                                           TJB  22 Jun 10
+
+  New Test B
+           * -Build Drag Data Interpolator to incorporate drag results
+             * -Implement interpolator into program (create drag output results textbar)
+           * -get drag of elliptical foils
+
+                                           AJV 7/14/10
+  New Test C
+           *  add drag plots and interpolated data
+           *  move plot selection to input side
+           *  add analysis panel - 
+           *  make input and output buttons - not drop down
+           *  add reynolds correction to airfoil - make optional
+           *  add induced drag to drag calculation  - make optional
+           *  add drag to gage output
+           *  add smooth ball / rough ball option 
+           *  release as FoilSim III
+                                            TJB 29 July 10
+           *  move metric/imperial units back on control panel - based on user inputs
+           *  add some standard shapes to Shape input with buttons
+                                            TJB 23 Nov 10
+           *  fix up a symmetry problem for negative camber and drag 
+           *  fix up a plotting problem for drag involving the induced drag
+                                             TJB 29 Nov 10
+           * change number of sig fig on graphs - small airfoils
+                                             TJB 17 Feb 11
+           * add volume of the wing to the printed output - option "Geometry"
+                                             TJB 21 Mar 11
+           * add Venus surface atmospherics (need to fix viscosity)
+                                             TJB 20 Feb 13
+             add relative humidty to the flight input
+                                             TJB 3 Sep 13
+
+------------------- end of FoilSim III copyright and info */
