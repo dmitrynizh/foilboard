@@ -182,6 +182,10 @@ public class FoilBoard extends JApplet {
     }
   }
 
+  class Board {
+    double drag;
+  }
+
   class Part implements java.lang.Cloneable {
     /**/ String name; Foil foil; double xpos; double chord; double span; double thickness; double camber; double aoa;
     Part(String name, Foil foil, double xpos, double chord, double span, double thickness, double camber, double aoa) {
@@ -447,6 +451,7 @@ public class FoilBoard extends JApplet {
   class PartPack {
     Part w, s, f, m;
   }
+
   PartPack withNewClones () {
     PartPack pp = new PartPack();
     pp.w = wing; wing = wing.make_clone();
@@ -455,6 +460,7 @@ public class FoilBoard extends JApplet {
     pp.m = strut; wing = strut.make_clone();
     return pp;
   }
+
   void withSavedParts (PartPack pp) { wing = pp.w; stab = pp.s; fuse = pp.f; strut = pp.m; }
   
   boolean runAsApplication = false; // main() sets this to true
@@ -1249,7 +1255,10 @@ public class FoilBoard extends JApplet {
   static String constraint_lift_text_auw = "all-up weight (AUW)";
   static String constraint_lift_text_uplift = "required uplift force";
 
-  // Foiling craft parts with default values
+  //  the board comonent of the foiling craft
+  Board board = new Board();
+
+  // Hydrofoil parts with default values
   Part //              name; airfoil     xpos             chord  span  thk camb aoa
   fuse    = new Part("Fuse", FOIL_NACA4, 0,               0.8,   0.02, 04, 0,   0),
     wing  = new Part("Wing", FOIL_NACA4, 0,               0.11,  0.56, 12, 3.34,0), 
@@ -1262,7 +1271,8 @@ public class FoilBoard extends JApplet {
   static double BOARD_THICKNESS;
   static double BOARD_LENGTH;
   static double BOARD_WEIGHT;
-  double board_drag = 0;
+  static double BOARD_CG_K = 0.4; // CG is located approx at 60% distance from the nose, 40% from the tail
+  static double BOARD_LIFT_K = 0.25; // lift of floating board is appox 25% from the tail
 
   static double RIG_WEIGHT;
   static double FOIL_WEIGHT = 20; // N, weight of typical semi-submerged foil (dry weight - floatation)
@@ -2762,7 +2772,7 @@ public class FoilBoard extends JApplet {
 
   double total_drag () {
     if (alt_val > 0) 
-      board_drag = 0; // flying!
+      board.drag = 0; // flying!
     else { 
       // this is based on "Moth Full Scale Measurements..." page 3.
       // at low speeds, board drags as classic displacing hull, then
@@ -2774,7 +2784,7 @@ public class FoilBoard extends JApplet {
       // lift is to define 180 or 240lb Moth drag as "baseline", and
       // apprximate it as linear at 15lb per 10kmh slope and flat
       // after reaching, say 25-30 or so, and indicating planing.
-      // Subtract from thsi wing lift.
+      // Subtract from this wing lift.
       //
       double board_drag_lbs_for_240lbs = 0; 
       if (velocity <= 6) board_drag_lbs_for_240lbs = velocity/2;
@@ -2786,9 +2796,9 @@ public class FoilBoard extends JApplet {
         * board_drag_lbs_for_240lbs 
         * (load/1067);
       // System.out.println("-- in_newtons: " + in_newtons);
-      board_drag = in_newtons;
+      board.drag = in_newtons;
     }
-    return board_drag +
+    return board.drag +
       wing.drag + stab.drag + fuse.drag + strut.drag +
       wing.drag_junc + stab.drag_junc + fuse.drag_junc + strut.drag_junc + strut.drag_spray;
   }
@@ -2854,9 +2864,9 @@ public class FoilBoard extends JApplet {
     // drag of wings and fuse can be for now ignored thanks to ref point chosen;
     // more accurate calc shoud include craft AoA and Z offsetts to calc that. 
     
-    // board weight arm is 1/2 length minus mast LE to transom
+    // board weight arm is board weight location length minus mast LE to transom
     double board_arm = // tangential arm at 90 degrees to gravity
-      BOARD_LENGTH/2 - MAST_LE_TO_TRANSOM;
+      BOARD_CG_K * BOARD_LENGTH - MAST_LE_TO_TRANSOM;
 
     double rig_arm = WS_MASTBASE_MAST_LE/2; // approx
 
@@ -2864,7 +2874,7 @@ public class FoilBoard extends JApplet {
       in.opts.ignore_drive_moment ? 0 : driving_force * driving_arm;
 
     double strut_drag_moment = in.opts.ignore_drag_moments ? 0 : strut.drag * strut_drag_arm;
-    double board_moment = BOARD_WEIGHT * board_arm;
+    double board_vert_moment = BOARD_WEIGHT * board_arm;
     double rig_moment   = RIG_WEIGHT * rig_arm;
     double foils_Cm_moments =  // all same sign because rotate 'in plane'
       wing.moment +
@@ -2885,13 +2895,17 @@ public class FoilBoard extends JApplet {
     if (non_flying) { 
       // load = lift; // Ok idea but not ideal
       // here is better idea: when non_flying, the board provides the remaining lift
-      board_moment = (BOARD_WEIGHT - (load - lift)) * board_arm;
+      double board_lift_arm = // tangential arm at 90 degrees to gravity
+      BOARD_LIFT_K * BOARD_LENGTH - MAST_LE_TO_TRANSOM;
+      
+      board_vert_moment = (BOARD_WEIGHT - (load - lift)) * board_lift_arm;
     }
 
     // this was named mast_le_xpos when ref point was mast le, which is strut.xpos.
     double ref_point_xpos = strut.xpos; 
     
     double CW_moments = // +CW
+      (in.opts.ignore_aux_weight_moments ? 0 : board.drag * (strut.span + BOARD_THICKNESS/2)) +
       strut_drag_moment + 
       foils_Cm_moments + // any positive Cm pitches nose up therefore CW in this 'view'
       wing.lift *  - (wing.xpos + wing.chord_xoffs + CENTER_OF_LIFT * wing.chord - ref_point_xpos) +
@@ -2903,23 +2917,15 @@ public class FoilBoard extends JApplet {
       (in.opts.ignore_aux_weight_moments 
        || non_flying // this help to keep the rider over the board and not behind when drive is very light
        ? 0 
-       : board_moment + rig_moment);
-
+       : board_vert_moment + rig_moment);
 
     // if we decide to include prorated rider-mast calcs here 
     // load = load*(1-load_distribution_to_mast_loc)
     //
-    // why using lift not load? to cover both non_flying and flying
-    // conditions in a simple way.  clearly it shoudl be load but in flying
-    // equilibrium its alwats equal to lift. when not flying, lift is much
-    // smaller and that results in wrong rider_arm. Say, lift is 1/2 of load
-    // and wing's arm is 20cm from strut LE and other factors small. then
-    // rider stands back and is at 10cm forward from strut LE. This is not
-    // quite correct esp at efoil where you are right above the wing lift at high AOAs.
-    double rider_arm = (CCW_moments - CW_moments) / lift;
+    double rider_arm = (CCW_moments - CW_moments) / load;
 
     // March 2021: warning: I forgot what it is and how non_flying affects this.
-    // not ethat as of now, it is not used in simulation... 
+    // note that as of now, it is not used in simulation... 
     dash.cg_pos_of_rider_at_drive_height = ((CCW_moments + driving_force*DRIVING_FORCE_HEIGHT) // adjust for drive height
                                            - CW_moments) / load;
 
@@ -10488,17 +10494,37 @@ public class FoilBoard extends JApplet {
                                                     rider_weight*force_scale
                                                     )));
 
-          // board weight.
-          // board weight arm is 1/2 length minus mast LE to transom
           if (!in.opts.ignore_aux_weight_moments) {
+            // board weight or lift
             double board_force = BOARD_WEIGHT - (FoilBoard.this.load - total_lift()); 
-            to_screen_x_y(new Point3D((-BOARD_LENGTH/2+mast_xpos+MAST_LE_TO_TRANSOM),0,strut.span+BOARD_THICKNESS/2),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-            to_screen_x_y(new Point3D((-BOARD_LENGTH/2+mast_xpos+MAST_LE_TO_TRANSOM),0,strut.span+BOARD_THICKNESS/2-board_force*force_scale),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-            drawVectorVert(Color.red, 
+            boolean non_flying  = board_force < 0;
+            double arm = non_flying
+              ?
+              // lift arm is at BOARD_LIFT_K*BOARD_LENGTH, adjust for mast_xpos+MAST_LE_TO_TRANSOM
+              -BOARD_LIFT_K*BOARD_LENGTH +mast_xpos + MAST_LE_TO_TRANSOM
+              :
+              // board weight arm is BOARD_CG_K*BOARD_LENGTH, adjust for mast_xpos+MAST_LE_TO_TRANSOM
+              -BOARD_CG_K*BOARD_LENGTH +mast_xpos + MAST_LE_TO_TRANSOM;
+
+            to_screen_x_y(new Point3D(arm,0,strut.span+BOARD_THICKNESS/2),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+            to_screen_x_y(new Point3D(arm,0,strut.span+BOARD_THICKNESS/2-board_force*force_scale),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+            drawVectorVert(non_flying ? Color.green : Color.red, 
                            lang=="ru" 
                            ? "\u0412\u0435\u0441 \u0414\u043e\u0441\u043a\u0438"
-                           : "Board Weight", 
+                           : (non_flying ? "Board lift" : "Board Weight"),
                            x[0], y[0], y[1]);
+
+            if (board.drag != 0) {
+              to_screen_x_y(new Point3D(arm,0,strut.span+BOARD_THICKNESS/2),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+              to_screen_x_y(new Point3D(arm+(board.drag)*force_scale,0,strut.span+BOARD_THICKNESS/2),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+              drawVectorHoriz(Color.red, 
+                              lang=="ru" 
+                              ? "\u0421\u043e\u043f\u0440\u043e\u0442\u002e \u0414\u043e\u0441\u043a\u0438"
+                              : "Board Drag", 
+                              y[0], x[0], x[1]);
+            }
+
+
           }
 
           // ws rig weight
@@ -10525,7 +10551,6 @@ public class FoilBoard extends JApplet {
           }
 
         }
-
 
         drag_x = offx + strut.xpos + 0.5*strut.chord;
         // why -offy/2 ? because offy is negative
