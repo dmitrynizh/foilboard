@@ -2049,8 +2049,7 @@ public class FoilBoard extends JApplet {
     plot_type = PLOT_TYPE_CG_VS_SPEED;
 
     //debug
-    DRIVING_FORCE_HEIGHT = 0;
-    
+    //DRIVING_FORCE_HEIGHT = 0;
 
   }
  
@@ -2894,22 +2893,26 @@ public class FoilBoard extends JApplet {
     return;
   }
 
+  // Darg of all components, including aerodynamic drag
   double total_drag () {
-    // Include aerodynamic drag here.
+
+
+    // Notes about aerodynamic drag. Previously it was not accaunted for -
+    // it was so because a portion of sail/kite forward drive compensates
+    // it, so why bother. Calculating it is very easy though. Most of the
+    // aerodynamic drag comes from rider's body and a very small additional
+    // component is board drag.  from various experimental studies such as
+    // https://university2.taylors.edu.my/EURECA/2014/downloads/02.pdf it
+    // can be seen that Rider's Cd is around 1.08 and the area perpendicular
+    // to the wind is ~ 0.6m^2 for frontal riding and a bit less (0.5?)for
+    // board rider stance. This is for average 75kg average height
+    // person. (/ (* 75 1.1) 18) (* 1.8 0.3 0.2) (* 1.8 0.3) = 0.54m2 For
+    // the board, Cd is likely in the vicinity of 0.2-0.3.  Note that this
+    // will give board profile drag only. TODO: calculate board aero lift
+    // and induced drag.
     //
-    // Previously it was not accaunted for - it was so because a portion of
-    // sail/kite forward drive compensates it, so why bother. Calculating it
-    // is very easy though. Most of the aerodynamic drag comes from rider's
-    // body and a very small additional component is board drag.  from
-    // various experimental studies such as
-    // file:///C:/Users/DNIZHE~1.ORA/AppData/Local/Temp/proceedings-02-00313-v2.pdf
-    // it can be seen that Rider's Cd is around 1.08 and the area
-    // perpendicular to the wind is ~ 0.6m^2 for frontal riding and a bit
-    // less (0.5?)for board rider stance. This is for average 75kg average
-    // height person. (/ (* 75 1.1) 18) (* 1.8 0.3 0.2) (* 1.8 0.3) = 0.54m2
-    // For the board, Cd is likely in the vicinity of 0.2-0.3.  Note that
-    // this will give board profile drag only. TODO: calculate board aero
-    // lift and induced drag.
+    // note: 'aero_drag' is not used outside of total_drag(), instead search
+    // for rider.drag and board.drag.
     double aero_q0 = .5 * 1.225 /*aero rho*/ * velocity * velocity * 0.277778 * 0.277778; // velocity from kmh to m/s
     double aero_drag = // 0.5 ro Cd A v^2 or aero_q0 Cd A
       // rider  (* 0.5 1.225 1.08 0.5 5.5 5.5)  = 10. N
@@ -2943,7 +2946,7 @@ public class FoilBoard extends JApplet {
       // System.out.println("-- in_newtons: " + in_newtons);
       board.drag += in_newtons;
     }
-    return board.drag + rider.drag +
+    return aero_drag + 
       wing.drag + stab.drag + fuse.drag + strut.drag +
       wing.drag_junc + stab.drag_junc + fuse.drag_junc + strut.drag_junc + strut.drag_spray;
   }
