@@ -1315,12 +1315,20 @@ public class FoilBoard extends JApplet {
   static double MAST_LE_TO_TRANSOM = 0.3;
   static double WS_MASTBASE_MAST_LE = 1.04; // 1.04 is typical rig mast base from strut LE distance...
 
-  // this is ~ (a) rider with harness: where the harness hook is, or (b)
-  // winger/sailor unhookedor tow - at shoulder level, or (c) efoil - where
-  // the motor is mounted.  when drive is transferred through rider body,
-  // this height is in reference tot he board deck; if attached to the foil,
-  // then it is height relative to the fuselage/strut intersection point for
-  // convenience.
+  // DRIVING_FORCE_HEIGHT - when driving force is transferred through
+  // rider's body, this height is in reference to the board deck; if
+  // attached to the foil, then it is in reference to the board bottom.
+  // 
+  // Thus, this has different reference points for different craft types.
+  // For EFOIL this is height relative to the y-coord of the fuselage/strut
+  // intersection point. For sail, wing and kite, for convenience, this is
+  // relative to the y-coord of the point on the deck above the mast LE.
+  //
+  // (a) for the rider with harness it
+  //     is where the harness hook is
+  // (b) for winger/sailor unhookedor tow - at
+  //     shoulder level
+  // (c) efoil - where the motor is mounted
   static double DRIVING_FORCE_HEIGHT = 1.05; 
   static double RIDER_CG_HEIGHT = 1.05; // this is where the waist is typically
 
@@ -2039,6 +2047,10 @@ public class FoilBoard extends JApplet {
     computeFlowAndRegenPlotAndAdjust();
 
     plot_type = PLOT_TYPE_CG_VS_SPEED;
+
+    //debug
+    DRIVING_FORCE_HEIGHT = 0;
+    
 
   }
  
@@ -2996,7 +3008,7 @@ public class FoilBoard extends JApplet {
     double driving_arm = 
       craft_type != EFOIL 
       ? (Math.cos(pitch_rad)*(strut.span + BOARD_THICKNESS) +  
-         -dash.cg_pos * // fore is negative and extends the arm
+         -dash.cg_pos * // remember that the 'fore' direction is negative and this 'extends the arm'
          Math.sin(pitch_rad) )
       : (Math.cos(pitch_rad)*DRIVING_FORCE_HEIGHT);
 
@@ -10956,12 +10968,18 @@ public class FoilBoard extends JApplet {
 
             } else { // EFOIL, drive vector comes from the motor
               double motor_x = offx + strut.xpos + 0.5*strut.chord;
+              // for EFOIL, DRIVING_FORCE_HEIGHT is negative because it's the
+              // distance from the strut top (by its definition, which was
+              // initially was tailored to serve sail/kite/wing). However,
+              // the Point3D value must be calculated from the strut's low
+              // end.
+              double motor_y = strut.span + DRIVING_FORCE_HEIGHT;
               to_screen_x_y(new Point3D(motor_x, // so far - leading edge of the mast, not prop_x
-                                        0, 0.15*strut.span //drive_center_y
+                                        0, motor_y // 0.15*strut.span //drive_center_y
                                         ),
                             x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
               to_screen_x_y(new Point3D(motor_x - drive_arrow_length, // so far - leading edge of the mast, not prop_x
-                                        0,  0.15*strut.span // drive_center_y
+                                        0, motor_y // 0.15*strut.span // drive_center_y
                                         ),
                             x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
               drawVectorHoriz(Color.orange, text, 
