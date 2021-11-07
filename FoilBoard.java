@@ -218,7 +218,7 @@ public class FoilBoard extends JApplet {
     double chord_zoffs;
     // coeff for induced drag. it is 1 for elliptical wings;
     // for rectangle form Ci_eff is 0.85. 
-    double Ci_eff = 0.9; 
+    double Ci_eff = 0.95; // Gudmundsson ch 15 p 690
     double xoff_tip;
     Point3D[] mesh_LE;
     Point3D[] mesh_TE;
@@ -332,27 +332,29 @@ public class FoilBoard extends JApplet {
       StringBuffer sb = new StringBuffer();
       sb.append(foil.print_line);      
       if (!foil_is_cylinder_or_ball(current_part.foil)) {
+        String chord_txt, span_txt, area_txt, thickness_txt, xpos_txt; 
         if (lunits == IMPERIAL) {
-          sb.append( "\n Chord = " + filter3(chord*12) + " inches.");
-          sb.append( "\n Span = " + filter3(span*12) + " inches.");
-          sb.append( "\n Surface Area = " + filter3(span*chord*144) + " sq inches.");
-          sb.append( "\n Thickness = " + filter3(0.01 * thickness * chord * 12) + " inches");
-          sb.append( " or " + filter3(thickness) + " % of chord ," );
-          sb.append( "\n Camber = " + filter3(camber) + " % chord ," );
-          sb.append( "\n Angle of attack = " + filter3(aoa) + " degrees ," );
-          sb.append( "\n Position LE at " + filter3(xpos) + " inches aft fuse LE" );
+          chord_txt     = filter3(chord*12) + " inches.";
+          span_txt      = filter3(span*12) + " inches.";
+          area_txt      = filter3(span*chord*144) + " sq inches.";
+          thickness_txt = filter3(0.01 * thickness * chord * 12) + " inches" + " or " + filter3(thickness) + " % of chord ,";
+          xpos_txt      = filter3(xpos * 12) + " inches aft fuse LE";
         } else {
-          sb.append( "\n Chord = " + filter3(chord*100) + " cm.");
-          sb.append( "\n Span = " + filter3(span*100) + " cm.");
-          sb.append( "\n Surface Area = " + filter3(span*chord*100*100) + " sq cm.");
-          sb.append( "\n Thickness = " + filter3(0.01 * thickness * chord * 100) + " cm");
-          sb.append( " or " + filter3(thickness) + " % of chord ," );
-          sb.append( "\n Camber = " + filter3(camber) + " % chord ," );
-          sb.append( "\n Angle of attack = " + filter3(aoa) + " degrees ," );
-          if (this == stab && stab_aoa_correction)
-            sb.append( "\n   Effective AoA due to Wing flow influence: " + filter3(effective_aoa()) + "," );
-          sb.append( "\n Position LE at " + filter3(xpos*100) + " cm aft fuse LE" );
+          chord_txt     = filter3(chord*100) + " cm.";
+          span_txt      = filter3(span*100) + " cm.";
+          area_txt      = filter3(span*chord*100*100) + " sq cm.";
+          thickness_txt = filter3(0.01 * thickness * chord * 100) + " cm" + " or " + filter3(thickness) + " % of chord ,";
+          xpos_txt      = filter3(xpos*100) + " cm aft fuse LE";
         }
+        sb.append( "\n Median Chord = " + chord_txt);
+        sb.append( "\n Span = " + span_txt);
+        sb.append( "\n Projected (Effective) Area = " + area_txt);
+        sb.append( "\n Thickness = " + thickness_txt);
+        sb.append( "\n Camber = " + filter3(camber) + " % chord ," );
+        sb.append( "\n Angle of attack = " + filter3(aoa) + " degrees ," );
+        if (this == stab && stab_aoa_correction)
+          sb.append( "\n   Effective AoA due to Wing flow influence: " + filter3(effective_aoa()) + "," );
+        sb.append( "\n Position LE at " + xpos_txt);
       } else { // cylinder or ball
         // sb.append( "\n Spin  = " + filter3(spin*60.0) );
         // sb.append( " rpm ," );
@@ -709,9 +711,10 @@ public class FoilBoard extends JApplet {
     // may side effect into current_part, when save_p is true, so that various drag factors are stored
     double get_Cd (double cldin, double effaoa, double thickness, double camber, boolean save_p) {
       double cd_profile = getCdragIdeal(cldin, effaoa, thickness, camber);
-      // (1) Reynolds Correction, multipicative
+      // (1) Reynolds Correction, multipicative, plus
+      // (2) skin drag, additive
       cd_profile = adjust_dragco(cd_profile, cldin, thickness);
-      // (2) AR/induced drag correction, additive
+      // (3) AR/induced drag correction, additive
       double cd_aux = getCdragAux(cldin, thickness);
       double cd = cd_profile + cd_aux;
       if (save_p) {
@@ -758,7 +761,7 @@ public class FoilBoard extends JApplet {
       // current_part.Ci_eff is induced drag coefficient factor.
       // For rectangle Ci_eff = .85, elliptic distr is 1 or so
       // adjust for strut in special way...
-      // this must include wave and spray but the waw we calculate induced drag likely results in higher
+      // this must include wave and spray but the way we calculate induced drag likely results in higher
       // .. drag Cl... stiil proper estimate for strut is:
       // (1) adjust area below to be 1/3 (or what 1-height/100 is) where drag is computed, use 1/2 of this section drag plus
       // (3) wave & spray drag as
@@ -970,6 +973,7 @@ public class FoilBoard extends JApplet {
     }
 
   }
+
 
   // see [Gudmundsson, App C1], p46-47
   // get_Cl, get_Cd and getCmoment are polynomial,
@@ -1687,10 +1691,22 @@ public class FoilBoard extends JApplet {
       if (parseParamData_debug) System.out.println("-- part: "+p_name+" MAC: " + MAC + " mac_xoffs: " + mac_xoffs);
       p.chord_xoffs = mac_xoffs;
 
-      // estimate Ci_eff... how root chord, MAC and tip chord differ?
-      // (- 1 (* 0.15 tip/mac))
-      p.Ci_eff = 1 - 0.15 * (Math.min(1, chords[segment_count]/MAC));
-      if (true || parseParamData_debug) System.out.println("-- "+p.name+"Ci_eff: " + p.Ci_eff);
+      // estimate Ci_eff... how root chord RC, MAC and tip chord TC differ?
+      // // old: too conservative: (- 1 (* 0.15 tip/mac))
+      // (1) appoximate Taper ratio as: TCeff = RC - 2*(RC-MAC); tr = TCeff/RC
+      // (2) polynomial approxaimation - https://www.desmos.com/calculator/zgxg590b65
+      //     quick curve fit - not ideal but good enough. See Gudmundsson ch 15 p 690
+      double TC = chords[segment_count], RC = chords[0], TCeff = RC - 2 *(RC-MAC); 
+      double tr = Math.min(1, TCeff/RC); // taper ratio. why min(): mast can be > 1, see efoil/lift-5p6-170.html
+      System.out.println("-- taper ratio: " + tr);
+      // old p.Ci_eff = 1 - 0.15 * (Math.min(1, chords[segment_count]/MAC));
+      tr += 0.99;
+      // note: factored AR into the last coeff as follows: 
+      // it is 1.24 at AR=1, 1.28 at AR=22 .. so, d =  1.24 + (AR*0.0018)
+      double oswald_e = -0.011*Math.pow(tr,6) + 0.256 * tr*tr*tr + 0.1659*tr*tr - 1.56*tr + 1.24 + (0.0018*p.span/p.chord);
+      System.out.println("-- oswald_e: " + oswald_e);
+      p.Ci_eff = 1/(1 + oswald_e);
+      if (true || parseParamData_debug) System.out.println("-- "+p.name+" Ci_eff: " + p.Ci_eff);
       // mesh. double segments for symmetric forms - wing, stab, fuse
       int mesh_count = (p == strut) ?  segment_count+1 : 2*segment_count+1;
       p.mesh_LE = new Point3D[mesh_count];
@@ -1875,15 +1891,6 @@ public class FoilBoard extends JApplet {
     use_cylinder_shapes = Boolean.parseBoolean(getParamOrPropAliased("CYLS", "USE_CYLINDER_SHAPES", "false"));
     use_foilsim_foils   = Boolean.parseBoolean(getParamOrPropAliased("FSIMFOILS", "USE_FOILSIM_FOILS", "false"));
 
-    // adjust or set height
-    if (craft_type == WINDFOIL) 
-      DRIVING_FORCE_HEIGHT = // sail drives "from 20-50cm  above boom" - depending on mast len, sail size, etc
-        Double.parseDouble(getParamOrProp("SAIL_DRIVE_HEIGHT", "1.8"));
-    else if (craft_type == EFOIL) 
-      DRIVING_FORCE_HEIGHT = 
-        Double.parseDouble(getParamOrProp("PROP_DRIVE_HEIGHT", "0.1"));
-
-
     FRONT_FOOTSTRAP_XPOS = Double.parseDouble(getParamOrPropAliased("FRONT_FOOTSTRAP_XPOS",  "FRONT_FOOTSTRAP_TO_MAST_LE_DISTANCE", 
                                                                     craft_type == WINDFOIL
                                                                     ? "-0.5"
@@ -1923,6 +1930,14 @@ public class FoilBoard extends JApplet {
     if (year_etc == null)  year_etc = getParameter("Year", "V1");
     year_etc.trim();
     t_foil_name = (make_name + " " + model_name + " " + year_etc).trim();
+
+    // adjust or set height
+    if (craft_type == WINDFOIL) 
+      DRIVING_FORCE_HEIGHT = // sail drives "from 20-50cm  above boom" - depending on mast len, sail size, etc
+        Double.parseDouble(getParamOrProp("SAIL_DRIVE_HEIGHT", "1.8"));
+    else if (craft_type == EFOIL) 
+      DRIVING_FORCE_HEIGHT = 
+        Double.parseDouble(getParamOrProp("PROP_DRIVE_HEIGHT", (""+(-0.85*strut.span))));
 
     // Meed to show FoilSim foils?
     if (use_foilsim_foils) {
@@ -2699,7 +2714,8 @@ public class FoilBoard extends JApplet {
     if (strut.use_cm) // lacking dedicated knob use this one
       rider_countering_x_offset = -(rider.drag/rider.weight)* RIDER_CG_HEIGHT;
 
-    // driving force offsett is added only if the drive force is applied above the board
+    // driving force offset is added only if the drive force is applied
+    // above the board, excluding the EFOIL case
     if (craft_type != EFOIL && DRIVING_FORCE_HEIGHT > 0) {
       // drive force, scaled to be considering coming from the rider CG height spot
       double drive_force_scaled = 
@@ -2975,7 +2991,9 @@ public class FoilBoard extends JApplet {
     // location. when drive is not through rider's body, then the arm is
     // that plus DRIVING_FORCE_HEIGHT
     double pitch_rad = Math.toRadians(craft_pitch);
-    double driving_arm = // pitch corrected vert dist from the origin
+    // driving_arm is pitch-corrected vertical distance from the origin. To
+    // recap, the origin is chosen, arbitrarily, to be at the top of mast LE.
+    double driving_arm = 
       craft_type != EFOIL 
       ? (Math.cos(pitch_rad)*(strut.span + BOARD_THICKNESS) +  
          -dash.cg_pos * // fore is negative and extends the arm
@@ -2997,7 +3015,12 @@ public class FoilBoard extends JApplet {
 
     double rig_arm = WS_MASTBASE_MAST_LE/2; // approx // TODO angle correction
 
-    double  drive_moment = // kite or sail, always CCW
+    // drive_moment: for kite or sail it is always CCW (we look from the
+    // left side). for EFOIL driving_arm is a negative value, so effectively
+    // drive_moment becomes CW-rotating, and as the result would cause more
+    // pronounced displacementof the driver body forward as the speed
+    // increses, augmented by the wind drag on the body.
+    double  drive_moment = 
       in.opts.ignore_drive_moment ? 0 : driving_force * driving_arm;
 
     double strut_drag_moment = in.opts.ignore_drag_moments ? 0 : strut.drag * strut_drag_arm;
@@ -3043,7 +3066,7 @@ public class FoilBoard extends JApplet {
                       - ref_point_xpos) + // TODO angle correction
       fuse.lift *  - (/*fuse.xpos is 0*/ + fuse.compute_lift_pos() - ref_point_xpos); // TODO angle correction
 
-    double CCW_moments  = // -CW CounterClockWise rotation 
+    double CCW_moments  = // CCW means CounterClockWise rotation, it is -CW
       drive_moment +
       stab.lift * (stab.xpos + stab.chord_xoffs + stab.compute_lift_pos() - ref_point_xpos) + // TODO angle correction
       (in.opts.ignore_aux_weight_moments 
@@ -9546,14 +9569,18 @@ public class FoilBoard extends JApplet {
                 else if (mesh_edit_mode 
                          &&
                          (mesh_z_angle == 0 && (mesh_x_angle == -90 || mesh_x_angle == 0))) { // top view or side view
-                  if (x >= 230 && x <= 250) { // more chords
+                  if (x >= 230 && x <= 255) { // CH+ add more chords
                     int len = current_part.mesh_LE.length;
                     len += (current_part == strut || len % 2 == 0) ? 1 : 2; // convert to odd
                     current_part.reinterpolate(len);
-                  } else if (x >= 260 && x <= 270) { // less chords
+                    // only one part changed, but (1) data panel needs uopdate (2) forces etc maybe need update.
+                    recomp_all_parts();
+                  } else if (x >= 260 && x <= 285) { // CH- have less chords
                     int len = current_part.mesh_LE.length;
                     len -= (current_part == strut || len % 2 == 0) ? 1 : 2; // convert to odd
                     current_part.reinterpolate(current_part.mesh_LE.length - 2);
+                    // only one part changed, but (1) data panel needs uopdate (2) forces etc maybe need update.
+                    recomp_all_parts();
                   }
                 }                
               } break;
@@ -9961,6 +9988,10 @@ public class FoilBoard extends JApplet {
       return (int)val;
     }
 
+    // to_screen_x_y: translate point p to screen coordinates, which also
+    // includes rotation by craft_pitch, storing the coordinate values into
+    // the arrays x and y at index i. 
+    // 
     // rotation transform, see https://en.wikipedia.org/wiki/Rotation_matrix
     void to_screen_x_y (Point3D p, int[] x, int[] y, int i, double offx, double scalex, double offy, double scaley, int screen_off_x, int screen_off_y)  { 
       double rp = Math.toRadians(craft_pitch); 
@@ -10255,23 +10286,28 @@ public class FoilBoard extends JApplet {
         drawPart( wing,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
         drawPart( stab,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
 
-        // board profile
-        //x[0] = screen_off_x+toInt(scalex*(offx + - 0.9));
-        //y[0] = screen_off_y+toInt(scaley*(offy + strut.span));
+        double mast_xpos =  // mast xpos at board bottom's level includes xoff_tip
+          strut.xpos + strut.xoff_tip; 
 
-        double mast_xpos =  // mast xpos at board bottom's level!
-          strut.xpos + strut.xoff_tip; // mast xpos at board bottom's level!
+        // --- board profile ---
 
-        to_screen_x_y(new Point3D(-BOARD_LENGTH+mast_xpos+MAST_LE_TO_TRANSOM+0.3,0,strut.span),x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-        //x[1] = screen_off_x+toInt(scalex*(offx + -1.2));
-        //y[1] = screen_off_y+toInt(scaley*(offy + strut.span + BOARD_THICKNESS));
-        to_screen_x_y(new Point3D(-BOARD_LENGTH+mast_xpos+MAST_LE_TO_TRANSOM,0,strut.span + BOARD_THICKNESS),x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-        //x[2] = screen_off_x+toInt(scalex*(offx + strut.xpos + 0.45));
-        //y[2] = screen_off_y+toInt(scaley*(offy + strut.span + BOARD_THICKNESS));
-        to_screen_x_y(new Point3D(mast_xpos + MAST_LE_TO_TRANSOM,0,strut.span + BOARD_THICKNESS),x,y,2,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
-        //x[3] = screen_off_x+toInt(scalex*(offx + strut.xpos + 0.45));
-        //y[3] = screen_off_y+toInt(scaley*(offy + strut.span));
-        to_screen_x_y(new Point3D(mast_xpos + MAST_LE_TO_TRANSOM,0,strut.span),x,y,3,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+        // point 0
+        to_screen_x_y(new Point3D(-BOARD_LENGTH+mast_xpos+MAST_LE_TO_TRANSOM+0.3,0,strut.span),
+                      x,y,0,
+                      offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+        // point 1
+        to_screen_x_y(new Point3D(-BOARD_LENGTH+mast_xpos+MAST_LE_TO_TRANSOM,0,strut.span + BOARD_THICKNESS),
+                      x,y,1,
+                      offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+        // point 2
+        to_screen_x_y(new Point3D(mast_xpos + MAST_LE_TO_TRANSOM,0,strut.span + BOARD_THICKNESS),
+                      x,y,2,
+                      offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+        // point 3
+        to_screen_x_y(new Point3D(mast_xpos + MAST_LE_TO_TRANSOM,0,strut.span),
+                      x,y,3,
+                      offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+
         off1Gg.setColor(Color.white);
         off1Gg.fillPolygon(x,y,4);
 
@@ -10842,7 +10878,11 @@ public class FoilBoard extends JApplet {
                                                   rider.weight*force_scale
                                                   )));
 
-        if (!in.opts.ignore_drive_moment)
+        if (in.opts.ignore_drive_moment // if so, do not need this arrow
+            || 
+            craft_type == EFOIL) // no need too: in the EFOIL case, the prop thrust is appled to the mast, not to the board by the feet.
+          ; // do nothing here
+        else 
           drawVectorHoriz(Color.red, 
                           lang=="ru" 
                           ? "\u0422\u044f\u0433\u0430 \u0028\u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0430 \u043a \u0434\u043e\u0441\u043a\u0435\u0029"
@@ -10904,13 +10944,31 @@ public class FoilBoard extends JApplet {
           }
 
           if (!in.opts.ignore_drive_moment) {
-            drawVectorHoriz(Color.orange, 
-                            lang=="ru" 
-                            ? "\u0422\u044f\u0433\u0430 "+craft_drive_type_name_ru[craft_type]+"\u0430 \u0412\u043f\u0435\u0440\u0435\u0434 \u0028\u0440\u0435\u0430\u043b\u044c\u043d\u0430\u044f \u0442\u043e\u0447\u043a\u0430\u0029"
-                            : craft_drive_type_name[craft_type] + " FWD Drive", 
+            String text = lang=="ru" 
+              ? "\u0422\u044f\u0433\u0430 "+craft_drive_type_name_ru[craft_type]+"\u0430 \u0412\u043f\u0435\u0440\u0435\u0434 \u0028\u0440\u0435\u0430\u043b\u044c\u043d\u0430\u044f \u0442\u043e\u0447\u043a\u0430\u0029"
+              : craft_drive_type_name[craft_type] + " FWD Drive";
+            double drive_arrow_length = total_drag()*force_scale;
+            if (craft_type != EFOIL) { 
+              drawVectorHoriz(Color.orange, text, 
                               screen_off_y+toInt(scaley*(drive_center_y)),
                               screen_off_x+toInt(scalex*(rider_rot_center_x_real)),
-                              screen_off_x+toInt(scalex*(rider_rot_center_x_real - total_drag()*force_scale)));
+                              screen_off_x+toInt(scalex*(rider_rot_center_x_real - drive_arrow_length)));
+
+            } else { // EFOIL, drive vector comes from the motor
+              double motor_x = offx + strut.xpos + 0.5*strut.chord;
+              to_screen_x_y(new Point3D(motor_x, // so far - leading edge of the mast, not prop_x
+                                        0, 0.15*strut.span //drive_center_y
+                                        ),
+                            x,y,0,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+              to_screen_x_y(new Point3D(motor_x - drive_arrow_length, // so far - leading edge of the mast, not prop_x
+                                        0,  0.15*strut.span // drive_center_y
+                                        ),
+                            x,y,1,offx,scalex,offy,scaley,screen_off_x,screen_off_y);
+              drawVectorHoriz(Color.orange, text, 
+                              y[0], 
+                              x[0],
+                              x[1]);
+            }
           }
 
         }
@@ -14182,7 +14240,7 @@ public class FoilBoard extends JApplet {
       // Geometry.loadPanel
       @Override
       public void loadPanel () {
-        // do we change data on load?
+        genReport();
       }
 
       public void paint (Graphics g) {
@@ -14201,10 +14259,10 @@ public class FoilBoard extends JApplet {
         ta.setText("");
 
         if (!t_foil_name.equals("Test"))
-          ta.append("\n\nHydrofoil: " + t_foil_name);
+          ta.append("Hydrofoil: " + t_foil_name);
 
         java.util.Date date = new java.util.Date();
-        ta.append(    "\n     Date: " + date);
+        ta.append("\n       Date: " + date);
         
         wing.print( "Main Wing", ta);
         stab.print( "Stabilizer Wing", ta);
@@ -14303,6 +14361,10 @@ public class FoilBoard extends JApplet {
 
         if (max_speed_info != null) 
           ta.append( "\n\n" + max_speed_info);
+
+        // ensure end ta.setCaretPosition(ta.getText().length());
+        // ensure start
+        ta.setCaretPosition(0);
       }
     }  // Data
 
